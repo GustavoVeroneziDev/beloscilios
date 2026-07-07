@@ -9,21 +9,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout do código
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
 
-      - name: Deploy via FTPS para hospedagem
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - name: Deploy via FTP para hospedagem
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
-          server:       ${{ secrets.FTP_HOST }}
-          username:     ${{ secrets.FTP_USER }}
-          password:     ${{ secrets.FTP_PASS }}
-          server-dir:   ${{ secrets.FTP_PATH }}
-          protocol:     ftps
-          port:         21
-          security:     loose
+          server:     ${{ secrets.FTP_HOST }}
+          username:   ${{ secrets.FTP_USER }}
+          password:   ${{ secrets.FTP_PASS }}
+          server-dir: ${{ secrets.FTP_PATH }}
           exclude: |
             **/.git*
             **/.git*/**
@@ -33,4 +28,3 @@ jobs:
             **/config/smtp_keys.php
             **/uploads/**
             **/logs/**
-            **/.github/**
