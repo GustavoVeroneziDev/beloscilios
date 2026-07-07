@@ -6,11 +6,11 @@ require_once __DIR__ . '/../config/conexao.php';
 exigirLogin('designer');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !validarTokenCSRF($_POST['csrf_token'] ?? '')) {
-    redirecionarComMensagem('/beloscilios/painel/relatorio.php', 'Requisição inválida.', 'danger');
+    redirecionarComMensagem(BASE . '/painel/relatorio.php', 'Requisição inválida.', 'danger');
 }
 
 $id       = $_POST['id']       ?? '';
-$redirect = $_POST['redirect'] ?? '/beloscilios/painel/relatorio.php';
+$redirect = $_POST['redirect'] ?? BASE . '/painel/relatorio.php';
 
 if ($id) {
     try {

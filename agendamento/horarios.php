@@ -12,7 +12,7 @@ $preco     = (float)($_GET['preco']   ?? 0);
 $duracao   = (int)($_GET['duracao']   ?? 60);
 
 if (!$servicoId || !$nome) {
-    redirecionarComMensagem('/beloscilios/agendamento/index.php', 'Selecione um serviço.', 'warning');
+    redirecionarComMensagem(BASE . '/agendamento/index.php', 'Selecione um serviço.', 'warning');
 }
 
 // Configurações
@@ -118,7 +118,7 @@ require_once __DIR__ . '/../geral/header.php';
 
 <!-- Progresso -->
 <div class="d-flex align-items-center gap-2 mb-5">
-    <a href="/beloscilios/agendamento/index.php"
+    <a href="<?= BASE ?>/agendamento/index.php"
        class="badge rounded-pill px-3 py-2 text-decoration-none"
        style="background:var(--card-border-color);color:var(--text-secondary);font-size:.9rem;">
         1. Serviço
@@ -203,7 +203,7 @@ require_once __DIR__ . '/../geral/header.php';
     </div>
 </div>
 
-<form id="formConfirmar" method="GET" action="/beloscilios/agendamento/confirmar.php">
+<form id="formConfirmar" method="GET" action="<?= BASE ?>/agendamento/confirmar.php">
     <input type="hidden" name="servico_id" value="<?= h($servicoId) ?>">
     <input type="hidden" name="sub_id"     value="<?= h($subId) ?>">
     <input type="hidden" name="nome"       value="<?= h($nome) ?>">

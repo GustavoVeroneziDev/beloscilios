@@ -9,7 +9,7 @@ $uid = $_SESSION['usuario_id'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!validarTokenCSRF($_POST['csrf_token'] ?? '')) {
-        redirecionarComMensagem('/beloscilios/usuario/editar_perfil.php', 'Token inválido.', 'danger');
+        redirecionarComMensagem(BASE . '/usuario/editar_perfil.php', 'Token inválido.', 'danger');
     }
 
     $nome      = trim($_POST['nome']      ?? '');
@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $novaSenhaC = $_POST['nova_senha_c']  ?? '';
 
     if ($nome === '') {
-        redirecionarComMensagem('/beloscilios/usuario/editar_perfil.php', 'Nome é obrigatório.', 'warning');
+        redirecionarComMensagem(BASE . '/usuario/editar_perfil.php', 'Nome é obrigatório.', 'warning');
     }
 
     try {
@@ -32,13 +32,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Trocar senha se informada
         if ($novaSenha !== '') {
             if (!password_verify($senhaAtual, $usuario['Senha'])) {
-                redirecionarComMensagem('/beloscilios/usuario/editar_perfil.php', 'Senha atual incorreta.', 'danger');
+                redirecionarComMensagem(BASE . '/usuario/editar_perfil.php', 'Senha atual incorreta.', 'danger');
             }
             if (strlen($novaSenha) < 8) {
-                redirecionarComMensagem('/beloscilios/usuario/editar_perfil.php', 'A nova senha deve ter ao menos 8 caracteres.', 'warning');
+                redirecionarComMensagem(BASE . '/usuario/editar_perfil.php', 'A nova senha deve ter ao menos 8 caracteres.', 'warning');
             }
             if ($novaSenha !== $novaSenhaC) {
-                redirecionarComMensagem('/beloscilios/usuario/editar_perfil.php', 'As senhas não coincidem.', 'warning');
+                redirecionarComMensagem(BASE . '/usuario/editar_perfil.php', 'As senhas não coincidem.', 'warning');
             }
             $params[':senha'] = password_hash($novaSenha, PASSWORD_DEFAULT);
             $pdo->prepare(
@@ -51,10 +51,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $_SESSION['usuario_nome'] = $nome;
-        redirecionarComMensagem('/beloscilios/usuario/perfil.php', 'Dados atualizados com sucesso!', 'success');
+        redirecionarComMensagem(BASE . '/usuario/perfil.php', 'Dados atualizados com sucesso!', 'success');
     } catch (PDOException $e) {
         error_log('[EditarPerfil] ' . $e->getMessage());
-        redirecionarComMensagem('/beloscilios/usuario/editar_perfil.php', 'Erro ao salvar.', 'danger');
+        redirecionarComMensagem(BASE . '/usuario/editar_perfil.php', 'Erro ao salvar.', 'danger');
     }
 }
 
@@ -70,7 +70,7 @@ require_once __DIR__ . '/../geral/header.php';
 <div class="row justify-content-center">
     <div class="col-md-8 col-lg-6">
         <div class="d-flex align-items-center gap-2 mb-4">
-            <a href="/beloscilios/usuario/perfil.php" class="btn btn-sm btn-outline-secondary">
+            <a href="<?= BASE ?>/usuario/perfil.php" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-arrow-left"></i>
             </a>
             <h4 class="fw-bold mb-0">Editar perfil</h4>

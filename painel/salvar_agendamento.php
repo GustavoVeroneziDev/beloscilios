@@ -6,12 +6,12 @@ require_once __DIR__ . '/../config/conexao.php';
 exigirLogin('designer');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Location: /beloscilios/painel/agenda.php');
+    header('Location: ' . BASE . '/painel/agenda.php');
     exit;
 }
 
 if (!validarTokenCSRF($_POST['csrf_token'] ?? '')) {
-    redirecionarComMensagem('/beloscilios/painel/agenda.php', 'Token inválido.', 'danger');
+    redirecionarComMensagem(BASE . '/painel/agenda.php', 'Token inválido.', 'danger');
 }
 
 $fkCliente  = trim($_POST['fk_cliente']  ?? '');
@@ -21,7 +21,7 @@ $valor      = trim($_POST['valor']       ?? '');
 $obs        = trim($_POST['obs']         ?? '');
 
 if (!$fkCliente || !$fkServico || !$dataHora) {
-    redirecionarComMensagem('/beloscilios/painel/agenda.php', 'Preencha todos os campos obrigatórios.', 'warning');
+    redirecionarComMensagem(BASE . '/painel/agenda.php', 'Preencha todos os campos obrigatórios.', 'warning');
 }
 
 try {
@@ -29,7 +29,7 @@ try {
     $servico->execute([':id' => $fkServico]);
     $servico = $servico->fetch();
     if (!$servico) {
-        redirecionarComMensagem('/beloscilios/painel/agenda.php', 'Serviço não encontrado.', 'danger');
+        redirecionarComMensagem(BASE . '/painel/agenda.php', 'Serviço não encontrado.', 'danger');
     }
 
     $inicio = new DateTimeImmutable($dataHora);
@@ -53,7 +53,7 @@ try {
     ]);
 } catch (PDOException $e) {
     error_log('[SalvarAg] ' . $e->getMessage());
-    redirecionarComMensagem('/beloscilios/painel/agenda.php', 'Erro ao salvar agendamento.', 'danger');
+    redirecionarComMensagem(BASE . '/painel/agenda.php', 'Erro ao salvar agendamento.', 'danger');
 }
 
-redirecionarComMensagem('/beloscilios/painel/agenda.php', 'Agendamento criado com sucesso!', 'success');
+redirecionarComMensagem(BASE . '/painel/agenda.php', 'Agendamento criado com sucesso!', 'success');

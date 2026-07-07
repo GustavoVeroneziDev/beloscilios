@@ -121,7 +121,7 @@ require_once __DIR__ . '/../geral/header.php';
                 <span><i class="bi bi-calendar-day me-2 text-accent"></i>Agenda de hoje
                     <span class="badge ms-2" style="background:var(--accent);"><?= $totalHoje ?></span>
                 </span>
-                <a href="/beloscilios/painel/agenda.php" class="btn btn-sm btn-outline-accent">
+                <a href="<?= BASE ?>/painel/agenda.php" class="btn btn-sm btn-outline-accent">
                     Ver agenda completa
                 </a>
             </div>
@@ -172,13 +172,13 @@ require_once __DIR__ . '/../geral/header.php';
         <div class="card p-4">
             <h6 class="fw-semibold mb-3"><i class="bi bi-lightning me-2 text-accent"></i>Ações rápidas</h6>
             <div class="d-grid gap-2">
-                <a href="/beloscilios/painel/agenda.php?acao=novo" class="btn btn-accent">
+                <a href="<?= BASE ?>/painel/agenda.php?acao=novo" class="btn btn-accent">
                     <i class="bi bi-calendar-plus me-2"></i>Novo agendamento
                 </a>
-                <a href="/beloscilios/painel/clientes.php?acao=novo" class="btn btn-outline-accent">
+                <a href="<?= BASE ?>/painel/clientes.php?acao=novo" class="btn btn-outline-accent">
                     <i class="bi bi-person-plus me-2"></i>Cadastrar cliente
                 </a>
-                <a href="/beloscilios/painel/relatorio.php" class="btn btn-outline-secondary">
+                <a href="<?= BASE ?>/painel/relatorio.php" class="btn btn-outline-secondary">
                     <i class="bi bi-bar-chart me-2"></i>Ver financeiro
                 </a>
             </div>

@@ -47,7 +47,7 @@ require_once __DIR__ . '/../geral/header.php';
                 <p class="text-secondary small mb-0">Que bom ter você aqui. Confira seus próximos agendamentos.</p>
             </div>
             <div class="ms-auto">
-                <a href="/beloscilios/agendamento/index.php" class="btn btn-accent">
+                <a href="<?= BASE ?>/agendamento/index.php" class="btn btn-accent">
                     <i class="bi bi-calendar-plus me-1"></i> Agendar
                 </a>
             </div>
@@ -59,7 +59,7 @@ require_once __DIR__ . '/../geral/header.php';
         <div class="card h-100">
             <div class="card-header d-flex align-items-center justify-content-between px-4 py-3">
                 <span><i class="bi bi-calendar3 me-2 text-accent"></i>Próximos agendamentos</span>
-                <a href="/beloscilios/usuario/historico.php" class="btn btn-sm btn-outline-accent">
+                <a href="<?= BASE ?>/usuario/historico.php" class="btn btn-sm btn-outline-accent">
                     Ver histórico
                 </a>
             </div>
@@ -68,7 +68,7 @@ require_once __DIR__ . '/../geral/header.php';
                 <div class="text-center py-5 text-secondary">
                     <i class="bi bi-calendar-x fs-1 mb-2 d-block opacity-25"></i>
                     <p class="mb-2">Você não tem agendamentos futuros.</p>
-                    <a href="/beloscilios/agendamento/index.php" class="btn btn-accent btn-sm">
+                    <a href="<?= BASE ?>/agendamento/index.php" class="btn btn-accent btn-sm">
                         Agendar agora
                     </a>
                 </div>
@@ -120,7 +120,7 @@ require_once __DIR__ . '/../geral/header.php';
                     <dt class="text-secondary small">WhatsApp</dt>
                     <dd class="mb-0"><?= $usuario['Telefone'] ? h($usuario['Telefone']) : '<span class="text-secondary">Não informado</span>' ?></dd>
                 </dl>
-                <a href="/beloscilios/usuario/editar_perfil.php" class="btn btn-outline-accent btn-sm w-100">
+                <a href="<?= BASE ?>/usuario/editar_perfil.php" class="btn btn-outline-accent btn-sm w-100">
                     <i class="bi bi-pencil me-1"></i> Editar dados
                 </a>
             </div>

@@ -121,14 +121,14 @@ require_once __DIR__ . '/../geral/header.php';
                 &nbsp;·&nbsp; <i class="bi bi-clock me-1"></i><span id="svSelecionadoDur"></span>min
             </div>
         </div>
-        <a href="/beloscilios/agendamento/horarios.php" id="btnProximo"
+        <a href="<?= BASE ?>/agendamento/horarios.php" id="btnProximo"
            class="btn btn-accent btn-lg">
             Escolher horário <i class="bi bi-arrow-right ms-1"></i>
         </a>
     </div>
 </div>
 
-<form id="formSelecionado" method="GET" action="/beloscilios/agendamento/horarios.php" style="display:none;">
+<form id="formSelecionado" method="GET" action="<?= BASE ?>/agendamento/horarios.php" style="display:none;">
     <input type="hidden" name="servico_id"  id="inp_servico_id">
     <input type="hidden" name="sub_id"      id="inp_sub_id">
     <input type="hidden" name="nome"        id="inp_nome">

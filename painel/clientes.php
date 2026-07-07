@@ -8,7 +8,7 @@ exigirLogin('designer');
 // Cadastro rápido via POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'cadastrar') {
     if (!validarTokenCSRF($_POST['csrf_token'] ?? '')) {
-        redirecionarComMensagem('/beloscilios/painel/clientes.php', 'Token inválido.', 'danger');
+        redirecionarComMensagem(BASE . '/painel/clientes.php', 'Token inválido.', 'danger');
     }
     $nome  = trim($_POST['nome']  ?? '');
     $email = trim($_POST['email'] ?? '');
@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'cadastr
             $chk = $pdo->prepare('SELECT IDUsuario FROM Usuarios WHERE Email = :e LIMIT 1');
             $chk->execute([':e' => $email]);
             if ($chk->fetch()) {
-                redirecionarComMensagem('/beloscilios/painel/clientes.php', 'E-mail já cadastrado.', 'warning');
+                redirecionarComMensagem(BASE . '/painel/clientes.php', 'E-mail já cadastrado.', 'warning');
             }
             $stmt = $pdo->prepare(
                 'INSERT INTO Usuarios (IDUsuario, Nome, Email, Telefone, Senha, NivelAcesso)
@@ -33,10 +33,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'cadastr
                 ':tel'   => sanitizarTelefone($tel),
                 ':senha' => password_hash($senha, PASSWORD_DEFAULT),
             ]);
-            redirecionarComMensagem('/beloscilios/painel/clientes.php', 'Cliente cadastrada com sucesso!', 'success');
+            redirecionarComMensagem(BASE . '/painel/clientes.php', 'Cliente cadastrada com sucesso!', 'success');
         } catch (PDOException $e) {
             error_log('[CadastroCliente] ' . $e->getMessage());
-            redirecionarComMensagem('/beloscilios/painel/clientes.php', 'Erro ao cadastrar.', 'danger');
+            redirecionarComMensagem(BASE . '/painel/clientes.php', 'Erro ao cadastrar.', 'danger');
         }
     }
 }
@@ -107,7 +107,7 @@ require_once __DIR__ . '/../geral/header.php';
                value="<?= h($busca) ?>">
         <button class="btn btn-accent" type="submit">Buscar</button>
         <?php if ($busca): ?>
-        <a href="/beloscilios/painel/clientes.php" class="btn btn-outline-secondary">Limpar</a>
+        <a href="<?= BASE ?>/painel/clientes.php" class="btn btn-outline-secondary">Limpar</a>
         <?php endif ?>
     </div>
 </form>
@@ -152,7 +152,7 @@ require_once __DIR__ . '/../geral/header.php';
                         </td>
                         <td class="small text-secondary"><?= formatarData($c['MomentoRegistro']) ?></td>
                         <td>
-                            <a href="/beloscilios/painel/cliente_detalhe.php?id=<?= h($c['IDUsuario']) ?>"
+                            <a href="<?= BASE ?>/painel/cliente_detalhe.php?id=<?= h($c['IDUsuario']) ?>"
                                class="btn btn-sm btn-outline-accent">
                                 <i class="bi bi-eye me-1"></i>Ver
                             </a>

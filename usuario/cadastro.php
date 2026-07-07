@@ -3,7 +3,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 if (!empty($_SESSION['usuario_id'])) {
-    header('Location: /beloscilios/index.php');
+    header('Location: ' . BASE . '/index.php');
     exit;
 }
 require_once __DIR__ . '/../config/conexao.php';
@@ -22,7 +22,7 @@ require_once __DIR__ . '/../geral/header.php';
                 <p class="text-secondary small">Cadastre-se e agende online com facilidade</p>
             </div>
 
-            <form action="/beloscilios/usuario/processa_cadastro.php" method="POST" novalidate>
+            <form action="<?= BASE ?>/usuario/processa_cadastro.php" method="POST" novalidate>
                 <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
 
                 <div class="mb-3">
@@ -87,7 +87,7 @@ require_once __DIR__ . '/../geral/header.php';
             <hr class="my-4">
             <p class="text-center text-secondary small mb-0">
                 Já tem conta?
-                <a href="/beloscilios/usuario/login.php" class="fw-medium">Entrar</a>
+                <a href="<?= BASE ?>/usuario/login.php" class="fw-medium">Entrar</a>
             </p>
         </div>
     </div>

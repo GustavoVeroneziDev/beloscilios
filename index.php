@@ -5,9 +5,9 @@ if (session_status() === PHP_SESSION_NONE) {
 
 if (!empty($_SESSION['usuario_id'])) {
     if ($_SESSION['nivel_acesso'] === 'designer') {
-        header('Location: /beloscilios/painel/index.php');
+        header('Location: ' . BASE . '/painel/index.php');
     } else {
-        header('Location: /beloscilios/usuario/perfil.php');
+        header('Location: ' . BASE . '/usuario/perfil.php');
     }
     exit;
 }
@@ -32,10 +32,10 @@ require_once __DIR__ . '/geral/header.php';
                 precisão e muito amor. Agende online em minutos.
             </p>
             <div class="d-flex flex-wrap gap-3 justify-content-center">
-                <a href="/beloscilios/usuario/cadastro.php" class="btn btn-accent btn-lg px-4">
+                <a href="<?= BASE ?>/usuario/cadastro.php" class="btn btn-accent btn-lg px-4">
                     <i class="bi bi-calendar-plus me-2"></i> Agendar agora
                 </a>
-                <a href="/beloscilios/usuario/login.php" class="btn btn-outline-accent btn-lg px-4">
+                <a href="<?= BASE ?>/usuario/login.php" class="btn btn-outline-accent btn-lg px-4">
                     Já tenho cadastro
                 </a>
             </div>
@@ -73,7 +73,7 @@ require_once __DIR__ . '/geral/header.php';
         <?php endforeach ?>
     </div>
     <div class="text-center mt-4">
-        <a href="/beloscilios/agendamento/index.php" class="btn btn-accent px-4">
+        <a href="<?= BASE ?>/agendamento/index.php" class="btn btn-accent px-4">
             Ver todos e agendar <i class="bi bi-arrow-right ms-1"></i>
         </a>
     </div>
@@ -112,7 +112,7 @@ require_once __DIR__ . '/geral/header.php';
         <h3 class="fw-bold mb-2">Pronta para se sentir incrível?</h3>
         <p class="text-secondary mb-4">Agende agora e garanta seu horário. É rápido, fácil e sem complicação.</p>
         <div>
-            <a href="/beloscilios/usuario/cadastro.php" class="btn btn-accent btn-lg px-5">
+            <a href="<?= BASE ?>/usuario/cadastro.php" class="btn btn-accent btn-lg px-5">
                 <i class="bi bi-calendar-heart me-2"></i> Quero agendar!
             </a>
         </div>

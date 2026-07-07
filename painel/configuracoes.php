@@ -8,7 +8,7 @@ exigirLogin('designer');
 // Salvar configurações
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!validarTokenCSRF($_POST['csrf_token'] ?? '')) {
-        redirecionarComMensagem('/beloscilios/painel/configuracoes.php', 'Token inválido.', 'danger');
+        redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Token inválido.', 'danger');
     }
     $acao = $_POST['acao'] ?? '';
 
@@ -24,10 +24,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     setConfig($pdo, $c, trim($_POST[$c]));
                 }
             }
-            redirecionarComMensagem('/beloscilios/painel/configuracoes.php', 'Configurações salvas!', 'success');
+            redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Configurações salvas!', 'success');
         } catch (PDOException $e) {
             error_log('[Config] ' . $e->getMessage());
-            redirecionarComMensagem('/beloscilios/painel/configuracoes.php', 'Erro ao salvar.', 'danger');
+            redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Erro ao salvar.', 'danger');
         }
     }
 
@@ -46,10 +46,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt->execute([':id'=>gerarUuid(),':d'=>$d,':ini'=>$ini,':fim'=>$fim]);
                 }
             }
-            redirecionarComMensagem('/beloscilios/painel/configuracoes.php', 'Horários atualizados!', 'success');
+            redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Horários atualizados!', 'success');
         } catch (PDOException $e) {
             error_log('[Horarios] ' . $e->getMessage());
-            redirecionarComMensagem('/beloscilios/painel/configuracoes.php', 'Erro ao salvar horários.', 'danger');
+            redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Erro ao salvar horários.', 'danger');
         }
     }
 
@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'INSERT INTO BloqueiosAgenda (IDBloqueio,DataInicio,DataFim,Motivo)
                      VALUES (:id,:ini,:fim,:mot)'
                 )->execute([':id'=>gerarUuid(),':ini'=>$dataIni,':fim'=>$dataFim,':mot'=>$motivo?:null]);
-                redirecionarComMensagem('/beloscilios/painel/configuracoes.php', 'Bloqueio adicionado!', 'success');
+                redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Bloqueio adicionado!', 'success');
             } catch (PDOException $e) {
                 error_log('[Bloqueio] ' . $e->getMessage());
             }
@@ -74,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $bid = $_POST['bid'] ?? '';
         if ($bid) {
             $pdo->prepare('DELETE FROM BloqueiosAgenda WHERE IDBloqueio=:id')->execute([':id'=>$bid]);
-            redirecionarComMensagem('/beloscilios/painel/configuracoes.php', 'Bloqueio removido.', 'success');
+            redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Bloqueio removido.', 'success');
         }
     }
 }

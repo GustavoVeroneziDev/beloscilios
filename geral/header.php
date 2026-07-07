@@ -232,12 +232,12 @@ $base          = '/beloscilios';
     <?php
     $uri = $_SERVER['REQUEST_URI'];
     $menuItens = [
-        ['href' => '/beloscilios/painel/index.php',        'icon' => 'bi-house-door',   'label' => 'Dashboard'],
-        ['href' => '/beloscilios/painel/agenda.php',        'icon' => 'bi-calendar3',    'label' => 'Agenda'],
-        ['href' => '/beloscilios/painel/clientes.php',      'icon' => 'bi-people',       'label' => 'Clientes'],
-        ['href' => '/beloscilios/painel/servicos.php',      'icon' => 'bi-scissors',     'label' => 'Serviços'],
-        ['href' => '/beloscilios/painel/relatorio.php',     'icon' => 'bi-bar-chart',    'label' => 'Financeiro'],
-        ['href' => '/beloscilios/painel/configuracoes.php', 'icon' => 'bi-gear',         'label' => 'Configurações'],
+        ['href' => BASE . '/painel/index.php',        'icon' => 'bi-house-door',   'label' => 'Dashboard'],
+        ['href' => BASE . '/painel/agenda.php',        'icon' => 'bi-calendar3',    'label' => 'Agenda'],
+        ['href' => BASE . '/painel/clientes.php',      'icon' => 'bi-people',       'label' => 'Clientes'],
+        ['href' => BASE . '/painel/servicos.php',      'icon' => 'bi-scissors',     'label' => 'Serviços'],
+        ['href' => BASE . '/painel/relatorio.php',     'icon' => 'bi-bar-chart',    'label' => 'Financeiro'],
+        ['href' => BASE . '/painel/configuracoes.php', 'icon' => 'bi-gear',         'label' => 'Configurações'],
     ];
     ?>
     <ul class="sidebar-nav">
@@ -253,7 +253,7 @@ $base          = '/beloscilios';
     </ul>
     <div class="sidebar-footer">
         <div class="mb-1"><i class="bi bi-person-circle me-1"></i> <?= h($usuario) ?></div>
-        <a href="/beloscilios/usuario/logout.php"><i class="bi bi-box-arrow-right me-1"></i> Sair</a>
+        <a href="<?= BASE ?>/usuario/logout.php"><i class="bi bi-box-arrow-right me-1"></i> Sair</a>
     </div>
 </nav>
 
@@ -272,13 +272,13 @@ $base          = '/beloscilios';
 <!-- ════════ TOPNAV — área cliente / pública ════════ -->
 <nav class="navbar topnav sticky-top">
     <div class="container-lg">
-        <a class="navbar-brand" href="/beloscilios/index.php">
+        <a class="navbar-brand" href="<?= BASE ?>/index.php">
             <i class="bi bi-eye me-1"></i> Belos Cílios
         </a>
 
         <?php if (estaLogado()): ?>
         <div class="d-flex align-items-center gap-2">
-            <a href="/beloscilios/agendamento/index.php" class="btn btn-accent btn-sm d-none d-sm-inline-flex">
+            <a href="<?= BASE ?>/agendamento/index.php" class="btn btn-accent btn-sm d-none d-sm-inline-flex">
                 <i class="bi bi-calendar-plus me-1"></i> Agendar
             </a>
             <div class="dropdown">
@@ -286,22 +286,22 @@ $base          = '/beloscilios';
                     <i class="bi bi-person-circle me-1"></i> <?= h($usuario) ?>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
-                    <li><a class="dropdown-item" href="/beloscilios/usuario/perfil.php">
+                    <li><a class="dropdown-item" href="<?= BASE ?>/usuario/perfil.php">
                         <i class="bi bi-person me-2"></i>Meu Perfil</a></li>
-                    <li><a class="dropdown-item" href="/beloscilios/usuario/historico.php">
+                    <li><a class="dropdown-item" href="<?= BASE ?>/usuario/historico.php">
                         <i class="bi bi-clock-history me-2"></i>Histórico</a></li>
-                    <li><a class="dropdown-item" href="/beloscilios/agendamento/index.php">
+                    <li><a class="dropdown-item" href="<?= BASE ?>/agendamento/index.php">
                         <i class="bi bi-calendar-plus me-2"></i>Agendar</a></li>
                     <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item text-danger" href="/beloscilios/usuario/logout.php">
+                    <li><a class="dropdown-item text-danger" href="<?= BASE ?>/usuario/logout.php">
                         <i class="bi bi-box-arrow-right me-2"></i>Sair</a></li>
                 </ul>
             </div>
         </div>
         <?php else: ?>
         <div class="d-flex gap-2">
-            <a href="/beloscilios/usuario/login.php" class="btn btn-sm btn-outline-accent">Entrar</a>
-            <a href="/beloscilios/usuario/cadastro.php" class="btn btn-sm btn-accent">Cadastrar</a>
+            <a href="<?= BASE ?>/usuario/login.php" class="btn btn-sm btn-outline-accent">Entrar</a>
+            <a href="<?= BASE ?>/usuario/cadastro.php" class="btn btn-sm btn-accent">Cadastrar</a>
         </div>
         <?php endif ?>
     </div>
