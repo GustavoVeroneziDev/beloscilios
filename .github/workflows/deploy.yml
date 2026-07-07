@@ -9,28 +9,45 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout do código
-        uses: actions/checkout@v4
+      - name: Acionar deploy via VPS
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          fetch-depth: 2
+          host:     ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key:      ${{ secrets.VPS_SSH_KEY }}
+          port:     ${{ secrets.VPS_PORT }}
+          envs:     FTP_HOST,FTP_USER,FTP_PASS,FTP_PATH
+          script: |
+            set -e
 
-      - name: Deploy via FTPS para hospedagem
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server:       ${{ secrets.FTP_HOST }}
-          username:     ${{ secrets.FTP_USER }}
-          password:     ${{ secrets.FTP_PASS }}
-          server-dir:   ${{ secrets.FTP_PATH }}
-          protocol:     ftps
-          port:         21
-          security:     loose
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/config/conexao.php
-            **/config/gemini.php
-            **/config/evolution_keys.php
-            **/config/smtp_keys.php
-            **/uploads/**
-            **/logs/**
-            **/.github/**
+            echo "📦 Clonando repositório..."
+            rm -rf /tmp/beloscilios_deploy
+            git clone --depth=1 https://github.com/GustavoVeroneziDev/beloscilios.git /tmp/beloscilios_deploy
+            cd /tmp/beloscilios_deploy
+
+            echo "🚀 Enviando para hospedagem via FTPS..."
+            lftp -u "$FTP_USER","$FTP_PASS" ftps://$FTP_HOST << 'FTPEOF'
+            set ssl:verify-certificate no
+            set ftp:ssl-force true
+            set ftp:ssl-protect-data true
+            mirror --reverse --delete --verbose \
+              --exclude-glob .git* \
+              --exclude-glob .github/ \
+              --exclude-glob config/conexao.php \
+              --exclude-glob config/gemini.php \
+              --exclude-glob config/evolution_keys.php \
+              --exclude-glob config/smtp_keys.php \
+              --exclude-glob uploads/ \
+              --exclude-glob logs/ \
+              /tmp/beloscilios_deploy/ $FTP_PATH
+            FTPEOF
+
+            echo "🧹 Limpando..."
+            rm -rf /tmp/beloscilios_deploy
+            echo "✅ Deploy concluído em $(date '+%d/%m/%Y %H:%M:%S')"
+
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
+          FTP_PATH: ${{ secrets.FTP_PATH }}
