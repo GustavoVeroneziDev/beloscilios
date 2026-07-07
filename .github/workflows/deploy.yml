@@ -9,19 +9,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Acionar deploy na hospedagem via webhook
-        run: |
-          RESPONSE=$(curl -s -o /tmp/deploy_response.txt -w "%{http_code}" \
-            -X POST \
-            -H "X-Deploy-Token: ${{ secrets.DEPLOY_SECRET }}" \
-            "${{ secrets.SITE_URL }}/deploy/webhook.php")
+      - name: Checkout
+        uses: actions/checkout@v4
 
-          BODY=$(cat /tmp/deploy_response.txt)
-          echo "Resposta: $BODY"
-          echo "HTTP: $RESPONSE"
-
-          if [ "$RESPONSE" != "200" ]; then
-            echo "❌ Deploy falhou com HTTP $RESPONSE"
-            exit 1
-          fi
-          echo "✅ Deploy concluído!"
+      - name: Deploy via FTP para hospedagem
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server:     ${{ secrets.FTP_HOST }}
+          username:   ${{ secrets.FTP_USER }}
+          password:   ${{ secrets.FTP_PASS }}
+          server-dir: ${{ secrets.FTP_PATH }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/config/conexao.php
+            **/config/gemini.php
+            **/config/evolution_keys.php
+            **/config/smtp_keys.php
+            **/uploads/**
+            **/logs/**
