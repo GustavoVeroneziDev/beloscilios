@@ -1,0 +1,16 @@
+/vendor/
+/uploads/*
+!/uploads/.gitkeep
+/logs/*.log
+/logs/*.txt
+!/logs/.gitkeep
+.env
+.env.*
+config/conexao.php
+config/gemini.php
+config/smtp_keys.php
+config/evolution_keys.php
+config/*_keys.php
+config/*_secret*.php
+*.DS_Store
+Thumbs.db
