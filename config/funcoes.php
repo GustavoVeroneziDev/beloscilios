@@ -97,10 +97,10 @@ function estaLogado(): bool
 function exigirLogin(string $nivel = ''): void
 {
     if (!estaLogado()) {
-        redirecionarComMensagem('/beloscilios/usuario/login.php', 'Faça login para continuar.', 'warning');
+        redirecionarComMensagem(BASE . '/usuario/login.php', 'Faça login para continuar.', 'warning');
     }
     if ($nivel && ($_SESSION['nivel_acesso'] ?? '') !== $nivel) {
-        redirecionarComMensagem('/beloscilios/index.php', 'Acesso não permitido.', 'danger');
+        redirecionarComMensagem(BASE . '/index.php', 'Acesso não permitido.', 'danger');
     }
 }
 

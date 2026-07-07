@@ -6,12 +6,12 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/../config/conexao.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Location: /beloscilios/usuario/cadastro.php');
+    header('Location: ' . BASE . '/usuario/cadastro.php');
     exit;
 }
 
 if (!validarTokenCSRF($_POST['csrf_token'] ?? '')) {
-    redirecionarComMensagem('/beloscilios/usuario/cadastro.php', 'Token inválido. Tente novamente.', 'danger');
+    redirecionarComMensagem(BASE . '/usuario/cadastro.php', 'Token inválido. Tente novamente.', 'danger');
 }
 
 $nome     = trim($_POST['nome']     ?? '');
@@ -21,19 +21,19 @@ $senha    = $_POST['senha']         ?? '';
 $senhaCf  = $_POST['senha_conf']    ?? '';
 
 if ($nome === '' || $email === '' || $senha === '') {
-    redirecionarComMensagem('/beloscilios/usuario/cadastro.php', 'Preencha todos os campos obrigatórios.', 'warning');
+    redirecionarComMensagem(BASE . '/usuario/cadastro.php', 'Preencha todos os campos obrigatórios.', 'warning');
 }
 
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    redirecionarComMensagem('/beloscilios/usuario/cadastro.php', 'E-mail inválido.', 'warning');
+    redirecionarComMensagem(BASE . '/usuario/cadastro.php', 'E-mail inválido.', 'warning');
 }
 
 if (strlen($senha) < 8) {
-    redirecionarComMensagem('/beloscilios/usuario/cadastro.php', 'A senha deve ter pelo menos 8 caracteres.', 'warning');
+    redirecionarComMensagem(BASE . '/usuario/cadastro.php', 'A senha deve ter pelo menos 8 caracteres.', 'warning');
 }
 
 if ($senha !== $senhaCf) {
-    redirecionarComMensagem('/beloscilios/usuario/cadastro.php', 'As senhas não coincidem.', 'warning');
+    redirecionarComMensagem(BASE . '/usuario/cadastro.php', 'As senhas não coincidem.', 'warning');
 }
 
 $telefoneFmt = $telefone !== '' ? sanitizarTelefone($telefone) : null;
@@ -42,7 +42,7 @@ try {
     $check = $pdo->prepare('SELECT IDUsuario FROM Usuarios WHERE Email = :email LIMIT 1');
     $check->execute([':email' => $email]);
     if ($check->fetch()) {
-        redirecionarComMensagem('/beloscilios/usuario/cadastro.php', 'E-mail já cadastrado.', 'warning');
+        redirecionarComMensagem(BASE . '/usuario/cadastro.php', 'E-mail já cadastrado.', 'warning');
     }
 
     $id   = gerarUuid();
@@ -62,7 +62,7 @@ try {
     ]);
 } catch (PDOException $e) {
     error_log('[Cadastro] ' . $e->getMessage());
-    redirecionarComMensagem('/beloscilios/usuario/cadastro.php', 'Erro ao criar conta. Tente novamente.', 'danger');
+    redirecionarComMensagem(BASE . '/usuario/cadastro.php', 'Erro ao criar conta. Tente novamente.', 'danger');
 }
 
 // Login automático após cadastro
@@ -72,7 +72,7 @@ $_SESSION['usuario_nome'] = $nome;
 $_SESSION['nivel_acesso'] = 'cliente';
 
 redirecionarComMensagem(
-    '/beloscilios/agendamento/index.php',
+    BASE . '/agendamento/index.php',
     'Conta criada com sucesso! Que tal agendar agora? 🌸',
     'success'
 );

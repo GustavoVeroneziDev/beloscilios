@@ -1,0 +1,35 @@
+name: Deploy para Hospedagem
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # necessário para o FTP detectar apenas arquivos alterados
+
+      - name: Deploy via FTP para hospedagem
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server:     ${{ secrets.FTP_HOST }}
+          username:   ${{ secrets.FTP_USER }}
+          password:   ${{ secrets.FTP_PASS }}
+          server-dir: ${{ secrets.FTP_PATH }}
+          # Envia apenas o que mudou desde o último deploy (diff)
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/config/conexao.php
+            **/config/gemini.php
+            **/config/evolution_keys.php
+            **/config/smtp_keys.php
+            **/config/smtp_keys.php
+            **/uploads/**
+            **/logs/**
+            **/.github/**

@@ -8,7 +8,7 @@ exigirLogin('designer');
 // Salvar / editar serviço
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!validarTokenCSRF($_POST['csrf_token'] ?? '')) {
-        redirecionarComMensagem('/beloscilios/painel/servicos.php', 'Token inválido.', 'danger');
+        redirecionarComMensagem(BASE . '/painel/servicos.php', 'Token inválido.', 'danger');
     }
     $acao  = $_POST['acao']  ?? '';
     $id    = $_POST['id']    ?? '';
@@ -25,12 +25,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ext   = strtolower(pathinfo($_FILES['foto']['name'], PATHINFO_EXTENSION));
         $exts  = ['jpg','jpeg','png','webp'];
         if (!in_array($ext, $exts)) {
-            redirecionarComMensagem('/beloscilios/painel/servicos.php', 'Formato de imagem inválido.', 'warning');
+            redirecionarComMensagem(BASE . '/painel/servicos.php', 'Formato de imagem inválido.', 'warning');
         }
         $fname = gerarUuid() . '.' . $ext;
         $dest  = __DIR__ . '/../uploads/' . $fname;
         if (move_uploaded_file($_FILES['foto']['tmp_name'], $dest)) {
-            $fotoUrl = '/beloscilios/uploads/' . $fname;
+            $fotoUrl = BASE . '/uploads/' . $fname;
         }
     }
 
@@ -53,12 +53,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 ':dur'=>$dur,':f'=>$fotoUrl,':o'=>$ordem,':a'=>1]);
                 $msg = 'Serviço criado com sucesso!';
             }
-            redirecionarComMensagem('/beloscilios/painel/servicos.php', $msg, 'success');
+            redirecionarComMensagem(BASE . '/painel/servicos.php', $msg, 'success');
         }
 
         if ($acao === 'excluir' && $id) {
             $pdo->prepare('UPDATE Servicos SET Ativo=0 WHERE IDServico=:id')->execute([':id'=>$id]);
-            redirecionarComMensagem('/beloscilios/painel/servicos.php', 'Serviço desativado.', 'success');
+            redirecionarComMensagem(BASE . '/painel/servicos.php', 'Serviço desativado.', 'success');
         }
 
         // Sub-serviço
@@ -82,12 +82,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     )->execute([':id'=>gerarUuid(),':fk'=>$fkServ,':n'=>$subNome,
                                 ':d'=>$subDesc,':p'=>$subPrec,':dur'=>$subDur]);
                 }
-                redirecionarComMensagem('/beloscilios/painel/servicos.php', 'Manutenção salva.', 'success');
+                redirecionarComMensagem(BASE . '/painel/servicos.php', 'Manutenção salva.', 'success');
             }
         }
     } catch (PDOException $e) {
         error_log('[Servicos] ' . $e->getMessage());
-        redirecionarComMensagem('/beloscilios/painel/servicos.php', 'Erro ao salvar.', 'danger');
+        redirecionarComMensagem(BASE . '/painel/servicos.php', 'Erro ao salvar.', 'danger');
     }
 }
 

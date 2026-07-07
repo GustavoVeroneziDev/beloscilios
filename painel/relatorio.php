@@ -204,10 +204,10 @@ require_once __DIR__ . '/../geral/header.php';
                                     <?= formatarMoeda((float)($p['ValorCobrado']??0)) ?>
                                 </td>
                                 <td>
-                                    <form method="POST" action="/beloscilios/painel/marcar_pago.php">
+                                    <form method="POST" action="<?= BASE ?>/painel/marcar_pago.php">
                                         <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
                                         <input type="hidden" name="id" value="<?= h($p['IDAgendamento']) ?>">
-                                        <input type="hidden" name="redirect" value="/beloscilios/painel/relatorio.php">
+                                        <input type="hidden" name="redirect" value="<?= BASE ?>/painel/relatorio.php">
                                         <button class="btn btn-sm btn-outline-success" title="Marcar como pago">
                                             <i class="bi bi-check-lg"></i>
                                         </button>

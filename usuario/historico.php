@@ -45,7 +45,7 @@ require_once __DIR__ . '/../geral/header.php';
 ?>
 
 <div class="d-flex align-items-center gap-2 mb-4">
-    <a href="/beloscilios/usuario/perfil.php" class="btn btn-sm btn-outline-secondary">
+    <a href="<?= BASE ?>/usuario/perfil.php" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-arrow-left"></i>
     </a>
     <h4 class="fw-bold mb-0">Histórico de procedimentos</h4>
@@ -57,7 +57,7 @@ require_once __DIR__ . '/../geral/header.php';
         <div class="text-center py-5 text-secondary">
             <i class="bi bi-calendar-x fs-1 d-block mb-2 opacity-25"></i>
             <p>Nenhum procedimento encontrado.</p>
-            <a href="/beloscilios/agendamento/index.php" class="btn btn-accent btn-sm">Fazer primeiro agendamento</a>
+            <a href="<?= BASE ?>/agendamento/index.php" class="btn btn-accent btn-sm">Fazer primeiro agendamento</a>
         </div>
         <?php else: ?>
         <div class="table-responsive">

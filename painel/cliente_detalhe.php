@@ -7,7 +7,7 @@ exigirLogin('designer');
 
 $id = trim($_GET['id'] ?? '');
 if (!$id) {
-    redirecionarComMensagem('/beloscilios/painel/clientes.php', 'Cliente não encontrada.', 'warning');
+    redirecionarComMensagem(BASE . '/painel/clientes.php', 'Cliente não encontrada.', 'warning');
 }
 
 try {
@@ -17,7 +17,7 @@ try {
     $clienteStmt->execute([':id' => $id]);
     $cliente = $clienteStmt->fetch();
     if (!$cliente) {
-        redirecionarComMensagem('/beloscilios/painel/clientes.php', 'Cliente não encontrada.', 'warning');
+        redirecionarComMensagem(BASE . '/painel/clientes.php', 'Cliente não encontrada.', 'warning');
     }
 
     $historico = $pdo->prepare(
@@ -48,7 +48,7 @@ require_once __DIR__ . '/../geral/header.php';
 ?>
 
 <div class="d-flex align-items-center gap-2 mb-4">
-    <a href="/beloscilios/painel/clientes.php" class="btn btn-sm btn-outline-secondary">
+    <a href="<?= BASE ?>/painel/clientes.php" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-arrow-left"></i>
     </a>
     <h4 class="fw-bold mb-0"><?= h($cliente['Nome']) ?></h4>
@@ -89,7 +89,7 @@ require_once __DIR__ . '/../geral/header.php';
                 <i class="bi bi-whatsapp me-1"></i> Abrir conversa
             </a>
             <?php endif ?>
-            <a href="/beloscilios/painel/agenda.php?acao=novo" class="btn btn-accent w-100">
+            <a href="<?= BASE ?>/painel/agenda.php?acao=novo" class="btn btn-accent w-100">
                 <i class="bi bi-calendar-plus me-1"></i> Novo agendamento
             </a>
         </div>

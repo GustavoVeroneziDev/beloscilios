@@ -26,20 +26,28 @@ $base          = '/beloscilios';
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
     <style>
-        /* ── Variáveis de tema ── */
+        /* ── Paleta Belos Cílios ── */
         :root {
-            --bg-main:          #FAF8F6;
-            --bg-card:          #FFFFFF;
-            --bg-hover:         #F5EEE8;
-            --text-main:        #1E1208;
-            --text-secondary:   #8B7355;
-            --accent:           #B07D62;
-            --accent-hover:     #96694F;
-            --accent-light:     rgba(176,125,98,.13);
-            --card-border-color:#EDE5DD;
-            --sidebar-bg:       #1E1208;
-            --sidebar-text:     #F5EEE5;
-            --sidebar-active:   rgba(176,125,98,.25);
+            --roxo-900:         #10002b;   /* mais escuro */
+            --roxo-800:         #240046;
+            --roxo-600:         #5a189a;   /* accent principal */
+            --roxo-500:         #6739c7;
+            --roxo-300:         #b38cff;
+            --roxo-200:         #c886fa;
+            --roxo-100:         #e0aaff;   /* mais claro */
+
+            --bg-main:          #faf5ff;
+            --bg-card:          #ffffff;
+            --bg-hover:         #f3e8ff;
+            --text-main:        #10002b;
+            --text-secondary:   #6739c7;
+            --accent:           #5a189a;
+            --accent-hover:     #240046;
+            --accent-light:     rgba(179,140,255,.15);
+            --card-border-color:#e0aaff;
+            --sidebar-bg:       #10002b;
+            --sidebar-text:     #e0aaff;
+            --sidebar-active:   rgba(90,24,154,.35);
             --sidebar-width:    240px;
         }
 
@@ -58,7 +66,7 @@ $base          = '/beloscilios';
             background: var(--bg-card);
             border: 1px solid var(--card-border-color);
             border-radius: 14px;
-            box-shadow: 0 2px 8px rgba(30,18,8,.06);
+            box-shadow: 0 2px 12px rgba(16,0,43,.07);
         }
         .card-header {
             background: transparent;
@@ -104,12 +112,12 @@ $base          = '/beloscilios';
             font-size: 1.1rem;
             font-weight: 700;
             letter-spacing: .03em;
-            color: var(--accent);
-            border-bottom: 1px solid rgba(255,255,255,.08);
+            color: var(--roxo-300);
+            border-bottom: 1px solid rgba(224,170,255,.1);
         }
         .sidebar-brand small {
             display: block;
-            color: rgba(245,238,229,.5);
+            color: rgba(224,170,255,.45);
             font-size: .7rem;
             font-weight: 400;
             letter-spacing: .05em;
@@ -121,7 +129,7 @@ $base          = '/beloscilios';
             align-items: center;
             gap: .65rem;
             padding: .65rem 1.25rem;
-            color: rgba(245,238,229,.8);
+            color: rgba(224,170,255,.75);
             font-size: .92rem;
             transition: background .15s, color .15s;
             border-radius: 0 8px 8px 0;
@@ -130,35 +138,46 @@ $base          = '/beloscilios';
         .sidebar-nav li a:hover,
         .sidebar-nav li a.ativo {
             background: var(--sidebar-active);
-            color: var(--accent);
+            color: var(--roxo-200);
         }
         .sidebar-nav li a i { font-size: 1.1rem; width: 1.3rem; }
         .sidebar-footer {
             padding: 1rem 1.25rem;
-            border-top: 1px solid rgba(255,255,255,.08);
+            border-top: 1px solid rgba(224,170,255,.1);
             font-size: .82rem;
-            color: rgba(245,238,229,.5);
+            color: rgba(224,170,255,.45);
         }
-        .sidebar-footer a { color: rgba(245,238,229,.6); }
-        .sidebar-footer a:hover { color: var(--accent); }
+        .sidebar-footer a { color: rgba(224,170,255,.6); }
+        .sidebar-footer a:hover { color: var(--roxo-300); }
 
         /* ── Layout com sidebar ── */
         .painel-content {
             margin-left: var(--sidebar-width);
             min-height: 100vh;
             padding: 1.75rem;
+            background: var(--bg-main);
         }
 
         /* ── Topnav (área cliente) ── */
         .topnav {
-            background: var(--bg-card);
-            border-bottom: 1px solid var(--card-border-color);
-            box-shadow: 0 1px 6px rgba(30,18,8,.06);
+            background: var(--roxo-900);
+            border-bottom: 1px solid rgba(224,170,255,.15);
+            box-shadow: 0 2px 12px rgba(16,0,43,.2);
         }
         .topnav .navbar-brand {
             font-weight: 700;
-            color: var(--accent);
+            color: var(--roxo-300) !important;
             font-size: 1.15rem;
+        }
+        .topnav .btn-accent {
+            background: var(--accent);
+        }
+        .topnav .btn-outline-secondary {
+            border-color: rgba(224,170,255,.4);
+            color: var(--roxo-200);
+        }
+        .topnav .dropdown-menu {
+            border-color: var(--card-border-color);
         }
 
         /* ── Stat cards no dashboard ── */
@@ -213,12 +232,12 @@ $base          = '/beloscilios';
     <?php
     $uri = $_SERVER['REQUEST_URI'];
     $menuItens = [
-        ['href' => '/beloscilios/painel/index.php',        'icon' => 'bi-house-door',   'label' => 'Dashboard'],
-        ['href' => '/beloscilios/painel/agenda.php',        'icon' => 'bi-calendar3',    'label' => 'Agenda'],
-        ['href' => '/beloscilios/painel/clientes.php',      'icon' => 'bi-people',       'label' => 'Clientes'],
-        ['href' => '/beloscilios/painel/servicos.php',      'icon' => 'bi-scissors',     'label' => 'Serviços'],
-        ['href' => '/beloscilios/painel/relatorio.php',     'icon' => 'bi-bar-chart',    'label' => 'Financeiro'],
-        ['href' => '/beloscilios/painel/configuracoes.php', 'icon' => 'bi-gear',         'label' => 'Configurações'],
+        ['href' => BASE . '/painel/index.php',        'icon' => 'bi-house-door',   'label' => 'Dashboard'],
+        ['href' => BASE . '/painel/agenda.php',        'icon' => 'bi-calendar3',    'label' => 'Agenda'],
+        ['href' => BASE . '/painel/clientes.php',      'icon' => 'bi-people',       'label' => 'Clientes'],
+        ['href' => BASE . '/painel/servicos.php',      'icon' => 'bi-scissors',     'label' => 'Serviços'],
+        ['href' => BASE . '/painel/relatorio.php',     'icon' => 'bi-bar-chart',    'label' => 'Financeiro'],
+        ['href' => BASE . '/painel/configuracoes.php', 'icon' => 'bi-gear',         'label' => 'Configurações'],
     ];
     ?>
     <ul class="sidebar-nav">
@@ -234,7 +253,7 @@ $base          = '/beloscilios';
     </ul>
     <div class="sidebar-footer">
         <div class="mb-1"><i class="bi bi-person-circle me-1"></i> <?= h($usuario) ?></div>
-        <a href="/beloscilios/usuario/logout.php"><i class="bi bi-box-arrow-right me-1"></i> Sair</a>
+        <a href="<?= BASE ?>/usuario/logout.php"><i class="bi bi-box-arrow-right me-1"></i> Sair</a>
     </div>
 </nav>
 
@@ -253,13 +272,13 @@ $base          = '/beloscilios';
 <!-- ════════ TOPNAV — área cliente / pública ════════ -->
 <nav class="navbar topnav sticky-top">
     <div class="container-lg">
-        <a class="navbar-brand" href="/beloscilios/index.php">
+        <a class="navbar-brand" href="<?= BASE ?>/index.php">
             <i class="bi bi-eye me-1"></i> Belos Cílios
         </a>
 
         <?php if (estaLogado()): ?>
         <div class="d-flex align-items-center gap-2">
-            <a href="/beloscilios/agendamento/index.php" class="btn btn-accent btn-sm d-none d-sm-inline-flex">
+            <a href="<?= BASE ?>/agendamento/index.php" class="btn btn-accent btn-sm d-none d-sm-inline-flex">
                 <i class="bi bi-calendar-plus me-1"></i> Agendar
             </a>
             <div class="dropdown">
@@ -267,22 +286,22 @@ $base          = '/beloscilios';
                     <i class="bi bi-person-circle me-1"></i> <?= h($usuario) ?>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
-                    <li><a class="dropdown-item" href="/beloscilios/usuario/perfil.php">
+                    <li><a class="dropdown-item" href="<?= BASE ?>/usuario/perfil.php">
                         <i class="bi bi-person me-2"></i>Meu Perfil</a></li>
-                    <li><a class="dropdown-item" href="/beloscilios/usuario/historico.php">
+                    <li><a class="dropdown-item" href="<?= BASE ?>/usuario/historico.php">
                         <i class="bi bi-clock-history me-2"></i>Histórico</a></li>
-                    <li><a class="dropdown-item" href="/beloscilios/agendamento/index.php">
+                    <li><a class="dropdown-item" href="<?= BASE ?>/agendamento/index.php">
                         <i class="bi bi-calendar-plus me-2"></i>Agendar</a></li>
                     <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item text-danger" href="/beloscilios/usuario/logout.php">
+                    <li><a class="dropdown-item text-danger" href="<?= BASE ?>/usuario/logout.php">
                         <i class="bi bi-box-arrow-right me-2"></i>Sair</a></li>
                 </ul>
             </div>
         </div>
         <?php else: ?>
         <div class="d-flex gap-2">
-            <a href="/beloscilios/usuario/login.php" class="btn btn-sm btn-outline-accent">Entrar</a>
-            <a href="/beloscilios/usuario/cadastro.php" class="btn btn-sm btn-accent">Cadastrar</a>
+            <a href="<?= BASE ?>/usuario/login.php" class="btn btn-sm btn-outline-accent">Entrar</a>
+            <a href="<?= BASE ?>/usuario/cadastro.php" class="btn btn-sm btn-accent">Cadastrar</a>
         </div>
         <?php endif ?>
     </div>

@@ -15,7 +15,7 @@ $fimSQL = date('Y-m-d', $fimPeriodo);
 // Ação de cancelar/confirmar via POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!validarTokenCSRF($_POST['csrf_token'] ?? '')) {
-        redirecionarComMensagem('/beloscilios/painel/agenda.php', 'Token inválido.', 'danger');
+        redirecionarComMensagem(BASE . '/painel/agenda.php', 'Token inválido.', 'danger');
     }
     $acao = $_POST['acao'] ?? '';
     $id   = $_POST['id']   ?? '';
@@ -27,10 +27,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'UPDATE Agendamentos SET StatusAgendamento = :status WHERE IDAgendamento = :id'
             );
             $upd->execute([':status' => $statusMap[$acao], ':id' => $id]);
-            redirecionarComMensagem('/beloscilios/painel/agenda.php', 'Status atualizado.', 'success');
+            redirecionarComMensagem(BASE . '/painel/agenda.php', 'Status atualizado.', 'success');
         } catch (PDOException $e) {
             error_log('[Agenda] ' . $e->getMessage());
-            redirecionarComMensagem('/beloscilios/painel/agenda.php', 'Erro ao atualizar.', 'danger');
+            redirecionarComMensagem(BASE . '/painel/agenda.php', 'Erro ao atualizar.', 'danger');
         }
     }
 }
@@ -181,7 +181,7 @@ for ($d = 0; $d < 7; $d++):
 <div class="modal fade" id="modalNovoAg" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form action="/beloscilios/painel/salvar_agendamento.php" method="POST">
+            <form action="<?= BASE ?>/painel/salvar_agendamento.php" method="POST">
                 <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
                 <div class="modal-header">
                     <h5 class="modal-title fw-semibold">Novo agendamento</h5>
@@ -253,7 +253,7 @@ document.getElementById('buscaCliente')?.addEventListener('input', function () {
         return;
     }
     buscaTimer = setTimeout(() => {
-        fetch('/beloscilios/painel/api_busca_clientes.php?q=' + encodeURIComponent(q))
+        fetch('<?= BASE ?>/painel/api_busca_clientes.php?q=' + encodeURIComponent(q))
             .then(r => r.json())
             .then(data => {
                 const el = document.getElementById('resultadosBusca');

@@ -14,7 +14,7 @@ $data      = trim($_GET['data']       ?? '');
 $hora      = trim($_GET['hora']       ?? '');
 
 if (!$servicoId || !$data || !$hora) {
-    redirecionarComMensagem('/beloscilios/agendamento/index.php', 'Dados incompletos. Tente novamente.', 'warning');
+    redirecionarComMensagem(BASE . '/agendamento/index.php', 'Dados incompletos. Tente novamente.', 'warning');
 }
 
 $dataHora = "{$data} {$hora}:00";
@@ -22,7 +22,7 @@ $dataHora = "{$data} {$hora}:00";
 // Salvar agendamento
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!validarTokenCSRF($_POST['csrf_token'] ?? '')) {
-        redirecionarComMensagem('/beloscilios/agendamento/index.php', 'Token inválido.', 'danger');
+        redirecionarComMensagem(BASE . '/agendamento/index.php', 'Token inválido.', 'danger');
     }
 
     $uid = $_SESSION['usuario_id'];
@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
         if ((int) $check->fetchColumn() > 0) {
             redirecionarComMensagem(
-                '/beloscilios/agendamento/horarios.php?' . http_build_query([
+                BASE . '/agendamento/horarios.php?' . http_build_query([
                     'servico_id' => $servicoId,
                     'sub_id'     => $subId,
                     'nome'       => $nome,
@@ -100,13 +100,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         redirecionarComMensagem(
-            '/beloscilios/usuario/perfil.php',
+            BASE . '/usuario/perfil.php',
             "Agendamento confirmado! Te esperamos em {$data} às {$hora}. 🌸",
             'success'
         );
     } catch (PDOException $e) {
         error_log('[Confirmar] ' . $e->getMessage());
-        redirecionarComMensagem('/beloscilios/agendamento/index.php', 'Erro ao agendar. Tente novamente.', 'danger');
+        redirecionarComMensagem(BASE . '/agendamento/index.php', 'Erro ao agendar. Tente novamente.', 'danger');
     }
 }
 
@@ -117,7 +117,7 @@ require_once __DIR__ . '/../geral/header.php';
 
 <!-- Progresso -->
 <div class="d-flex align-items-center gap-2 mb-5">
-    <a href="/beloscilios/agendamento/index.php"
+    <a href="<?= BASE ?>/agendamento/index.php"
        class="badge rounded-pill px-3 py-2 text-decoration-none"
        style="background:var(--card-border-color);color:var(--text-secondary);font-size:.9rem;">
         1. Serviço

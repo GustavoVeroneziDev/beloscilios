@@ -6,12 +6,12 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/../config/conexao.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Location: /beloscilios/usuario/login.php');
+    header('Location: ' . BASE . '/usuario/login.php');
     exit;
 }
 
 if (!validarTokenCSRF($_POST['csrf_token'] ?? '')) {
-    redirecionarComMensagem('/beloscilios/usuario/login.php', 'Token inválido. Tente novamente.', 'danger');
+    redirecionarComMensagem(BASE . '/usuario/login.php', 'Token inválido. Tente novamente.', 'danger');
 }
 
 // Anti brute-force simples via sessão
@@ -19,14 +19,14 @@ $tentativas = $_SESSION['login_tentativas'] ?? 0;
 $ultimaTentativa = $_SESSION['login_ultima'] ?? 0;
 
 if ($tentativas >= 5 && (time() - $ultimaTentativa) < 300) {
-    redirecionarComMensagem('/beloscilios/usuario/login.php', 'Muitas tentativas. Aguarde 5 minutos.', 'warning');
+    redirecionarComMensagem(BASE . '/usuario/login.php', 'Muitas tentativas. Aguarde 5 minutos.', 'warning');
 }
 
 $email = trim($_POST['email'] ?? '');
 $senha = $_POST['senha'] ?? '';
 
 if ($email === '' || $senha === '') {
-    redirecionarComMensagem('/beloscilios/usuario/login.php', 'Preencha e-mail e senha.', 'warning');
+    redirecionarComMensagem(BASE . '/usuario/login.php', 'Preencha e-mail e senha.', 'warning');
 }
 
 try {
@@ -37,21 +37,21 @@ try {
     $usuario = $stmt->fetch();
 } catch (PDOException $e) {
     error_log('[Login] ' . $e->getMessage());
-    redirecionarComMensagem('/beloscilios/usuario/login.php', 'Erro interno. Tente novamente.', 'danger');
+    redirecionarComMensagem(BASE . '/usuario/login.php', 'Erro interno. Tente novamente.', 'danger');
 }
 
 if (!$usuario || !password_verify($senha, $usuario['Senha'])) {
     $_SESSION['login_tentativas'] = $tentativas + 1;
     $_SESSION['login_ultima']     = time();
     redirecionarComMensagem(
-        '/beloscilios/usuario/login.php',
+        BASE . '/usuario/login.php',
         'E-mail ou senha incorretos.',
         'danger'
     );
 }
 
 if (!$usuario['Ativo']) {
-    redirecionarComMensagem('/beloscilios/usuario/login.php', 'Conta desativada. Entre em contato.', 'warning');
+    redirecionarComMensagem(BASE . '/usuario/login.php', 'Conta desativada. Entre em contato.', 'warning');
 }
 
 // Login bem-sucedido
@@ -63,7 +63,7 @@ $_SESSION['usuario_nome']  = $usuario['Nome'];
 $_SESSION['nivel_acesso']  = $usuario['NivelAcesso'];
 
 if ($usuario['NivelAcesso'] === 'designer') {
-    redirecionarComMensagem('/beloscilios/painel/index.php', 'Bem-vinda, ' . $usuario['Nome'] . '!', 'success');
+    redirecionarComMensagem(BASE . '/painel/index.php', 'Bem-vinda, ' . $usuario['Nome'] . '!', 'success');
 } else {
-    redirecionarComMensagem('/beloscilios/usuario/perfil.php', 'Bem-vinda, ' . $usuario['Nome'] . '!', 'success');
+    redirecionarComMensagem(BASE . '/usuario/perfil.php', 'Bem-vinda, ' . $usuario['Nome'] . '!', 'success');
 }
