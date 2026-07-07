@@ -26,20 +26,28 @@ $base          = '/beloscilios';
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
     <style>
-        /* ── Variáveis de tema ── */
+        /* ── Paleta Belos Cílios ── */
         :root {
-            --bg-main:          #FAF8F6;
-            --bg-card:          #FFFFFF;
-            --bg-hover:         #F5EEE8;
-            --text-main:        #1E1208;
-            --text-secondary:   #8B7355;
-            --accent:           #B07D62;
-            --accent-hover:     #96694F;
-            --accent-light:     rgba(176,125,98,.13);
-            --card-border-color:#EDE5DD;
-            --sidebar-bg:       #1E1208;
-            --sidebar-text:     #F5EEE5;
-            --sidebar-active:   rgba(176,125,98,.25);
+            --roxo-900:         #10002b;   /* mais escuro */
+            --roxo-800:         #240046;
+            --roxo-600:         #5a189a;   /* accent principal */
+            --roxo-500:         #6739c7;
+            --roxo-300:         #b38cff;
+            --roxo-200:         #c886fa;
+            --roxo-100:         #e0aaff;   /* mais claro */
+
+            --bg-main:          #faf5ff;
+            --bg-card:          #ffffff;
+            --bg-hover:         #f3e8ff;
+            --text-main:        #10002b;
+            --text-secondary:   #6739c7;
+            --accent:           #5a189a;
+            --accent-hover:     #240046;
+            --accent-light:     rgba(179,140,255,.15);
+            --card-border-color:#e0aaff;
+            --sidebar-bg:       #10002b;
+            --sidebar-text:     #e0aaff;
+            --sidebar-active:   rgba(90,24,154,.35);
             --sidebar-width:    240px;
         }
 
@@ -58,7 +66,7 @@ $base          = '/beloscilios';
             background: var(--bg-card);
             border: 1px solid var(--card-border-color);
             border-radius: 14px;
-            box-shadow: 0 2px 8px rgba(30,18,8,.06);
+            box-shadow: 0 2px 12px rgba(16,0,43,.07);
         }
         .card-header {
             background: transparent;
@@ -104,12 +112,12 @@ $base          = '/beloscilios';
             font-size: 1.1rem;
             font-weight: 700;
             letter-spacing: .03em;
-            color: var(--accent);
-            border-bottom: 1px solid rgba(255,255,255,.08);
+            color: var(--roxo-300);
+            border-bottom: 1px solid rgba(224,170,255,.1);
         }
         .sidebar-brand small {
             display: block;
-            color: rgba(245,238,229,.5);
+            color: rgba(224,170,255,.45);
             font-size: .7rem;
             font-weight: 400;
             letter-spacing: .05em;
@@ -121,7 +129,7 @@ $base          = '/beloscilios';
             align-items: center;
             gap: .65rem;
             padding: .65rem 1.25rem;
-            color: rgba(245,238,229,.8);
+            color: rgba(224,170,255,.75);
             font-size: .92rem;
             transition: background .15s, color .15s;
             border-radius: 0 8px 8px 0;
@@ -130,35 +138,46 @@ $base          = '/beloscilios';
         .sidebar-nav li a:hover,
         .sidebar-nav li a.ativo {
             background: var(--sidebar-active);
-            color: var(--accent);
+            color: var(--roxo-200);
         }
         .sidebar-nav li a i { font-size: 1.1rem; width: 1.3rem; }
         .sidebar-footer {
             padding: 1rem 1.25rem;
-            border-top: 1px solid rgba(255,255,255,.08);
+            border-top: 1px solid rgba(224,170,255,.1);
             font-size: .82rem;
-            color: rgba(245,238,229,.5);
+            color: rgba(224,170,255,.45);
         }
-        .sidebar-footer a { color: rgba(245,238,229,.6); }
-        .sidebar-footer a:hover { color: var(--accent); }
+        .sidebar-footer a { color: rgba(224,170,255,.6); }
+        .sidebar-footer a:hover { color: var(--roxo-300); }
 
         /* ── Layout com sidebar ── */
         .painel-content {
             margin-left: var(--sidebar-width);
             min-height: 100vh;
             padding: 1.75rem;
+            background: var(--bg-main);
         }
 
         /* ── Topnav (área cliente) ── */
         .topnav {
-            background: var(--bg-card);
-            border-bottom: 1px solid var(--card-border-color);
-            box-shadow: 0 1px 6px rgba(30,18,8,.06);
+            background: var(--roxo-900);
+            border-bottom: 1px solid rgba(224,170,255,.15);
+            box-shadow: 0 2px 12px rgba(16,0,43,.2);
         }
         .topnav .navbar-brand {
             font-weight: 700;
-            color: var(--accent);
+            color: var(--roxo-300) !important;
             font-size: 1.15rem;
+        }
+        .topnav .btn-accent {
+            background: var(--accent);
+        }
+        .topnav .btn-outline-secondary {
+            border-color: rgba(224,170,255,.4);
+            color: var(--roxo-200);
+        }
+        .topnav .dropdown-menu {
+            border-color: var(--card-border-color);
         }
 
         /* ── Stat cards no dashboard ── */
