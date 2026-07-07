@@ -1,4 +1,4 @@
-name: Deploy para Produção
+name: Deploy para Hospedagem
 
 on:
   push:
@@ -9,14 +9,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Checkout do código
+        uses: actions/checkout@v4
         with:
-          host:     ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key:      ${{ secrets.VPS_SSH_KEY }}
-          port:     ${{ secrets.VPS_PORT }}
-          script: |
-            cd ${{ secrets.VPS_PATH }}
-            git pull origin main
-            echo "✅ Deploy concluído em $(date '+%d/%m/%Y %H:%M:%S')"
+          fetch-depth: 2  # necessário para o FTP detectar apenas arquivos alterados
+
+      - name: Deploy via FTP para hospedagem
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server:     ${{ secrets.FTP_HOST }}
+          username:   ${{ secrets.FTP_USER }}
+          password:   ${{ secrets.FTP_PASS }}
+          server-dir: ${{ secrets.FTP_PATH }}
+          # Envia apenas o que mudou desde o último deploy (diff)
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/config/conexao.php
+            **/config/gemini.php
+            **/config/evolution_keys.php
+            **/config/smtp_keys.php
+            **/config/smtp_keys.php
+            **/uploads/**
+            **/logs/**
+            **/.github/**
