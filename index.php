@@ -5,12 +5,8 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/config/conexao.php';
 
-if (!empty($_SESSION['usuario_id'])) {
-    if ($_SESSION['nivel_acesso'] === 'designer') {
-        header('Location: ' . BASE . '/painel/index.php');
-    } else {
-        header('Location: ' . BASE . '/usuario/perfil.php');
-    }
+if (!empty($_SESSION['usuario_id']) && ($_SESSION['nivel_acesso'] ?? '') === 'designer') {
+    header('Location: ' . BASE . '/painel/index.php');
     exit;
 }
 

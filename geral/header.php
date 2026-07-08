@@ -41,7 +41,7 @@ $base          = '/beloscilios';
                     <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="Ícone BC"
                         style="height:40px;width:auto;filter:brightness(0) invert(1);opacity:.9;margin-right:6px;">
                     <img src="<?= BASE ?>/geral/img/NomeCompleto.png" alt="Belos Cílios"
-                        style="height:40px;max-width:90px;width:auto;filter:brightness(0) invert(1);object-fit:contain;">
+                        style="height:40px;max-width:150px;width:auto;filter:brightness(0) invert(1);object-fit:contain;">
                 </a>
                 <small>Painel da Designer</small>
             </div>
@@ -80,7 +80,7 @@ $base          = '/beloscilios';
                 </button>
                 <a href="<?= BASE ?>/index.php" class="d-flex align-items-center gap-2 text-decoration-none">
                     <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="Ícone" style="height:35px;width:auto;">
-                    <img src="<?= BASE ?>/geral/img/NomeCompleto.png" alt="Belos Cílios" style="height:35px;max-width:90px;width:auto;object-fit:contain;">
+                    <img src="<?= BASE ?>/geral/img/NomeCompleto.png" alt="Belos Cílios" style="height:35px;max-width:150px;width:auto;object-fit:contain;">
                 </a>
             </div>
 
@@ -93,7 +93,7 @@ $base          = '/beloscilios';
                         <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="Ícone BC"
                             style="height:40px;width:auto;filter:brightness(0) invert(1);opacity:.9;">
                         <img src="<?= BASE ?>/geral/img/NomeCompleto.png" alt="Belos Cílios"
-                            style="height:40px;max-width:90px;width:auto;filter:brightness(0) invert(1);object-fit:contain;">
+                            style="height:40px;max-width:150px;width:auto;filter:brightness(0) invert(1);object-fit:contain;">
                     </a>
 
                     <?php if (estaLogado()): ?>
