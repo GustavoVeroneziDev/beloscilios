@@ -28,8 +28,8 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
     redirecionarComMensagem(BASE . '/usuario/cadastro.php', 'E-mail inválido.', 'warning');
 }
 
-if (strlen($senha) < 8) {
-    redirecionarComMensagem(BASE . '/usuario/cadastro.php', 'A senha deve ter pelo menos 8 caracteres.', 'warning');
+if (strlen($senha) < 4) {
+    redirecionarComMensagem(BASE . '/usuario/cadastro.php', 'A senha deve ter pelo menos 4 caracteres.', 'warning');
 }
 
 if ($senha !== $senhaCf) {

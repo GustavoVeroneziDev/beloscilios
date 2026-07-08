@@ -12,6 +12,7 @@ $preco     = (float)($_GET['preco']   ?? 0);
 $duracao   = (int)($_GET['duracao']   ?? 60);
 $data      = trim($_GET['data']       ?? '');
 $hora      = trim($_GET['hora']       ?? '');
+$token     = trim($_GET['token']      ?? '');
 
 if (!$servicoId || !$data || !$hora) {
     redirecionarComMensagem(BASE . '/agendamento/index.php', 'Dados incompletos. Tente novamente.', 'warning');
@@ -27,9 +28,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $uid = $_SESSION['usuario_id'];
     try {
-        // Verificar duplo-booking (concorrência)
         $inicio = new DateTimeImmutable($dataHora);
         $fim    = $inicio->modify("+{$duracao} minutes");
+
+        // Verifica se a sessão ainda tem reserva ativa para este slot
+        $temReserva = $pdo->prepare(
+            'SELECT COUNT(*) FROM ReservasTemporarias
+             WHERE TokenSessao = :s AND DataHoraSlot = :ini AND ExpiraEm > NOW()'
+        );
+        $temReserva->execute([':s' => session_id(), ':ini' => $inicio->format('Y-m-d H:i:s')]);
+        if ((int)$temReserva->fetchColumn() === 0) {
+            redirecionarComMensagem(
+                BASE . '/agendamento/horarios.php?' . http_build_query([
+                    'servico_id' => $servicoId, 'sub_id' => $subId,
+                    'nome' => $nome, 'preco' => $preco, 'duracao' => $duracao, 'data' => $data,
+                ]),
+                'A reserva do horário expirou. Selecione novamente.',
+                'warning'
+            );
+        }
+
+        // Verificar duplo-booking (concorrência)
 
         $check = $pdo->prepare(
             'SELECT COUNT(*) FROM Agendamentos
@@ -72,6 +91,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':fim'  => $fim->format('Y-m-d H:i:s'),
             ':preco'=> $preco,
         ]);
+
+        // Remove reserva temporária desta sessão
+        $pdo->prepare('DELETE FROM ReservasTemporarias WHERE TokenSessao = :s')
+            ->execute([':s' => session_id()]);
 
         // Enviar WhatsApp de confirmação (se configurado)
         $usuario = $pdo->prepare(
@@ -138,7 +161,7 @@ require_once __DIR__ . '/../geral/header.php';
     <div class="col-md-8 col-lg-6">
         <div class="card p-4">
             <div class="text-center mb-4">
-                <div style="font-size:2.5rem;">✨</div>
+                <i class="bi bi-calendar-check text-accent" style="font-size:2.5rem;"></i>
                 <h5 class="fw-bold mt-2">Confirme seu agendamento</h5>
                 <p class="text-secondary">Revise os detalhes abaixo antes de confirmar.</p>
             </div>
@@ -165,6 +188,7 @@ require_once __DIR__ . '/../geral/header.php';
 
             <form method="POST">
                 <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
+                <input type="hidden" name="token"      value="<?= h($token) ?>">
 
                 <div class="mb-3">
                     <label class="form-label">Observações <span class="text-secondary">(opcional)</span></label>

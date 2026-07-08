@@ -10,6 +10,7 @@ config/conexao.php
 config/gemini.php
 config/smtp_keys.php
 config/evolution_keys.php
+config/google_oauth.php
 config/*_keys.php
 config/*_secret*.php
 *.DS_Store

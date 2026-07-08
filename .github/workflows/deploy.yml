@@ -26,5 +26,6 @@ jobs:
             **/config/gemini.php
             **/config/evolution_keys.php
             **/config/smtp_keys.php
+            **/config/google_oauth.php
             **/uploads/**
             **/logs/**
