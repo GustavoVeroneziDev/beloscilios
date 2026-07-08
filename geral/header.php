@@ -37,11 +37,11 @@ $base          = '/beloscilios';
         <div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()"></div>
         <nav class="sidebar" id="sidebar">
             <div class="sidebar-brand">
-                <div>
+                <div class="d-flex align-items-center mb-1">
                     <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="Ícone BC"
-                        style="height:28px;width:auto;filter:brightness(0) invert(1);opacity:.9;vertical-align:middle;margin-right:6px;">
+                        style="height:40px;width:auto;filter:brightness(0) invert(1);opacity:.9;margin-right:6px;">
                     <img src="<?= BASE ?>/geral/img/NomeCompleto.png" alt="Belos Cílios"
-                        style="height:20px;width:auto;filter:brightness(0) invert(1);vertical-align:middle;">
+                        style="height:40px;max-width:90px;width:auto;filter:brightness(0) invert(1);object-fit:contain;">
                 </div>
                 <small>Painel da Designer</small>
             </div>
@@ -78,8 +78,8 @@ $base          = '/beloscilios';
                 <button class="btn btn-sm btn-outline-secondary" onclick="abrirSidebar()">
                     <i class="bi bi-list fs-5"></i>
                 </button>
-                <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="Ícone" style="height:24px;width:auto;">
-                <img src="<?= BASE ?>/geral/img/NomeCompleto.png" alt="Belos Cílios" style="height:18px;width:auto;">
+                <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="Ícone" style="height:35px;width:auto;">
+                <img src="<?= BASE ?>/geral/img/NomeCompleto.png" alt="Belos Cílios" style="height:35px;max-width:90px;width:auto;object-fit:contain;">
             </div>
 
             <?php flashMsg() ?>
@@ -89,9 +89,9 @@ $base          = '/beloscilios';
                 <div class="container-lg">
                     <a class="navbar-brand d-flex align-items-center gap-2" href="<?= BASE ?>/index.php">
                         <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="Ícone BC"
-                            style="height:30px;width:auto;filter:brightness(0) invert(1);opacity:.9;">
+                            style="height:40px;width:auto;filter:brightness(0) invert(1);opacity:.9;">
                         <img src="<?= BASE ?>/geral/img/NomeCompleto.png" alt="Belos Cílios"
-                            style="height:22px;width:auto;filter:brightness(0) invert(1);">
+                            style="height:40px;max-width:90px;width:auto;filter:brightness(0) invert(1);object-fit:contain;">
                     </a>
 
                     <?php if (estaLogado()): ?>
