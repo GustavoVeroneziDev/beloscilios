@@ -1,0 +1,419 @@
+/* ================================================================
+   Belos Cílios — estilo.css
+   Organização: tokens → reset → topnav → sidebar → componentes
+                → calendário → utilitários → responsivo mobile
+   ================================================================ */
+
+
+/* ── 1. Design Tokens (Custom Properties) ───────────────────── */
+:root {
+    --roxo-900: #10002b;
+    --roxo-800: #240046;
+    --roxo-600: #5a189a;
+    --roxo-500: #6739c7;
+    --roxo-300: #b38cff;
+    --roxo-200: #c886fa;
+    --roxo-100: #e0aaff;
+
+    --bg-main:          #faf5ff;
+    --bg-card:          #ffffff;
+    --bg-hover:         #f3e8ff;
+    --text-main:        #10002b;
+    --text-secondary:   #6739c7;
+    --accent:           #5a189a;
+    --accent-hover:     #240046;
+    --accent-light:     rgba(179, 140, 255, .15);
+    --card-border-color:#e0aaff;
+
+    --sidebar-bg:       #10002b;
+    --sidebar-text:     #e0aaff;
+    --sidebar-active:   rgba(90, 24, 154, .35);
+    --sidebar-width:    240px;
+
+    --radius-card:      14px;
+    --radius-btn:       8px;
+    --shadow-card:      0 2px 12px rgba(16, 0, 43, .07);
+    --transition-fast:  .15s ease;
+}
+
+
+/* ── 2. Reset & Base ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    /* Rolagem suave e sem salto de barra de scroll */
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+}
+
+a {
+    color: var(--accent);
+    text-decoration: none;
+}
+a:hover { color: var(--accent-hover); }
+
+/* Tamanho mínimo de inputs — evita zoom automático no iOS (≥16px) */
+input, select, textarea {
+    font-size: 16px !important;
+}
+@media (min-width: 768px) {
+    input, select, textarea {
+        font-size: 0.9rem !important;
+    }
+}
+
+/* Delay de toque — acelera resposta em mobile */
+button, a, [role="button"] {
+    touch-action: manipulation;
+}
+
+
+/* ── 3. Topnav (área cliente / pública) ─────────────────────── */
+.topnav {
+    background: var(--roxo-900);
+    border-bottom: 1px solid rgba(224, 170, 255, .15);
+    box-shadow: 0 2px 12px rgba(16, 0, 43, .2);
+}
+.topnav .navbar-brand {
+    font-weight: 700;
+    color: var(--roxo-300) !important;
+    font-size: 1.15rem;
+}
+.topnav .btn-outline-secondary {
+    border-color: rgba(224, 170, 255, .4);
+    color: var(--roxo-200);
+}
+.topnav .dropdown-menu {
+    border-color: var(--card-border-color);
+}
+
+
+/* ── 4. Sidebar (painel da designer) ────────────────────────── */
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: var(--sidebar-width);
+    height: 100vh;
+    background: var(--sidebar-bg);
+    color: var(--sidebar-text);
+    display: flex;
+    flex-direction: column;
+    z-index: 1040;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.sidebar-brand {
+    padding: 1.5rem 1.25rem 1rem;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: .03em;
+    color: var(--roxo-300);
+    border-bottom: 1px solid rgba(224, 170, 255, .1);
+}
+.sidebar-brand small {
+    display: block;
+    color: rgba(224, 170, 255, .45);
+    font-size: .7rem;
+    font-weight: 400;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+.sidebar-nav {
+    list-style: none;
+    padding: .75rem 0;
+    margin: 0;
+    flex: 1;
+}
+.sidebar-nav li a {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    padding: .65rem 1.25rem;
+    color: rgba(224, 170, 255, .75);
+    font-size: .92rem;
+    transition: background var(--transition-fast), color var(--transition-fast);
+    border-radius: 0 8px 8px 0;
+    margin-right: .75rem;
+    /* tap target mínimo 44px */
+    min-height: 44px;
+}
+.sidebar-nav li a:hover,
+.sidebar-nav li a.ativo {
+    background: var(--sidebar-active);
+    color: var(--roxo-200);
+}
+.sidebar-nav li a i {
+    font-size: 1.1rem;
+    width: 1.3rem;
+    flex-shrink: 0;
+}
+.sidebar-footer {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid rgba(224, 170, 255, .1);
+    font-size: .82rem;
+    color: rgba(224, 170, 255, .45);
+}
+.sidebar-footer a {
+    color: rgba(224, 170, 255, .6);
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+}
+.sidebar-footer a:hover { color: var(--roxo-300); }
+
+/* Overlay do menu mobile */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .45);
+    z-index: 1039;
+}
+.sidebar-overlay.ativo { display: block; }
+
+/* Conteúdo principal do painel */
+.painel-content {
+    margin-left: var(--sidebar-width);
+    min-height: 100vh;
+    padding: 1.75rem;
+    background: var(--bg-main);
+}
+
+
+/* ── 5. Cards ───────────────────────────────────────────────── */
+.card {
+    background: var(--bg-card);
+    border: 1px solid var(--card-border-color);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+}
+.card-header {
+    background: transparent;
+    border-bottom: 1px solid var(--card-border-color);
+    font-weight: 600;
+}
+.card-footer {
+    border-top: 1px solid var(--card-border-color);
+}
+
+
+/* ── 6. Botões ──────────────────────────────────────────────── */
+.btn-accent {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-btn);
+    font-weight: 500;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.btn-accent:hover,
+.btn-accent:focus {
+    background: var(--accent-hover);
+    color: #fff;
+}
+.btn-outline-accent {
+    border: 1.5px solid var(--accent);
+    color: var(--accent);
+    border-radius: var(--radius-btn);
+    font-weight: 500;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.btn-outline-accent:hover,
+.btn-outline-accent:focus {
+    background: var(--accent);
+    color: #fff;
+}
+/* Reaplica min-height nos tamanhos sm/lg */
+.btn-sm { min-height: 36px; }
+.btn-lg { min-height: 52px; }
+
+
+/* ── 7. Badges ──────────────────────────────────────────────── */
+.badge {
+    font-size: .78rem;
+    font-weight: 500;
+    padding: .35em .65em;
+    border-radius: 6px;
+}
+
+
+/* ── 8. Stat Cards (dashboard) ──────────────────────────────── */
+.stat-card {
+    border-radius: var(--radius-card);
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+}
+
+
+/* ── 9. Calendário de Agenda ─────────────────────────────────── */
+.bc-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+}
+.bc-cal-header {
+    text-align: center;
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--text-secondary);
+    padding: .4rem 0;
+}
+.bc-cal-day {
+    border: 1px solid var(--card-border-color);
+    border-radius: 8px;
+    min-height: 72px;
+    padding: .35rem .4rem;
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+    background: var(--bg-card);
+    position: relative;
+    overflow: hidden;
+}
+.bc-cal-day:hover { background: var(--bg-hover); border-color: var(--roxo-300); }
+.bc-cal-day.bc-hoje {
+    border-color: var(--accent);
+    background: var(--accent-light);
+}
+.bc-cal-day.bc-vazio {
+    background: transparent;
+    border-color: transparent;
+    cursor: default;
+    pointer-events: none;
+}
+.bc-cal-day.bc-fora-mes {
+    opacity: .35;
+}
+.bc-cal-day.bc-selecionado {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent);
+}
+.bc-cal-num {
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--text-main);
+    line-height: 1;
+    margin-bottom: .25rem;
+}
+.bc-hoje .bc-cal-num {
+    color: var(--accent);
+}
+.bc-cal-dots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+}
+.bc-cal-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: .8;
+}
+.bc-cal-dot.pendente   { background: #f59e0b; }
+.bc-cal-dot.confirmado { background: #22c55e; }
+.bc-cal-dot.concluido  { background: #94a3b8; }
+
+.bc-cal-count {
+    position: absolute;
+    bottom: .25rem;
+    right: .3rem;
+    font-size: .68rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+}
+
+/* Painel de detalhe do dia clicado */
+.bc-dia-detalhe {
+    border: 1.5px solid var(--accent);
+    border-radius: var(--radius-card);
+    background: var(--bg-card);
+    box-shadow: var(--shadow-card);
+    animation: slideDown .2s ease;
+}
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Toggle de visão */
+.bc-vista-toggle .btn { border-radius: 6px !important; min-height: 36px; }
+
+
+/* ── 10. Utilitários ─────────────────────────────────────────── */
+.text-accent   { color: var(--accent) !important; }
+.bg-accent     { background: var(--accent) !important; }
+.border-accent { border-color: var(--card-border-color) !important; }
+.rounded-xl    { border-radius: var(--radius-card) !important; }
+.shadow-card   { box-shadow: var(--shadow-card) !important; }
+
+
+/* ── 11. Responsivo Mobile ───────────────────────────────────── */
+@media (max-width: 767.98px) {
+
+    /* Sidebar: oculta e desliza */
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform .25s ease;
+    }
+    .sidebar.aberta { transform: translateX(0); }
+
+    /* Conteúdo sem margem lateral */
+    .painel-content {
+        margin-left: 0;
+        padding: 1rem;
+    }
+
+    /* Calendário: células menores no mobile */
+    .bc-cal-day {
+        min-height: 48px;
+        padding: .2rem .25rem;
+    }
+    .bc-cal-num { font-size: .72rem; }
+    .bc-cal-dot { width: 5px; height: 5px; }
+    .bc-cal-count { font-size: .6rem; }
+    .bc-cal-header { font-size: .65rem; }
+
+    /* Stat cards: empilha ícone + texto */
+    .stat-card { flex-direction: column; align-items: flex-start; gap: .5rem; }
+
+    /* Tabelas horizontais com scroll */
+    .table-responsive { -webkit-overflow-scrolling: touch; }
+
+    /* Cards sem sombra pesada no mobile */
+    .card { box-shadow: 0 1px 6px rgba(16, 0, 43, .05); }
+
+    /* Topnav compacta */
+    .topnav .navbar-brand { font-size: 1rem; }
+}
+
+@media (max-width: 479.98px) {
+    /* Calendário ultra-compacto em telas muito pequenas */
+    .bc-cal-day { min-height: 38px; }
+    .bc-cal-dots { display: none; }
+}

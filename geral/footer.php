@@ -11,8 +11,8 @@
 </footer>
 <?php endif ?>
 
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Bootstrap JS (self-hosted, cache 1 ano) -->
+<script src="<?= BASE ?>/geral/vendor/bs/js/bootstrap.bundle.min.js"></script>
 
 <!-- Modal de confirmação global -->
 <div class="modal fade" id="modalConfirm" tabindex="-1" aria-hidden="true">
