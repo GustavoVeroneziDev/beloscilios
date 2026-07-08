@@ -21,30 +21,28 @@ $base          = '/beloscilios';
     <title><?= h($paginaTitulo) ?> — Belos Cílios</title>
     <link rel="icon" href="<?= BASE ?>/geral/img/ico.ico" type="image/x-icon">
 
-    <!-- Meta tags mobile -->
     <meta name="theme-color" content="#10002b">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="format-detection" content="telephone=no">
 
-    <!-- Bootstrap 5 (self-hosted, cache 1 ano) -->
     <link rel="stylesheet" href="<?= BASE ?>/geral/vendor/bs/css/bootstrap.min.css">
-    <!-- Bootstrap Icons (self-hosted) -->
     <link rel="stylesheet" href="<?= BASE ?>/geral/vendor/bi/font/bootstrap-icons.min.css">
-    <!-- Estilo Belos Cílios -->
     <link rel="stylesheet" href="<?= BASE ?>/geral/css/estilo.css">
 </head>
 
 <body>
 
     <?php if ($ehPainel): ?>
-        <!-- ════════ SIDEBAR — painel da designer ════════ -->
         <div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()"></div>
         <nav class="sidebar" id="sidebar">
             <div class="sidebar-brand">
-                <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="BC"
-                    style="height:28px;width:auto;filter:brightness(0) invert(1);opacity:.9;vertical-align:middle;margin-right:6px;">
-                Belos Cílios
+                <div>
+                    <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="Ícone BC"
+                        style="height:28px;width:auto;filter:brightness(0) invert(1);opacity:.9;vertical-align:middle;margin-right:6px;">
+                    <img src="<?= BASE ?>/geral/img/NomeCompleto.png" alt="Belos Cílios"
+                        style="height:20px;width:auto;filter:brightness(0) invert(1);vertical-align:middle;">
+                </div>
                 <small>Painel da Designer</small>
             </div>
             <?php
@@ -76,25 +74,24 @@ $base          = '/beloscilios';
         </nav>
 
         <div class="painel-content">
-            <!-- Topbar mobile -->
             <div class="d-flex d-md-none align-items-center mb-3 gap-2">
                 <button class="btn btn-sm btn-outline-secondary" onclick="abrirSidebar()">
                     <i class="bi bi-list fs-5"></i>
                 </button>
-                <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="Belos Cílios"
-                    style="height:24px;width:auto;"> <span class="fw-semibold text-accent">Belos Cílios</span>
+                <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="Ícone" style="height:24px;width:auto;">
+                <img src="<?= BASE ?>/geral/img/NomeCompleto.png" alt="Belos Cílios" style="height:18px;width:auto;">
             </div>
 
             <?php flashMsg() ?>
 
         <?php else: ?>
-            <!-- ════════ TOPNAV — área cliente / pública ════════ -->
             <nav class="navbar topnav sticky-top">
                 <div class="container-lg">
                     <a class="navbar-brand d-flex align-items-center gap-2" href="<?= BASE ?>/index.php">
-                        <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="BC"
+                        <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="Ícone BC"
                             style="height:30px;width:auto;filter:brightness(0) invert(1);opacity:.9;">
-                        Belos Cílios
+                        <img src="<?= BASE ?>/geral/img/NomeCompleto.png" alt="Belos Cílios"
+                            style="height:22px;width:auto;filter:brightness(0) invert(1);">
                     </a>
 
                     <?php if (estaLogado()): ?>
