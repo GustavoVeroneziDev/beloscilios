@@ -18,7 +18,7 @@ $base          = '/beloscilios';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= h($paginaTitulo) ?> — Belos Cílios</title>
-    <link rel="icon" href="<?= $base ?>/assets/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="<?= $base ?>/geral/img/ico.ico" type="image/x-icon">
 
     <!-- Bootstrap 5 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
@@ -226,7 +226,9 @@ $base          = '/beloscilios';
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()"></div>
 <nav class="sidebar" id="sidebar">
     <div class="sidebar-brand">
-        <i class="bi bi-eye me-1"></i> Belos Cílios
+        <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="BC"
+             style="height:28px;width:auto;filter:brightness(0) invert(1);opacity:.9;vertical-align:middle;margin-right:6px;">
+        Belos Cílios
         <small>Painel da Designer</small>
     </div>
     <?php
@@ -263,7 +265,8 @@ $base          = '/beloscilios';
         <button class="btn btn-sm btn-outline-secondary" onclick="abrirSidebar()">
             <i class="bi bi-list fs-5"></i>
         </button>
-        <span class="fw-semibold text-accent">Belos Cílios</span>
+        <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="Belos Cílios"
+             style="height:24px;width:auto;"> <span class="fw-semibold text-accent">Belos Cílios</span>
     </div>
 
     <?php flashMsg() ?>
@@ -272,8 +275,10 @@ $base          = '/beloscilios';
 <!-- ════════ TOPNAV — área cliente / pública ════════ -->
 <nav class="navbar topnav sticky-top">
     <div class="container-lg">
-        <a class="navbar-brand" href="<?= BASE ?>/index.php">
-            <i class="bi bi-eye me-1"></i> Belos Cílios
+        <a class="navbar-brand d-flex align-items-center gap-2" href="<?= BASE ?>/index.php">
+            <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="BC"
+                 style="height:30px;width:auto;filter:brightness(0) invert(1);opacity:.9;">
+            Belos Cílios
         </a>
 
         <?php if (estaLogado()): ?>
