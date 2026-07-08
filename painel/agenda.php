@@ -83,8 +83,21 @@ if ($vista === 'calendario') {
     $mesNext     = date('Y-m', strtotime('+1 month', $mesTs));
     $mesNome     = strftime('%B de %Y', $mesTs);
     // Fallback para strftime sem locale
-    $mesesPT     = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho',
-                    'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    $mesesPT     = [
+        '',
+        'Janeiro',
+        'Fevereiro',
+        'Março',
+        'Abril',
+        'Maio',
+        'Junho',
+        'Julho',
+        'Agosto',
+        'Setembro',
+        'Outubro',
+        'Novembro',
+        'Dezembro'
+    ];
     $mesNome     = $mesesPT[(int)date('n', $mesTs)] . ' de ' . date('Y', $mesTs);
     $primeiroDia = date('Y-m-d', $mesTs);
     $ultimoDia   = date('Y-m-d', strtotime('last day of', $mesTs));
@@ -171,7 +184,7 @@ function botoesAgendamento(array $ag, string $csrfToken, array $extraGet = []): 
                     <button class="btn btn-sm btn-outline-success" title="Confirmar">
                         <i class="bi bi-check-lg"></i></button></form>';
     }
-    if (in_array($ag['StatusAgendamento'], ['pendente','confirmado'])) {
+    if (in_array($ag['StatusAgendamento'], ['pendente', 'confirmado'])) {
         $out .= '<form method="POST" class="d-inline"
                       data-confirm="Confirma o cancelamento deste agendamento?"
                       data-confirm-label="Cancelar agendamento">
@@ -204,43 +217,43 @@ $csrfToken = gerarTokenCSRF();
         <!-- Toggle Lista / Calendário -->
         <div class="btn-group bc-vista-toggle" role="group" aria-label="Visão da agenda">
             <a href="?vista=lista<?= $vista === 'lista' ? '&semana=' . ($semanaOffset ?? 0) : '' ?>"
-               class="btn btn-sm <?= $vista !== 'calendario' ? 'btn-accent' : 'btn-outline-secondary' ?>">
+                class="btn btn-sm <?= $vista !== 'calendario' ? 'btn-accent' : 'btn-outline-secondary' ?>">
                 <i class="bi bi-list-ul me-1"></i>Lista
             </a>
             <a href="?vista=calendario&mes=<?= $vista === 'calendario' ? h($mesSel) : date('Y-m') ?>"
-               class="btn btn-sm <?= $vista === 'calendario' ? 'btn-accent' : 'btn-outline-secondary' ?>">
+                class="btn btn-sm <?= $vista === 'calendario' ? 'btn-accent' : 'btn-outline-secondary' ?>">
                 <i class="bi bi-grid-3x3 me-1"></i>Calendário
             </a>
         </div>
 
         <?php if ($vista !== 'calendario'): ?>
-        <!-- Navegação semanal -->
-        <a href="?vista=lista&semana=<?= ($semanaOffset ?? 0) - 1 ?>" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-chevron-left"></i>
-        </a>
-        <span class="btn btn-outline-secondary btn-sm disabled" style="min-width:120px;text-align:center;">
-            <?= date('d/m', $inicioPeriodo) ?> – <?= date('d/m', $fimPeriodo) ?>
-        </span>
-        <a href="?vista=lista&semana=<?= ($semanaOffset ?? 0) + 1 ?>" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-chevron-right"></i>
-        </a>
-        <?php if (($semanaOffset ?? 0) !== 0): ?>
-        <a href="?vista=lista&semana=0" class="btn btn-outline-accent btn-sm">Hoje</a>
-        <?php endif ?>
+            <!-- Navegação semanal -->
+            <a href="?vista=lista&semana=<?= ($semanaOffset ?? 0) - 1 ?>" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+            <span class="btn btn-outline-secondary btn-sm disabled" style="min-width:120px;text-align:center;">
+                <?= date('d/m', $inicioPeriodo) ?> – <?= date('d/m', $fimPeriodo) ?>
+            </span>
+            <a href="?vista=lista&semana=<?= ($semanaOffset ?? 0) + 1 ?>" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+            <?php if (($semanaOffset ?? 0) !== 0): ?>
+                <a href="?vista=lista&semana=0" class="btn btn-outline-accent btn-sm">Hoje</a>
+            <?php endif ?>
         <?php else: ?>
-        <!-- Navegação mensal -->
-        <a href="?vista=calendario&mes=<?= h($mesPrev) ?>" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-chevron-left"></i>
-        </a>
-        <span class="btn btn-outline-secondary btn-sm disabled" style="min-width:150px;text-align:center;">
-            <?= h($mesNome) ?>
-        </span>
-        <a href="?vista=calendario&mes=<?= h($mesNext) ?>" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-chevron-right"></i>
-        </a>
-        <?php if ($mesSel !== date('Y-m')): ?>
-        <a href="?vista=calendario&mes=<?= date('Y-m') ?>" class="btn btn-outline-accent btn-sm">Hoje</a>
-        <?php endif ?>
+            <!-- Navegação mensal -->
+            <a href="?vista=calendario&mes=<?= h($mesPrev) ?>" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+            <span class="btn btn-outline-secondary btn-sm disabled" style="min-width:150px;text-align:center;">
+                <?= h($mesNome) ?>
+            </span>
+            <a href="?vista=calendario&mes=<?= h($mesNext) ?>" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+            <?php if ($mesSel !== date('Y-m')): ?>
+                <a href="?vista=calendario&mes=<?= date('Y-m') ?>" class="btn btn-outline-accent btn-sm">Hoje</a>
+            <?php endif ?>
         <?php endif ?>
 
         <button class="btn btn-accent btn-sm" data-bs-toggle="modal" data-bs-target="#modalNovoAg">
@@ -250,287 +263,293 @@ $csrfToken = gerarTokenCSRF();
 </div>
 
 <?php if ($vista !== 'calendario'): ?>
-<!-- ══════════════════════════════════════════════════════════
+    <!-- ══════════════════════════════════════════════════════════
      VISÃO LISTA (semanal)
 ════════════════════════════════════════════════════════════ -->
-<?php
-$diasSemana = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
-for ($d = 0; $d < 7; $d++):
-    $ts    = strtotime("+{$d} days", $inicioPeriodo);
-    $key   = date('Y-m-d', $ts);
-    $ags   = $porDia[$key] ?? [];
-    $eHoje = $key === date('Y-m-d');
-?>
-<div class="card mb-3 <?= $eHoje ? 'border-accent' : '' ?>">
-    <div class="card-header d-flex align-items-center gap-2 px-4 py-2"
-         style="<?= $eHoje ? 'background:var(--accent-light)' : '' ?>">
-        <span class="fw-semibold <?= $eHoje ? 'text-accent' : '' ?>"><?= $diasSemana[$d] ?></span>
-        <span class="text-secondary small"><?= date('d/m', $ts) ?></span>
-        <?php if ($eHoje): ?><span class="badge ms-1" style="background:var(--accent);">Hoje</span><?php endif ?>
-        <span class="ms-auto badge bg-secondary"><?= count($ags) ?> ag.</span>
-    </div>
-    <?php if (empty($ags)): ?>
-    <div class="text-center py-3 text-secondary small">Sem agendamentos</div>
-    <?php else: ?>
-    <ul class="list-group list-group-flush">
-        <?php foreach ($ags as $ag): ?>
-        <li class="list-group-item px-3 px-md-4 py-2">
-            <div class="d-flex align-items-center gap-2 gap-md-3 flex-wrap">
-                <span class="fw-bold text-accent" style="min-width:40px;">
-                    <?= date('H:i', strtotime($ag['DataHoraAgendamento'])) ?>
-                </span>
-                <div class="flex-grow-1">
-                    <span class="fw-medium"><?= h($ag['NomeCliente']) ?></span>
-                    <span class="text-secondary small ms-1 d-block d-md-inline">
-                        <?= h($ag['NomeSubServico'] ?? $ag['NomeServico']) ?>
-                        (<?= $ag['DuracaoMinutos'] ?>min)
-                    </span>
-                </div>
-                <div class="d-flex align-items-center gap-1 flex-wrap">
-                    <?= labelStatus($ag['StatusAgendamento']) ?>
-                    <?= labelStatusPag($ag['StatusPagamento']) ?>
-                </div>
-                <?= botoesAgendamento($ag, $csrfToken, ['vista' => 'lista', 'semana' => $semanaOffset]) ?>
+    <?php
+    $diasSemana = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+    for ($d = 0; $d < 7; $d++):
+        $ts    = strtotime("+{$d} days", $inicioPeriodo);
+        $key   = date('Y-m-d', $ts);
+        $ags   = $porDia[$key] ?? [];
+        $eHoje = $key === date('Y-m-d');
+    ?>
+        <div class="card mb-3 <?= $eHoje ? 'border-accent' : '' ?>">
+            <div class="card-header d-flex align-items-center gap-2 px-4 py-2"
+                style="<?= $eHoje ? 'background:var(--accent-light)' : '' ?>">
+                <span class="fw-semibold <?= $eHoje ? 'text-accent' : '' ?>"><?= $diasSemana[$d] ?></span>
+                <span class="text-secondary small"><?= date('d/m', $ts) ?></span>
+                <?php if ($eHoje): ?><span class="badge ms-1" style="background:var(--accent);">Hoje</span><?php endif ?>
+                <span class="ms-auto badge bg-secondary"><?= count($ags) ?> ag.</span>
             </div>
-        </li>
-        <?php endforeach ?>
-    </ul>
-    <?php endif ?>
-</div>
-<?php endfor ?>
+            <?php if (empty($ags)): ?>
+                <div class="text-center py-3 text-secondary small">Sem agendamentos</div>
+            <?php else: ?>
+                <ul class="list-group list-group-flush">
+                    <?php foreach ($ags as $ag): ?>
+                        <li class="list-group-item px-3 px-md-4 py-2">
+                            <div class="d-flex align-items-center gap-2 gap-md-3 flex-wrap">
+                                <span class="fw-bold text-accent" style="min-width:40px;">
+                                    <?= date('H:i', strtotime($ag['DataHoraAgendamento'])) ?>
+                                </span>
+                                <div class="flex-grow-1">
+                                    <span class="fw-medium"><?= h($ag['NomeCliente']) ?></span>
+                                    <span class="text-secondary small ms-1 d-block d-md-inline">
+                                        <?= h($ag['NomeSubServico'] ?? $ag['NomeServico']) ?>
+                                        (<?= $ag['DuracaoMinutos'] ?>min)
+                                    </span>
+                                </div>
+                                <div class="d-flex align-items-center gap-1 flex-wrap">
+                                    <?= labelStatus($ag['StatusAgendamento']) ?>
+                                    <?= labelStatusPag($ag['StatusPagamento']) ?>
+                                </div>
+                                <?= botoesAgendamento($ag, $csrfToken, ['vista' => 'lista', 'semana' => $semanaOffset]) ?>
+                            </div>
+                        </li>
+                    <?php endforeach ?>
+                </ul>
+            <?php endif ?>
+        </div>
+    <?php endfor ?>
 
 <?php else: ?>
-<!-- ══════════════════════════════════════════════════════════
+    <!-- ══════════════════════════════════════════════════════════
      VISÃO CALENDÁRIO (mensal)
 ════════════════════════════════════════════════════════════ -->
-<div class="card p-3 mb-3">
+    <div class="card p-3 mb-3">
 
-    <!-- Legenda -->
-    <div class="d-flex gap-3 mb-3 flex-wrap">
-        <span class="small d-flex align-items-center gap-1">
-            <span class="bc-cal-dot confirmado d-inline-block"></span> Confirmado
-        </span>
-        <span class="small d-flex align-items-center gap-1">
-            <span class="bc-cal-dot pendente d-inline-block"></span> Pendente
-        </span>
-        <span class="small d-flex align-items-center gap-1">
-            <span class="bc-cal-dot concluido d-inline-block"></span> Concluído
-        </span>
-    </div>
-
-    <!-- Grid de dias da semana -->
-    <div class="bc-cal-grid mb-1">
-        <?php foreach (['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'] as $dn): ?>
-        <div class="bc-cal-header"><?= $dn ?></div>
-        <?php endforeach ?>
-    </div>
-
-    <!-- Grid de dias do mês -->
-    <div class="bc-cal-grid" id="gridCalendario">
-        <?php
-        $hoje = date('Y-m-d');
-        foreach ($semanasCal as $semana):
-            foreach ($semana as $dia):
-                if ($dia === null):
-        ?>
-        <div class="bc-cal-day bc-vazio"></div>
-        <?php else:
-            $key       = sprintf('%s-%02d', $mesSel, $dia);
-            $agsNoDia  = $porDiaCal[$key] ?? [];
-            $eHojeDia  = ($key === $hoje);
-            $classes   = 'bc-cal-day' . ($eHojeDia ? ' bc-hoje' : '') . (empty($agsNoDia) ? ' bc-sem-ag' : '');
-        ?>
-        <div class="<?= $classes ?>"
-             data-data="<?= $key ?>"
-             role="button"
-             tabindex="0"
-             aria-label="<?= $dia . ' — ' . count($agsNoDia) . ' agendamento(s)' ?>"
-             onclick="mostrarDia('<?= $key ?>', <?= $dia ?>)"
-             onkeydown="if(event.key==='Enter')mostrarDia('<?= $key ?>', <?= $dia ?>)">
-            <div class="bc-cal-num"><?= $dia ?></div>
-            <?php if (!empty($agsNoDia)): ?>
-            <div class="bc-cal-dots">
-                <?php foreach (array_slice($agsNoDia, 0, 5) as $ag): ?>
-                <span class="bc-cal-dot <?= h($ag['StatusAgendamento']) ?>"></span>
-                <?php endforeach ?>
-            </div>
-            <?php if (count($agsNoDia) > 0): ?>
-            <span class="bc-cal-count"><?= count($agsNoDia) ?></span>
-            <?php endif ?>
-            <?php endif ?>
+        <!-- Legenda -->
+        <div class="d-flex gap-3 mb-3 flex-wrap">
+            <span class="small d-flex align-items-center gap-1">
+                <span class="bc-cal-dot confirmado d-inline-block"></span> Confirmado
+            </span>
+            <span class="small d-flex align-items-center gap-1">
+                <span class="bc-cal-dot pendente d-inline-block"></span> Pendente
+            </span>
+            <span class="small d-flex align-items-center gap-1">
+                <span class="bc-cal-dot concluido d-inline-block"></span> Concluído
+            </span>
         </div>
-        <?php
-                endif;
+
+        <!-- Grid de dias da semana -->
+        <div class="bc-cal-grid mb-1">
+            <?php foreach (['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'] as $dn): ?>
+                <div class="bc-cal-header"><?= $dn ?></div>
+            <?php endforeach ?>
+        </div>
+
+        <!-- Grid de dias do mês -->
+        <div class="bc-cal-grid" id="gridCalendario">
+            <?php
+            $hoje = date('Y-m-d');
+            foreach ($semanasCal as $semana):
+                foreach ($semana as $dia):
+                    if ($dia === null):
+            ?>
+                        <div class="bc-cal-day bc-vazio"></div>
+                    <?php else:
+                        $key       = sprintf('%s-%02d', $mesSel, $dia);
+                        $agsNoDia  = $porDiaCal[$key] ?? [];
+                        $eHojeDia  = ($key === $hoje);
+                        $classes   = 'bc-cal-day' . ($eHojeDia ? ' bc-hoje' : '') . (empty($agsNoDia) ? ' bc-sem-ag' : '');
+                    ?>
+                        <div class="<?= $classes ?>"
+                            data-data="<?= $key ?>"
+                            role="button"
+                            tabindex="0"
+                            aria-label="<?= $dia . ' — ' . count($agsNoDia) . ' agendamento(s)' ?>"
+                            onclick="mostrarDia('<?= $key ?>', <?= $dia ?>)"
+                            onkeydown="if(event.key==='Enter')mostrarDia('<?= $key ?>', <?= $dia ?>)">
+                            <div class="bc-cal-num"><?= $dia ?></div>
+                            <?php if (!empty($agsNoDia)): ?>
+                                <div class="bc-cal-dots">
+                                    <?php foreach (array_slice($agsNoDia, 0, 5) as $ag): ?>
+                                        <span class="bc-cal-dot <?= h($ag['StatusAgendamento']) ?>"></span>
+                                    <?php endforeach ?>
+                                </div>
+                                <?php if (count($agsNoDia) > 0): ?>
+                                    <span class="bc-cal-count"><?= count($agsNoDia) ?></span>
+                                <?php endif ?>
+                            <?php endif ?>
+                        </div>
+            <?php
+                    endif;
+                endforeach;
             endforeach;
-        endforeach;
-        ?>
-    </div>
-</div>
-
-<!-- Painel de detalhes do dia (preenchido pelo JS) -->
-<div id="painelDia" class="bc-dia-detalhe p-0 mb-3" style="display:none;">
-    <div class="card-header d-flex align-items-center justify-content-between px-4 py-3">
-        <h6 class="fw-bold mb-0" id="tituloDia"></h6>
-        <div class="d-flex gap-2">
-            <a id="btnNovoDiaLink" href="#" class="btn btn-accent btn-sm">
-                <i class="bi bi-plus me-1"></i>Novo agendamento
-            </a>
-            <button class="btn btn-sm btn-outline-secondary" onclick="fecharDia()">
-                <i class="bi bi-x-lg"></i>
-            </button>
+            ?>
         </div>
     </div>
-    <div id="conteudoDia" class="p-0"></div>
-</div>
 
-<!-- Formulários de ação ocultos (usados pelo JS para confirmar/cancelar/concluir) -->
-<div id="formsAcao" style="display:none;">
-    <form id="formConfirmar" method="POST">
-        <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
-        <input type="hidden" name="vista"  value="calendario">
-        <input type="hidden" name="mes"    value="<?= h($mesSel) ?>">
-        <input type="hidden" name="acao"   value="confirmar">
-        <input type="hidden" name="id"     id="frmConfId">
-    </form>
-    <form id="formCancelar" method="POST"
-          data-confirm="Confirma o cancelamento deste agendamento?"
-          data-confirm-label="Cancelar agendamento">
-        <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
-        <input type="hidden" name="vista"  value="calendario">
-        <input type="hidden" name="mes"    value="<?= h($mesSel) ?>">
-        <input type="hidden" name="acao"   value="cancelar">
-        <input type="hidden" name="id"     id="frmCancelId">
-    </form>
-    <form id="formConcluir" method="POST">
-        <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
-        <input type="hidden" name="vista"  value="calendario">
-        <input type="hidden" name="mes"    value="<?= h($mesSel) ?>">
-        <input type="hidden" name="acao"   value="concluir">
-        <input type="hidden" name="id"     id="frmConcluirId">
-    </form>
-</div>
+    <!-- Painel de detalhes do dia (preenchido pelo JS) -->
+    <div id="painelDia" class="bc-dia-detalhe p-0 mb-3" style="display:none;">
+        <div class="card-header d-flex align-items-center justify-content-between px-4 py-3">
+            <h6 class="fw-bold mb-0" id="tituloDia"></h6>
+            <div class="d-flex gap-2">
+                <a id="btnNovoDiaLink" href="#" class="btn btn-accent btn-sm">
+                    <i class="bi bi-plus me-1"></i>Novo agendamento
+                </a>
+                <button class="btn btn-sm btn-outline-secondary" onclick="fecharDia()">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        </div>
+        <div id="conteudoDia" class="p-0"></div>
+    </div>
 
-<script>
-const dadosCal = <?= json_encode($calJson, JSON_UNESCAPED_UNICODE) ?>;
-const BASE_URL  = '<?= BASE ?>';
-const MES_SEL   = '<?= h($mesSel) ?>';
+    <!-- Formulários de ação ocultos (usados pelo JS para confirmar/cancelar/concluir) -->
+    <div id="formsAcao" style="display:none;">
+        <form id="formConfirmar" method="POST">
+            <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+            <input type="hidden" name="vista" value="calendario">
+            <input type="hidden" name="mes" value="<?= h($mesSel) ?>">
+            <input type="hidden" name="acao" value="confirmar">
+            <input type="hidden" name="id" id="frmConfId">
+        </form>
+        <form id="formCancelar" method="POST"
+            data-confirm="Confirma o cancelamento deste agendamento?"
+            data-confirm-label="Cancelar agendamento">
+            <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+            <input type="hidden" name="vista" value="calendario">
+            <input type="hidden" name="mes" value="<?= h($mesSel) ?>">
+            <input type="hidden" name="acao" value="cancelar">
+            <input type="hidden" name="id" id="frmCancelId">
+        </form>
+        <form id="formConcluir" method="POST">
+            <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+            <input type="hidden" name="vista" value="calendario">
+            <input type="hidden" name="mes" value="<?= h($mesSel) ?>">
+            <input type="hidden" name="acao" value="concluir">
+            <input type="hidden" name="id" id="frmConcluirId">
+        </form>
+    </div>
 
-const statusLabel = {
-    pendente:   '<span class="badge bg-warning text-dark">Pendente</span>',
-    confirmado: '<span class="badge bg-success">Confirmado</span>',
-    cancelado:  '<span class="badge bg-danger">Cancelado</span>',
-    concluido:  '<span class="badge bg-secondary">Concluído</span>',
-};
-const pagLabel = {
-    pendente:  '<span class="badge bg-warning text-dark">A receber</span>',
-    pago:      '<span class="badge bg-success">Pago</span>',
-    cancelado: '<span class="badge bg-danger">Cancelado</span>',
-};
+    <script>
+        const dadosCal = <?= json_encode($calJson, JSON_UNESCAPED_UNICODE) ?>;
+        const BASE_URL = '<?= BASE ?>';
+        const MES_SEL = '<?= h($mesSel) ?>';
 
-let diaAberto = null;
+        const statusLabel = {
+            pendente: '<span class="badge bg-warning text-dark">Pendente</span>',
+            confirmado: '<span class="badge bg-success">Confirmado</span>',
+            cancelado: '<span class="badge bg-danger">Cancelado</span>',
+            concluido: '<span class="badge bg-secondary">Concluído</span>',
+        };
+        const pagLabel = {
+            pendente: '<span class="badge bg-warning text-dark">A receber</span>',
+            pago: '<span class="badge bg-success">Pago</span>',
+            cancelado: '<span class="badge bg-danger">Cancelado</span>',
+        };
 
-function mostrarDia(data, dia) {
-    // Remove seleção anterior
-    document.querySelectorAll('.bc-cal-day.bc-selecionado')
-        .forEach(el => el.classList.remove('bc-selecionado'));
-    const cel = document.querySelector('[data-data="' + data + '"]');
-    if (cel) cel.classList.add('bc-selecionado');
+        let diaAberto = null;
 
-    diaAberto = data;
-    const ags  = dadosCal[data] || [];
+        function mostrarDia(data, dia) {
+            // Remove seleção anterior
+            document.querySelectorAll('.bc-cal-day.bc-selecionado')
+                .forEach(el => el.classList.remove('bc-selecionado'));
+            const cel = document.querySelector('[data-data="' + data + '"]');
+            if (cel) cel.classList.add('bc-selecionado');
 
-    // Título
-    const partes = data.split('-');
-    document.getElementById('tituloDia').textContent =
-        partes[2] + '/' + partes[1] + '/' + partes[0] +
-        ' — ' + ags.length + (ags.length === 1 ? ' agendamento' : ' agendamentos');
+            diaAberto = data;
+            const ags = dadosCal[data] || [];
 
-    // Link novo agendamento com data pré-preenchida
-    document.getElementById('btnNovoDiaLink').href =
-        BASE_URL + '/painel/agenda.php?vista=calendario&mes=' + MES_SEL + '&acao=novo&data=' + data;
+            // Título
+            const partes = data.split('-');
+            document.getElementById('tituloDia').textContent =
+                partes[2] + '/' + partes[1] + '/' + partes[0] +
+                ' — ' + ags.length + (ags.length === 1 ? ' agendamento' : ' agendamentos');
 
-    // Conteúdo
-    const cont = document.getElementById('conteudoDia');
-    if (ags.length === 0) {
-        cont.innerHTML = '<p class="text-center text-secondary py-4 mb-0">Nenhum agendamento neste dia.</p>';
-    } else {
-        const ul = document.createElement('ul');
-        ul.className = 'list-group list-group-flush';
-        ags.forEach(ag => {
-            const li = document.createElement('li');
-            li.className = 'list-group-item px-4 py-2';
+            // Link novo agendamento com data pré-preenchida
+            document.getElementById('btnNovoDiaLink').href =
+                BASE_URL + '/painel/agenda.php?vista=calendario&mes=' + MES_SEL + '&acao=novo&data=' + data;
 
-            let botoes = '';
-            if (ag.tel) {
-                botoes += '<a href="https://wa.me/' + escHtml(ag.tel) + '" target="_blank" class="btn btn-sm btn-outline-success" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>';
-            }
-            if (ag.status === 'pendente') {
-                botoes += '<button class="btn btn-sm btn-outline-success" onclick="acaoAg(\'confirmar\',\'' + ag.id + '\')" title="Confirmar"><i class="bi bi-check-lg"></i></button>';
-            }
-            if (ag.status === 'pendente' || ag.status === 'confirmado') {
-                botoes += '<button class="btn btn-sm btn-outline-danger" onclick="acaoAg(\'cancelar\',\'' + ag.id + '\')" title="Cancelar"><i class="bi bi-x-lg"></i></button>';
-            }
-            if (ag.status === 'confirmado') {
-                botoes += '<button class="btn btn-sm btn-outline-secondary" onclick="acaoAg(\'concluir\',\'' + ag.id + '\')" title="Concluído"><i class="bi bi-check2-all"></i></button>';
-            }
+            // Conteúdo
+            const cont = document.getElementById('conteudoDia');
+            if (ags.length === 0) {
+                cont.innerHTML = '<p class="text-center text-secondary py-4 mb-0">Nenhum agendamento neste dia.</p>';
+            } else {
+                const ul = document.createElement('ul');
+                ul.className = 'list-group list-group-flush';
+                ags.forEach(ag => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item px-4 py-2';
 
-            li.innerHTML =
-                '<div class="d-flex align-items-center gap-2 flex-wrap">' +
-                    '<span class="fw-bold text-accent" style="min-width:40px;">' + escHtml(ag.hora) + '</span>' +
-                    '<div class="flex-grow-1">' +
+                    let botoes = '';
+                    if (ag.tel) {
+                        botoes += '<a href="https://wa.me/' + escHtml(ag.tel) + '" target="_blank" class="btn btn-sm btn-outline-success" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>';
+                    }
+                    if (ag.status === 'pendente') {
+                        botoes += '<button class="btn btn-sm btn-outline-success" onclick="acaoAg(\'confirmar\',\'' + ag.id + '\')" title="Confirmar"><i class="bi bi-check-lg"></i></button>';
+                    }
+                    if (ag.status === 'pendente' || ag.status === 'confirmado') {
+                        botoes += '<button class="btn btn-sm btn-outline-danger" onclick="acaoAg(\'cancelar\',\'' + ag.id + '\')" title="Cancelar"><i class="bi bi-x-lg"></i></button>';
+                    }
+                    if (ag.status === 'confirmado') {
+                        botoes += '<button class="btn btn-sm btn-outline-secondary" onclick="acaoAg(\'concluir\',\'' + ag.id + '\')" title="Concluído"><i class="bi bi-check2-all"></i></button>';
+                    }
+
+                    li.innerHTML =
+                        '<div class="d-flex align-items-center gap-2 flex-wrap">' +
+                        '<span class="fw-bold text-accent" style="min-width:40px;">' + escHtml(ag.hora) + '</span>' +
+                        '<div class="flex-grow-1">' +
                         '<span class="fw-medium">' + escHtml(ag.nome) + '</span>' +
                         '<span class="text-secondary small ms-1 d-block d-md-inline">' +
-                            escHtml(ag.servico) + ' (' + ag.duracao + 'min)</span>' +
-                    '</div>' +
-                    '<div class="d-flex gap-1 align-items-center flex-wrap">' +
+                        escHtml(ag.servico) + ' (' + ag.duracao + 'min)</span>' +
+                        '</div>' +
+                        '<div class="d-flex gap-1 align-items-center flex-wrap">' +
                         (statusLabel[ag.status] || '') +
                         (pagLabel[ag.pag] || '') +
-                    '</div>' +
-                    '<div class="d-flex gap-1">' + botoes + '</div>' +
-                '</div>';
-            ul.appendChild(li);
-        });
-        cont.innerHTML = '';
-        cont.appendChild(ul);
-    }
+                        '</div>' +
+                        '<div class="d-flex gap-1">' + botoes + '</div>' +
+                        '</div>';
+                    ul.appendChild(li);
+                });
+                cont.innerHTML = '';
+                cont.appendChild(ul);
+            }
 
-    const painel = document.getElementById('painelDia');
-    painel.style.display = 'block';
-    // Scroll suave até o painel
-    setTimeout(() => painel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
-}
+            const painel = document.getElementById('painelDia');
+            painel.style.display = 'block';
+            // Scroll suave até o painel
+            setTimeout(() => painel.scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest'
+            }), 50);
+        }
 
-function fecharDia() {
-    document.getElementById('painelDia').style.display = 'none';
-    document.querySelectorAll('.bc-cal-day.bc-selecionado')
-        .forEach(el => el.classList.remove('bc-selecionado'));
-    diaAberto = null;
-}
+        function fecharDia() {
+            document.getElementById('painelDia').style.display = 'none';
+            document.querySelectorAll('.bc-cal-day.bc-selecionado')
+                .forEach(el => el.classList.remove('bc-selecionado'));
+            diaAberto = null;
+        }
 
-function acaoAg(acao, id) {
-    const formMap = {
-        confirmar: ['formConfirmar', 'frmConfId'],
-        cancelar:  ['formCancelar',  'frmCancelId'],
-        concluir:  ['formConcluir',  'frmConcluirId'],
-    };
-    const [formId, inputId] = formMap[acao];
-    document.getElementById(inputId).value = id;
-    const form = document.getElementById(formId);
-    if (acao === 'cancelar') {
-        // usa o sistema de data-confirm já existente no footer
-        form.dataset.confirmed = '';
-        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    } else {
-        form.submit();
-    }
-}
+        function acaoAg(acao, id) {
+            const formMap = {
+                confirmar: ['formConfirmar', 'frmConfId'],
+                cancelar: ['formCancelar', 'frmCancelId'],
+                concluir: ['formConcluir', 'frmConcluirId'],
+            };
+            const [formId, inputId] = formMap[acao];
+            document.getElementById(inputId).value = id;
+            const form = document.getElementById(formId);
+            if (acao === 'cancelar') {
+                // usa o sistema de data-confirm já existente no footer
+                form.dataset.confirmed = '';
+                form.dispatchEvent(new Event('submit', {
+                    bubbles: true,
+                    cancelable: true
+                }));
+            } else {
+                form.submit();
+            }
+        }
 
-function escHtml(s) {
-    return String(s)
-        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
-</script>
+        function escHtml(s) {
+            return String(s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+    </script>
 <?php endif ?>
 
 <!-- ══════════════════════════════════════════════════════════
@@ -549,7 +568,7 @@ function escHtml(s) {
                     <div class="mb-3">
                         <label class="form-label">Cliente (e-mail ou nome)</label>
                         <input type="text" name="busca_cliente" id="buscaCliente"
-                               class="form-control" placeholder="Digite para buscar..." autocomplete="off">
+                            class="form-control" placeholder="Digite para buscar..." autocomplete="off">
                         <input type="hidden" name="fk_cliente" id="fkCliente">
                         <div id="resultadosBusca" class="list-group mt-1"></div>
                     </div>
@@ -558,11 +577,11 @@ function escHtml(s) {
                         <select name="fk_servico" class="form-select" id="selectServico">
                             <option value="">Selecione</option>
                             <?php foreach ($servicos as $sv): ?>
-                            <option value="<?= h($sv['IDServico']) ?>"
+                                <option value="<?= h($sv['IDServico']) ?>"
                                     data-duracao="<?= $sv['DuracaoMinutos'] ?>"
                                     data-preco="<?= $sv['Preco'] ?>">
-                                <?= h($sv['Nome']) ?> — <?= formatarMoeda((float)$sv['Preco']) ?>
-                            </option>
+                                    <?= h($sv['Nome']) ?> — <?= formatarMoeda((float)$sv['Preco']) ?>
+                                </option>
                             <?php endforeach ?>
                         </select>
                     </div>
@@ -574,7 +593,7 @@ function escHtml(s) {
                         <div class="col-5">
                             <label class="form-label">Valor (R$)</label>
                             <input type="number" name="valor" id="valorAg"
-                                   class="form-control" step="0.01" min="0" placeholder="0,00">
+                                class="form-control" step="0.01" min="0" placeholder="0,00">
                         </div>
                     </div>
                     <div class="mt-3">
@@ -594,57 +613,60 @@ function escHtml(s) {
 </div>
 
 <script>
-// Valor automático ao escolher serviço
-document.getElementById('selectServico')?.addEventListener('change', function () {
-    document.getElementById('valorAg').value = this.options[this.selectedIndex].dataset.preco || '';
-});
+    // Valor automático ao escolher serviço
+    document.getElementById('selectServico')?.addEventListener('change', function() {
+        document.getElementById('valorAg').value = this.options[this.selectedIndex].dataset.preco || '';
+    });
 
-// Busca de clientes
-let buscaTimer;
-document.getElementById('buscaCliente')?.addEventListener('input', function () {
-    clearTimeout(buscaTimer);
-    const q = this.value.trim();
-    if (q.length < 2) { document.getElementById('resultadosBusca').innerHTML = ''; return; }
-    buscaTimer = setTimeout(() => {
-        fetch('<?= BASE ?>/painel/api_busca_clientes.php?q=' + encodeURIComponent(q))
-            .then(r => r.json())
-            .then(data => {
-                const el = document.getElementById('resultadosBusca');
-                el.innerHTML = '';
-                data.forEach(c => {
-                    const btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.className = 'list-group-item list-group-item-action';
-                    btn.addEventListener('click', () => selecionarCliente(c.id, c.nome));
-                    btn.textContent = c.nome + ' ';
-                    const small = document.createElement('small');
-                    small.className = 'text-secondary';
-                    small.textContent = c.email;
-                    btn.appendChild(small);
-                    el.appendChild(btn);
-                });
-            });
-    }, 300);
-});
-
-function selecionarCliente(id, nome) {
-    document.getElementById('fkCliente').value = id;
-    document.getElementById('buscaCliente').value = nome;
-    document.getElementById('resultadosBusca').innerHTML = '';
-}
-
-// Abre modal e pré-preenche data quando ?acao=novo&data=YYYY-MM-DD
-(function () {
-    const params = new URLSearchParams(location.search);
-    if (params.get('acao') === 'novo') {
-        const dataParam = params.get('data');
-        if (dataParam) {
-            const inp = document.getElementById('inputDataHora');
-            if (inp) inp.value = dataParam + 'T09:00';
+    // Busca de clientes
+    let buscaTimer;
+    document.getElementById('buscaCliente')?.addEventListener('input', function() {
+        clearTimeout(buscaTimer);
+        const q = this.value.trim();
+        if (q.length < 2) {
+            document.getElementById('resultadosBusca').innerHTML = '';
+            return;
         }
-        new bootstrap.Modal(document.getElementById('modalNovoAg')).show();
+        buscaTimer = setTimeout(() => {
+            fetch('<?= BASE ?>/painel/api_busca_clientes.php?q=' + encodeURIComponent(q))
+                .then(r => r.json())
+                .then(data => {
+                    const el = document.getElementById('resultadosBusca');
+                    el.innerHTML = '';
+                    data.forEach(c => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'list-group-item list-group-item-action';
+                        btn.addEventListener('click', () => selecionarCliente(c.id, c.nome));
+                        btn.textContent = c.nome + ' ';
+                        const small = document.createElement('small');
+                        small.className = 'text-secondary';
+                        small.textContent = c.email;
+                        btn.appendChild(small);
+                        el.appendChild(btn);
+                    });
+                });
+        }, 300);
+    });
+
+    function selecionarCliente(id, nome) {
+        document.getElementById('fkCliente').value = id;
+        document.getElementById('buscaCliente').value = nome;
+        document.getElementById('resultadosBusca').innerHTML = '';
     }
-})();
+
+    // Abre modal e pré-preenche data quando ?acao=novo&data=YYYY-MM-DD
+    (function() {
+        const params = new URLSearchParams(location.search);
+        if (params.get('acao') === 'novo') {
+            const dataParam = params.get('data');
+            if (dataParam) {
+                const inp = document.getElementById('inputDataHora');
+                if (inp) inp.value = dataParam + 'T09:00';
+            }
+            new bootstrap.Modal(document.getElementById('modalNovoAg')).show();
+        }
+    })();
 </script>
 
 <?php require_once __DIR__ . '/../geral/footer.php' ?>

@@ -71,7 +71,6 @@ try {
     );
     $proximos->execute([':amanha' => $hoje . ' 23:59:59']);
     $proximos = $proximos->fetchAll();
-
 } catch (PDOException $e) {
     error_log('[PainelDash] ' . $e->getMessage());
     $totalHoje = $totalSemana = $totalClientes = 0;
@@ -98,18 +97,18 @@ require_once __DIR__ . '/../geral/header.php';
     ];
     foreach ($stats as [$icon, $color, $bg, $label, $valor, $sub]):
     ?>
-    <div class="col-6 col-xl-3">
-        <div class="card stat-card">
-            <div class="stat-icon" style="background:<?= $bg ?>;color:<?= $color ?>">
-                <i class="bi <?= $icon ?>"></i>
-            </div>
-            <div>
-                <div class="fw-bold fs-4 lh-1"><?= is_numeric($valor) ? number_format((float)$valor) : $valor ?></div>
-                <div class="text-secondary small"><?= $label ?></div>
-                <?php if ($sub): ?><div class="text-secondary" style="font-size:.72rem;"><?= $sub ?></div><?php endif ?>
+        <div class="col-6 col-xl-3">
+            <div class="card stat-card">
+                <div class="stat-icon" style="background:<?= $bg ?>;color:<?= $color ?>">
+                    <i class="bi <?= $icon ?>"></i>
+                </div>
+                <div>
+                    <div class="fw-bold fs-4 lh-1"><?= is_numeric($valor) ? number_format((float)$valor) : $valor ?></div>
+                    <div class="text-secondary small"><?= $label ?></div>
+                    <?php if ($sub): ?><div class="text-secondary" style="font-size:.72rem;"><?= $sub ?></div><?php endif ?>
+                </div>
             </div>
         </div>
-    </div>
     <?php endforeach ?>
 </div>
 
@@ -127,40 +126,40 @@ require_once __DIR__ . '/../geral/header.php';
             </div>
             <div class="card-body p-0">
                 <?php if (empty($agHojeDetalhe)): ?>
-                <div class="text-center py-5 text-secondary">
-                    <i class="bi bi-sun fs-1 d-block mb-2 opacity-25"></i>
-                    <p class="mb-0">Nenhum agendamento para hoje.</p>
-                </div>
+                    <div class="text-center py-5 text-secondary">
+                        <i class="bi bi-sun fs-1 d-block mb-2 opacity-25"></i>
+                        <p class="mb-0">Nenhum agendamento para hoje.</p>
+                    </div>
                 <?php else: ?>
-                <ul class="list-group list-group-flush">
-                    <?php foreach ($agHojeDetalhe as $ag): ?>
-                    <li class="list-group-item px-4 py-3">
-                        <div class="d-flex align-items-center gap-3">
-                            <div class="text-accent fw-bold" style="min-width:42px;font-size:1rem;">
-                                <?= date('H:i', strtotime($ag['DataHoraAgendamento'])) ?>
-                            </div>
-                            <div class="flex-grow-1">
-                                <div class="fw-semibold"><?= h($ag['NomeCliente']) ?></div>
-                                <div class="small text-secondary">
-                                    <?= h($ag['NomeSubServico'] ?? $ag['NomeServico']) ?>
-                                    <?php if ($ag['ValorCobrado']): ?>
-                                    &nbsp;·&nbsp; <?= formatarMoeda((float)$ag['ValorCobrado']) ?>
-                                    <?php endif ?>
+                    <ul class="list-group list-group-flush">
+                        <?php foreach ($agHojeDetalhe as $ag): ?>
+                            <li class="list-group-item px-4 py-3">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="text-accent fw-bold" style="min-width:42px;font-size:1rem;">
+                                        <?= date('H:i', strtotime($ag['DataHoraAgendamento'])) ?>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="fw-semibold"><?= h($ag['NomeCliente']) ?></div>
+                                        <div class="small text-secondary">
+                                            <?= h($ag['NomeSubServico'] ?? $ag['NomeServico']) ?>
+                                            <?php if ($ag['ValorCobrado']): ?>
+                                                &nbsp;·&nbsp; <?= formatarMoeda((float)$ag['ValorCobrado']) ?>
+                                            <?php endif ?>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <?= labelStatus($ag['StatusAgendamento']) ?>
+                                        <?php if ($ag['Telefone']): ?>
+                                            <a href="https://wa.me/<?= h($ag['Telefone']) ?>" target="_blank"
+                                                class="btn btn-sm btn-outline-success" title="WhatsApp">
+                                                <i class="bi bi-whatsapp"></i>
+                                            </a>
+                                        <?php endif ?>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <?= labelStatus($ag['StatusAgendamento']) ?>
-                                <?php if ($ag['Telefone']): ?>
-                                <a href="https://wa.me/<?= h($ag['Telefone']) ?>" target="_blank"
-                                   class="btn btn-sm btn-outline-success" title="WhatsApp">
-                                    <i class="bi bi-whatsapp"></i>
-                                </a>
-                                <?php endif ?>
-                            </div>
-                        </div>
-                    </li>
-                    <?php endforeach ?>
-                </ul>
+                            </li>
+                        <?php endforeach ?>
+                    </ul>
                 <?php endif ?>
             </div>
         </div>
@@ -186,24 +185,24 @@ require_once __DIR__ . '/../geral/header.php';
 
         <!-- Próximos agendamentos -->
         <?php if (!empty($proximos)): ?>
-        <div class="card flex-grow-1">
-            <div class="card-header px-4 py-3">
-                <i class="bi bi-calendar3 me-2 text-accent"></i>Próximos
+            <div class="card flex-grow-1">
+                <div class="card-header px-4 py-3">
+                    <i class="bi bi-calendar3 me-2 text-accent"></i>Próximos
+                </div>
+                <ul class="list-group list-group-flush">
+                    <?php foreach ($proximos as $p): ?>
+                        <li class="list-group-item px-4 py-2">
+                            <div class="small fw-medium"><?= h($p['NomeCliente']) ?></div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="small text-secondary">
+                                    <?= date('d/m H:i', strtotime($p['DataHoraAgendamento'])) ?>
+                                </span>
+                                <?= labelStatus($p['StatusAgendamento']) ?>
+                            </div>
+                        </li>
+                    <?php endforeach ?>
+                </ul>
             </div>
-            <ul class="list-group list-group-flush">
-                <?php foreach ($proximos as $p): ?>
-                <li class="list-group-item px-4 py-2">
-                    <div class="small fw-medium"><?= h($p['NomeCliente']) ?></div>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="small text-secondary">
-                            <?= date('d/m H:i', strtotime($p['DataHoraAgendamento'])) ?>
-                        </span>
-                        <?= labelStatus($p['StatusAgendamento']) ?>
-                    </div>
-                </li>
-                <?php endforeach ?>
-            </ul>
-        </div>
         <?php endif ?>
     </div>
 </div>

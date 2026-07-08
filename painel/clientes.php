@@ -71,7 +71,7 @@ try {
     $params[':lim'] = $por;
     $params[':off'] = $off;
     foreach ($params as $k => $v) {
-        $stmt->bindValue($k, $v, in_array($k, [':lim',':off']) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        $stmt->bindValue($k, $v, in_array($k, [':lim', ':off']) ? PDO::PARAM_INT : PDO::PARAM_STR);
     }
     $stmt->execute();
     $clientes = $stmt->fetchAll();
@@ -100,10 +100,10 @@ require_once __DIR__ . '/../geral/header.php';
     <div class="input-group">
         <span class="input-group-text"><i class="bi bi-search"></i></span>
         <input type="text" name="q" class="form-control" placeholder="Buscar por nome, e-mail ou telefone..."
-               value="<?= h($busca) ?>">
+            value="<?= h($busca) ?>">
         <button class="btn btn-accent" type="submit">Buscar</button>
         <?php if ($busca): ?>
-        <a href="<?= BASE ?>/painel/clientes.php" class="btn btn-outline-secondary">Limpar</a>
+            <a href="<?= BASE ?>/painel/clientes.php" class="btn btn-outline-secondary">Limpar</a>
         <?php endif ?>
     </div>
 </form>
@@ -111,67 +111,67 @@ require_once __DIR__ . '/../geral/header.php';
 <div class="card">
     <div class="card-body p-0">
         <?php if (empty($clientes)): ?>
-        <div class="text-center py-5 text-secondary">
-            <i class="bi bi-people fs-1 d-block mb-2 opacity-25"></i>
-            <p>Nenhuma cliente encontrada.</p>
-        </div>
+            <div class="text-center py-5 text-secondary">
+                <i class="bi bi-people fs-1 d-block mb-2 opacity-25"></i>
+                <p>Nenhuma cliente encontrada.</p>
+            </div>
         <?php else: ?>
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead style="background:var(--bg-hover);">
-                    <tr>
-                        <th class="px-4 py-3">Nome</th>
-                        <th>E-mail</th>
-                        <th>WhatsApp</th>
-                        <th class="text-center">Procedimentos</th>
-                        <th>Cadastro</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($clientes as $c): ?>
-                    <tr>
-                        <td class="px-4 fw-medium"><?= h($c['Nome']) ?></td>
-                        <td class="text-secondary small"><?= h($c['Email']) ?></td>
-                        <td>
-                            <?php if ($c['Telefone']): ?>
-                            <a href="https://wa.me/<?= h($c['Telefone']) ?>" target="_blank"
-                               class="btn btn-sm btn-outline-success">
-                                <i class="bi bi-whatsapp"></i>
-                            </a>
-                            <?php else: ?>
-                            <span class="text-secondary">—</span>
-                            <?php endif ?>
-                        </td>
-                        <td class="text-center">
-                            <span class="badge bg-secondary"><?= (int)$c['TotalAg'] ?></span>
-                        </td>
-                        <td class="small text-secondary"><?= formatarData($c['MomentoRegistro']) ?></td>
-                        <td>
-                            <a href="<?= BASE ?>/painel/cliente_detalhe.php?id=<?= h($c['IDUsuario']) ?>"
-                               class="btn btn-sm btn-outline-accent">
-                                <i class="bi bi-eye me-1"></i>Ver
-                            </a>
-                        </td>
-                    </tr>
-                    <?php endforeach ?>
-                </tbody>
-            </table>
-        </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead style="background:var(--bg-hover);">
+                        <tr>
+                            <th class="px-4 py-3">Nome</th>
+                            <th>E-mail</th>
+                            <th>WhatsApp</th>
+                            <th class="text-center">Procedimentos</th>
+                            <th>Cadastro</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($clientes as $c): ?>
+                            <tr>
+                                <td class="px-4 fw-medium"><?= h($c['Nome']) ?></td>
+                                <td class="text-secondary small"><?= h($c['Email']) ?></td>
+                                <td>
+                                    <?php if ($c['Telefone']): ?>
+                                        <a href="https://wa.me/<?= h($c['Telefone']) ?>" target="_blank"
+                                            class="btn btn-sm btn-outline-success">
+                                            <i class="bi bi-whatsapp"></i>
+                                        </a>
+                                    <?php else: ?>
+                                        <span class="text-secondary">—</span>
+                                    <?php endif ?>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-secondary"><?= (int)$c['TotalAg'] ?></span>
+                                </td>
+                                <td class="small text-secondary"><?= formatarData($c['MomentoRegistro']) ?></td>
+                                <td>
+                                    <a href="<?= BASE ?>/painel/cliente_detalhe.php?id=<?= h($c['IDUsuario']) ?>"
+                                        class="btn btn-sm btn-outline-accent">
+                                        <i class="bi bi-eye me-1"></i>Ver
+                                    </a>
+                                </td>
+                            </tr>
+                        <?php endforeach ?>
+                    </tbody>
+                </table>
+            </div>
 
-        <?php if ($totalPag > 1): ?>
-        <div class="d-flex justify-content-center py-3">
-            <nav>
-                <ul class="pagination pagination-sm mb-0">
-                    <?php for ($p = 1; $p <= $totalPag; $p++): ?>
-                    <li class="page-item <?= $p === $pag ? 'active' : '' ?>">
-                        <a class="page-link" href="?pag=<?= $p ?>&q=<?= urlencode($busca) ?>"><?= $p ?></a>
-                    </li>
-                    <?php endfor ?>
-                </ul>
-            </nav>
-        </div>
-        <?php endif ?>
+            <?php if ($totalPag > 1): ?>
+                <div class="d-flex justify-content-center py-3">
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0">
+                            <?php for ($p = 1; $p <= $totalPag; $p++): ?>
+                                <li class="page-item <?= $p === $pag ? 'active' : '' ?>">
+                                    <a class="page-link" href="?pag=<?= $p ?>&q=<?= urlencode($busca) ?>"><?= $p ?></a>
+                                </li>
+                            <?php endfor ?>
+                        </ul>
+                    </nav>
+                </div>
+            <?php endif ?>
         <?php endif ?>
     </div>
 </div>
