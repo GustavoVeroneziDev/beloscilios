@@ -41,7 +41,7 @@ if ($dataSel < $dataMin) {
 $diaSemana = (int) date('w', $dataTs); // 0=dom
 try {
     $horStmt = $pdo->prepare(
-        'SELECT HoraInicio, HoraFim FROM HorariosAtendimento
+        'SELECT HoraInicio, HoraFim, AlmocoInicio, AlmocoFim FROM HorariosAtendimento
          WHERE DiaSemana = :d AND Ativo = 1 LIMIT 1'
     );
     $horStmt->execute([':d' => $diaSemana]);
@@ -119,6 +119,13 @@ if ($horario) {
                 $bFim = strtotime($b['DataFim']);
                 if ($ts < $bFim && $slotFim > $bIni) { $livre = false; break; }
             }
+        }
+
+        // Verificar intervalo de almoço
+        if ($livre && !empty($horario['AlmocoInicio']) && !empty($horario['AlmocoFim'])) {
+            $alIni = strtotime("{$dataSel} {$horario['AlmocoInicio']}");
+            $alFim = strtotime("{$dataSel} {$horario['AlmocoFim']}");
+            if ($ts < $alFim && $slotFim > $alIni) { $livre = false; }
         }
 
         if ($livre) {

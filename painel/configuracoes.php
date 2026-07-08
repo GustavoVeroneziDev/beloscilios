@@ -42,12 +42,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $ativo = isset($_POST["dia_{$d}_ativo"]) ? 1 : 0;
                 $ini   = $_POST["dia_{$d}_ini"] ?? '09:00';
                 $fim   = $_POST["dia_{$d}_fim"] ?? '18:00';
+                $temAlmoco  = isset($_POST["dia_{$d}_almoco_ativo"]);
+                $almocoIni  = $temAlmoco ? (trim($_POST["dia_{$d}_almoco_ini"] ?? '') ?: null) : null;
+                $almocoFim  = $temAlmoco ? (trim($_POST["dia_{$d}_almoco_fim"] ?? '') ?: null) : null;
                 if ($ativo) {
                     $stmt = $pdo->prepare(
-                        'INSERT INTO HorariosAtendimento (IDHorario,DiaSemana,HoraInicio,HoraFim,Ativo)
-                         VALUES (:id,:d,:ini,:fim,1)'
+                        'INSERT INTO HorariosAtendimento
+                            (IDHorario, DiaSemana, HoraInicio, HoraFim, AlmocoInicio, AlmocoFim, Ativo)
+                         VALUES (:id, :d, :ini, :fim, :alni, :alfm, 1)'
                     );
-                    $stmt->execute([':id'=>gerarUuid(),':d'=>$d,':ini'=>$ini,':fim'=>$fim]);
+                    $stmt->execute([
+                        ':id'   => gerarUuid(),
+                        ':d'    => $d,
+                        ':ini'  => $ini,
+                        ':fim'  => $fim,
+                        ':alni' => $almocoIni,
+                        ':alfm' => $almocoFim,
+                    ]);
                 }
             }
             redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Horários atualizados!', 'success');
@@ -204,11 +215,22 @@ require_once __DIR__ . '/../geral/header.php';
                                 <th>Ativo</th>
                                 <th>Abertura</th>
                                 <th>Fechamento</th>
+                                <th>Almoço</th>
+                                <th>Início almoço</th>
+                                <th>Fim almoço</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php for ($d = 0; $d <= 6; $d++): ?>
-                            <?php $h_row = $horarios[$d] ?? null; ?>
+                            <?php
+                                $h_row    = $horarios[$d] ?? null;
+                                $temAlm   = $h_row && !empty($h_row['AlmocoInicio']);
+                                $almIni   = $h_row['AlmocoInicio'] ?? '12:00';
+                                $almFim   = $h_row['AlmocoFim']    ?? '13:00';
+                                // Formata HH:MM (o BD pode devolver HH:MM:SS)
+                                $almIni   = substr($almIni, 0, 5);
+                                $almFim   = substr($almFim, 0, 5);
+                            ?>
                             <tr>
                                 <td class="fw-medium"><?= $diasNomes[$d] ?></td>
                                 <td>
@@ -222,13 +244,39 @@ require_once __DIR__ . '/../geral/header.php';
                                     <input type="time" name="dia_<?= $d ?>_ini"
                                            class="form-control form-control-sm"
                                            value="<?= h($h_row['HoraInicio'] ?? '09:00') ?>"
-                                           style="width:120px;">
+                                           style="width:110px;">
                                 </td>
                                 <td>
                                     <input type="time" name="dia_<?= $d ?>_fim"
                                            class="form-control form-control-sm"
                                            value="<?= h($h_row['HoraFim'] ?? '18:00') ?>"
-                                           style="width:120px;">
+                                           style="width:110px;">
+                                </td>
+                                <td>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input almoco-toggle"
+                                               type="checkbox"
+                                               name="dia_<?= $d ?>_almoco_ativo"
+                                               id="almoco<?= $d ?>"
+                                               <?= $temAlm ? 'checked' : '' ?>
+                                               onchange="toggleAlmoco(<?= $d ?>)">
+                                    </div>
+                                </td>
+                                <td>
+                                    <input type="time" name="dia_<?= $d ?>_almoco_ini"
+                                           id="almoco_ini_<?= $d ?>"
+                                           class="form-control form-control-sm"
+                                           value="<?= h($almIni) ?>"
+                                           style="width:110px;"
+                                           <?= $temAlm ? '' : 'disabled' ?>>
+                                </td>
+                                <td>
+                                    <input type="time" name="dia_<?= $d ?>_almoco_fim"
+                                           id="almoco_fim_<?= $d ?>"
+                                           class="form-control form-control-sm"
+                                           value="<?= h($almFim) ?>"
+                                           style="width:110px;"
+                                           <?= $temAlm ? '' : 'disabled' ?>>
                                 </td>
                             </tr>
                             <?php endfor ?>
@@ -236,6 +284,13 @@ require_once __DIR__ . '/../geral/header.php';
                     </table>
                 </div>
                 <button class="btn btn-accent"><i class="bi bi-save me-1"></i> Salvar horários</button>
+                <script>
+                function toggleAlmoco(d) {
+                    const on  = document.getElementById('almoco' + d).checked;
+                    document.getElementById('almoco_ini_' + d).disabled = !on;
+                    document.getElementById('almoco_fim_' + d).disabled = !on;
+                }
+                </script>
             </form>
         </div>
     </div>
