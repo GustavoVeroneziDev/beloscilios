@@ -90,19 +90,18 @@ require_once __DIR__ . '/../geral/header.php';
             </div>
 
             <div id="g_id_onload"
-                 data-client_id="<?= h($clientID ?? '') ?>"
-                 data-callback="handleGoogleCredential"
-                 data-auto_prompt="false">
-            </div>
+                 data-client_id="808511905880-9jd31jmci1m9ibikht6r2vlerjeb8r4l.apps.googleusercontent.com"
+                 data-login_uri="https://beloscilios.com/usuario/callback_google.php"
+                 data-auto_prompt="false"></div>
             <div class="d-flex justify-content-center">
                 <div class="g_id_signin"
                      data-type="standard"
                      data-size="large"
                      data-theme="outline"
                      data-text="continue_with"
+                     data-locale="pt-BR"
                      data-shape="rectangular"
-                     data-width="360">
-                </div>
+                     data-width="360"></div>
             </div>
 
             <hr class="my-3">
@@ -116,17 +115,6 @@ require_once __DIR__ . '/../geral/header.php';
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
-function handleGoogleCredential(response) {
-    var form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '<?= BASE ?>/usuario/callback_google.php';
-    var inp = document.createElement('input');
-    inp.type = 'hidden'; inp.name = 'credential'; inp.value = response.credential;
-    form.appendChild(inp);
-    document.body.appendChild(form);
-    form.submit();
-}
-
 document.getElementById('toggleSenha')?.addEventListener('click', function () {
     const input = document.getElementById('senha');
     const icone = document.getElementById('iconeSenha');
