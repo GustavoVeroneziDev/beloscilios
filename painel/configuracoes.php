@@ -204,32 +204,29 @@ require_once __DIR__ . '/../geral/header.php';
     <!-- Horários -->
     <div class="tab-pane fade" id="tabHorarios">
         <div class="card">
-            <form method="POST" class="card-body p-4">
+            <form method="POST" id="formHorarios" class="card-body p-4">
                 <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
                 <input type="hidden" name="acao" value="horarios">
                 <div class="table-responsive">
-                    <table class="table align-middle">
+                    <table class="table align-middle" style="min-width:680px;">
                         <thead>
                             <tr>
                                 <th>Dia</th>
                                 <th>Ativo</th>
-                                <th>Abertura</th>
-                                <th>Fechamento</th>
                                 <th>Almoço</th>
+                                <th>Abertura</th>
                                 <th>Início almoço</th>
                                 <th>Fim almoço</th>
+                                <th>Término</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php for ($d = 0; $d <= 6; $d++): ?>
                             <?php
-                                $h_row    = $horarios[$d] ?? null;
-                                $temAlm   = $h_row && !empty($h_row['AlmocoInicio']);
-                                $almIni   = $h_row['AlmocoInicio'] ?? '12:00';
-                                $almFim   = $h_row['AlmocoFim']    ?? '13:00';
-                                // Formata HH:MM (o BD pode devolver HH:MM:SS)
-                                $almIni   = substr($almIni, 0, 5);
-                                $almFim   = substr($almFim, 0, 5);
+                                $h_row  = $horarios[$d] ?? null;
+                                $temAlm = $h_row && !empty($h_row['AlmocoInicio']);
+                                $almIni = substr($h_row['AlmocoInicio'] ?? '12:00', 0, 5);
+                                $almFim = substr($h_row['AlmocoFim']    ?? '13:00', 0, 5);
                             ?>
                             <tr>
                                 <td class="fw-medium"><?= $diasNomes[$d] ?></td>
@@ -241,26 +238,21 @@ require_once __DIR__ . '/../geral/header.php';
                                     </div>
                                 </td>
                                 <td>
-                                    <input type="time" name="dia_<?= $d ?>_ini"
-                                           class="form-control form-control-sm"
-                                           value="<?= h($h_row['HoraInicio'] ?? '09:00') ?>"
-                                           style="width:110px;">
-                                </td>
-                                <td>
-                                    <input type="time" name="dia_<?= $d ?>_fim"
-                                           class="form-control form-control-sm"
-                                           value="<?= h($h_row['HoraFim'] ?? '18:00') ?>"
-                                           style="width:110px;">
-                                </td>
-                                <td>
                                     <div class="form-check form-switch">
-                                        <input class="form-check-input almoco-toggle"
+                                        <input class="form-check-input"
                                                type="checkbox"
                                                name="dia_<?= $d ?>_almoco_ativo"
                                                id="almoco<?= $d ?>"
                                                <?= $temAlm ? 'checked' : '' ?>
                                                onchange="toggleAlmoco(<?= $d ?>)">
                                     </div>
+                                </td>
+                                <td>
+                                    <input type="time" name="dia_<?= $d ?>_ini"
+                                           id="ini_<?= $d ?>"
+                                           class="form-control form-control-sm"
+                                           value="<?= h($h_row['HoraInicio'] ?? '09:00') ?>"
+                                           style="width:110px;">
                                 </td>
                                 <td>
                                     <input type="time" name="dia_<?= $d ?>_almoco_ini"
@@ -278,22 +270,97 @@ require_once __DIR__ . '/../geral/header.php';
                                            style="width:110px;"
                                            <?= $temAlm ? '' : 'disabled' ?>>
                                 </td>
+                                <td>
+                                    <input type="time" name="dia_<?= $d ?>_fim"
+                                           id="fim_<?= $d ?>"
+                                           class="form-control form-control-sm"
+                                           value="<?= h($h_row['HoraFim'] ?? '18:00') ?>"
+                                           style="width:110px;">
+                                </td>
                             </tr>
                             <?php endfor ?>
                         </tbody>
                     </table>
                 </div>
                 <button class="btn btn-accent"><i class="bi bi-save me-1"></i> Salvar horários</button>
-                <script>
-                function toggleAlmoco(d) {
-                    const on  = document.getElementById('almoco' + d).checked;
-                    document.getElementById('almoco_ini_' + d).disabled = !on;
-                    document.getElementById('almoco_fim_' + d).disabled = !on;
-                }
-                </script>
             </form>
         </div>
     </div>
+
+    <!-- Modal de erro de horário -->
+    <div class="modal fade" id="modalErroHorario" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content border-0 shadow-lg" style="border-radius:14px;">
+                <div class="modal-body text-center px-4 pt-4 pb-2">
+                    <i class="bi bi-exclamation-triangle-fill d-block mb-3"
+                       style="font-size:2.4rem;color:#f59e0b;"></i>
+                    <p class="fw-semibold mb-0" id="modalErroMsg" style="color:var(--text-main);"></p>
+                </div>
+                <div class="modal-footer justify-content-center border-0 pt-2 pb-4">
+                    <button type="button" class="btn btn-accent px-5"
+                            data-bs-dismiss="modal">Entendi</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const diasNomes = <?= json_encode($diasNomes) ?>;
+
+    function toggleAlmoco(d) {
+        const on = document.getElementById('almoco' + d).checked;
+        document.getElementById('almoco_ini_' + d).disabled = !on;
+        document.getElementById('almoco_fim_' + d).disabled = !on;
+    }
+
+    function erroHorario(msg) {
+        document.getElementById('modalErroMsg').textContent = msg;
+        new bootstrap.Modal(document.getElementById('modalErroHorario')).show();
+    }
+
+    document.getElementById('formHorarios').addEventListener('submit', function (e) {
+        for (let d = 0; d <= 6; d++) {
+            const ativo    = document.getElementById('dia' + d).checked;
+            if (!ativo) continue;
+
+            const ini    = document.getElementById('ini_' + d).value;
+            const fim    = document.getElementById('fim_' + d).value;
+            const almOn  = document.getElementById('almoco' + d).checked;
+            const almIni = document.getElementById('almoco_ini_' + d).value;
+            const almFim = document.getElementById('almoco_fim_' + d).value;
+            const dia    = diasNomes[d];
+
+            if (ini >= fim) {
+                e.preventDefault();
+                erroHorario(dia + ': o horário de abertura (' + ini + ') deve ser anterior ao término (' + fim + ').');
+                return;
+            }
+
+            if (almOn) {
+                if (!almIni || !almFim) {
+                    e.preventDefault();
+                    erroHorario(dia + ': preencha os dois horários do intervalo de almoço.');
+                    return;
+                }
+                if (almIni >= almFim) {
+                    e.preventDefault();
+                    erroHorario(dia + ': o início do almoço (' + almIni + ') deve ser anterior ao fim (' + almFim + ').');
+                    return;
+                }
+                if (almIni <= ini) {
+                    e.preventDefault();
+                    erroHorario(dia + ': o início do almoço (' + almIni + ') deve ser após a abertura (' + ini + ').');
+                    return;
+                }
+                if (almFim >= fim) {
+                    e.preventDefault();
+                    erroHorario(dia + ': o fim do almoço (' + almFim + ') deve ser antes do término (' + fim + ').');
+                    return;
+                }
+            }
+        }
+    });
+    </script>
 
     <!-- Mensagens WA -->
     <div class="tab-pane fade" id="tabMensagens">
