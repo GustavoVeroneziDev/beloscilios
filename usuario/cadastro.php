@@ -91,7 +91,7 @@ require_once __DIR__ . '/../geral/header.php';
 
             <div id="g_id_onload"
                  data-client_id="808511905880-9jd31jmci1m9ibikht6r2vlerjeb8r4l.apps.googleusercontent.com"
-                 data-login_uri="https://beloscilios.com/usuario/callback_google.php"
+                 data-login_uri="https://beloscilios.com/usuario/login_google.php"
                  data-auto_prompt="false"></div>
             <div class="d-flex justify-content-center">
                 <div class="g_id_signin"
