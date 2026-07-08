@@ -54,10 +54,6 @@ try {
         $params[':q'] = '%' . $busca . '%';
     }
 
-    $total = (int) $pdo->prepare("SELECT COUNT(*) FROM Usuarios {$where}")
-                       ->execute($params) ? $pdo->query("SELECT COUNT(*) FROM Usuarios {$where}")->fetchColumn() : 0;
-
-    // Reexecuta corretamente
     $cntStmt = $pdo->prepare("SELECT COUNT(*) FROM Usuarios {$where}");
     $cntStmt->execute($params);
     $total = (int) $cntStmt->fetchColumn();

@@ -13,6 +13,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $acao = $_POST['acao'] ?? '';
 
     if ($acao === 'config') {
+        $intervaloMin = (int)($_POST['intervalo_minutos'] ?? 0);
+        if ($intervaloMin < 1) {
+            redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Intervalo entre atendimentos deve ser pelo menos 1 minuto.', 'warning');
+        }
         $campos = [
             'nome_estudio','telefone_estudio','endereco_estudio',
             'intervalo_minutos','antecedencia_minima_h','dias_agenda_futura',
@@ -58,6 +62,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $dataFim = trim($_POST['bloq_fim'] ?? '');
         $motivo  = trim($_POST['bloq_motivo'] ?? '');
         if ($dataIni && $dataFim) {
+            if ($dataFim <= $dataIni) {
+                redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'A data de fim deve ser posterior à data de início.', 'warning');
+            }
             try {
                 $pdo->prepare(
                     'INSERT INTO BloqueiosAgenda (IDBloqueio,DataInicio,DataFim,Motivo)
@@ -66,6 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Bloqueio adicionado!', 'success');
             } catch (PDOException $e) {
                 error_log('[Bloqueio] ' . $e->getMessage());
+                redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Erro ao adicionar bloqueio.', 'danger');
             }
         }
     }
