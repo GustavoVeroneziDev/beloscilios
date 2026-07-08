@@ -90,7 +90,7 @@ require_once __DIR__ . '/../geral/header.php';
             </div>
 
             <div id="g_id_onload"
-                 data-client_id="<?= defined('GOOGLE_CLIENT_ID') ? h(GOOGLE_CLIENT_ID) : '' ?>"
+                 data-client_id="<?= h($clientID ?? '') ?>"
                  data-callback="handleGoogleCredential"
                  data-auto_prompt="false">
             </div>

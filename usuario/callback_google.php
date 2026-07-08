@@ -3,39 +3,35 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 require_once __DIR__ . '/../config/conexao.php';
-require_once __DIR__ . '/../config/google_oauth.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_POST['credential'])) {
-    redirecionarComMensagem(BASE . '/usuario/login.php', 'Requisição inválida. Tente novamente.', 'danger');
+    redirecionarComMensagem(BASE . '/usuario/login.php', 'Requisição inválida.', 'danger');
 }
 
-$credential = trim($_POST['credential']);
+// Valida o JWT via tokeninfo usando cURL (mais confiável em hospedagem compartilhada)
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, 'https://oauth2.googleapis.com/tokeninfo?id_token=' . urlencode($_POST['credential']));
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+$tokenInfoResponse = curl_exec($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+curl_close($ch);
 
-// Valida o JWT via tokeninfo — sem troca de code, sem parâmetros GET
-$tokenInfo = @file_get_contents(
-    'https://oauth2.googleapis.com/tokeninfo?id_token=' . urlencode($credential)
-);
+$payload = $httpCode === 200 ? json_decode($tokenInfoResponse, true) : null;
 
-if (!$tokenInfo) {
-    error_log('[GoogleOAuth] Falha ao chamar tokeninfo');
+$tokenValido = $payload
+    && ($payload['aud'] ?? '') === ($clientID ?? '')
+    && in_array($payload['iss'] ?? '', ['accounts.google.com', 'https://accounts.google.com'], true)
+    && ($payload['email_verified'] ?? 'false') === 'true'
+    && !empty($payload['email']);
+
+if (!$tokenValido) {
+    error_log('[GoogleOAuth] Token inválido. httpCode=' . $httpCode . ' aud=' . ($payload['aud'] ?? 'none'));
     redirecionarComMensagem(BASE . '/usuario/login.php', 'Erro ao validar com Google. Tente novamente.', 'danger');
 }
 
-$data = json_decode($tokenInfo, true);
-
-// Garante que o token é para esta aplicação
-if (($data['aud'] ?? '') !== GOOGLE_CLIENT_ID) {
-    error_log('[GoogleOAuth] aud inválido: ' . ($data['aud'] ?? 'none'));
-    redirecionarComMensagem(BASE . '/usuario/login.php', 'Token inválido. Tente novamente.', 'danger');
-}
-
-$googleId = $data['sub']        ?? '';
-$email    = $data['email']      ?? '';
-$nome     = $data['name']       ?? ($data['given_name'] ?? '');
-
-if (!$googleId || !$email) {
-    redirecionarComMensagem(BASE . '/usuario/login.php', 'Dados insuficientes retornados pelo Google.', 'danger');
-}
+$googleId = $payload['sub']   ?? '';
+$email    = $payload['email'] ?? '';
+$nome     = $payload['name']  ?? ($payload['given_name'] ?? explode('@', $email)[0]);
 
 try {
     // Busca por GoogleId (login recorrente)
@@ -44,7 +40,7 @@ try {
     $usuario = $stmt->fetch();
 
     if (!$usuario) {
-        // Busca por e-mail (conta já existe com senha)
+        // Busca por e-mail (conta existente com senha)
         $stmt = $pdo->prepare('SELECT IDUsuario, Nome, NivelAcesso FROM Usuarios WHERE Email = :email LIMIT 1');
         $stmt->execute([':email' => $email]);
         $usuario = $stmt->fetch();
@@ -54,7 +50,7 @@ try {
             $pdo->prepare('UPDATE Usuarios SET GoogleId = :gid WHERE IDUsuario = :id')
                 ->execute([':gid' => $googleId, ':id' => $usuario['IDUsuario']]);
         } else {
-            // Cria nova conta — e-mail verificado pelo Google
+            // Cria nova conta — e-mail já verificado pelo Google
             $novoId = gerarUuid();
             $pdo->prepare(
                 'INSERT INTO Usuarios (IDUsuario, Nome, Email, GoogleId, NivelAcesso, EmailVerificado)
