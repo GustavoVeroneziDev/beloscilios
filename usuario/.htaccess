@@ -1,9 +1,1 @@
-# Desativa ModSecurity para o callback do Google OAuth
-# O parâmetro code= do OAuth é bloqueado pelo WAF do HostGator como falso positivo
-<IfModule mod_security2.c>
-    SecRuleEngine Off
-</IfModule>
-<IfModule mod_security.c>
-    SecFilterEngine Off
-    SecFilterScanPOST Off
-</IfModule>
+# reservado para regras futuras
