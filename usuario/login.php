@@ -2,11 +2,11 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+require_once __DIR__ . '/../config/conexao.php';
 if (!empty($_SESSION['usuario_id'])) {
     header('Location: ' . BASE . '/index.php');
     exit;
 }
-require_once __DIR__ . '/../config/conexao.php';
 
 $paginaTitulo = 'Entrar';
 $areaAtual    = 'publico';
