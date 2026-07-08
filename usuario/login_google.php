@@ -14,7 +14,7 @@ curl_setopt($ch, CURLOPT_URL, 'https://oauth2.googleapis.com/tokeninfo?id_token=
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 $tokenInfoResponse = curl_exec($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-curl_close($ch);
+unset($ch);
 
 $payload = $httpCode === 200 ? json_decode($tokenInfoResponse, true) : null;
 
