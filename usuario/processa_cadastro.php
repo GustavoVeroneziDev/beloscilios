@@ -45,21 +45,30 @@ try {
         redirecionarComMensagem(BASE . '/usuario/cadastro.php', 'E-mail já cadastrado.', 'warning');
     }
 
-    $id   = gerarUuid();
-    $hash = password_hash($senha, PASSWORD_DEFAULT);
+    $id     = gerarUuid();
+    $hash   = password_hash($senha, PASSWORD_DEFAULT);
+    $tokenV = bin2hex(random_bytes(32));
+    $expira = date('Y-m-d H:i:s', strtotime('+24 hours'));
 
     $stmt = $pdo->prepare(
-        'INSERT INTO Usuarios (IDUsuario, Nome, Email, Telefone, Senha, NivelAcesso)
-         VALUES (:id, :nome, :email, :tel, :senha, :nivel)'
+        'INSERT INTO Usuarios
+            (IDUsuario, Nome, Email, Telefone, Senha, NivelAcesso,
+             EmailVerificado, TokenVerificacao, TokenVerificacaoExpira)
+         VALUES (:id, :nome, :email, :tel, :senha, :nivel, 0, :token, :expira)'
     );
     $stmt->execute([
-        ':id'    => $id,
-        ':nome'  => $nome,
-        ':email' => $email,
-        ':tel'   => $telefoneFmt,
-        ':senha' => $hash,
-        ':nivel' => 'cliente',
+        ':id'     => $id,
+        ':nome'   => $nome,
+        ':email'  => $email,
+        ':tel'    => $telefoneFmt,
+        ':senha'  => $hash,
+        ':nivel'  => 'cliente',
+        ':token'  => $tokenV,
+        ':expira' => $expira,
     ]);
+
+    // Envia e-mail de verificação (não bloqueia o cadastro se falhar)
+    enviarEmailVerificacao($email, $nome, $tokenV);
 } catch (PDOException $e) {
     error_log('[Cadastro] ' . $e->getMessage());
     redirecionarComMensagem(BASE . '/usuario/cadastro.php', 'Erro ao criar conta. Tente novamente.', 'danger');
@@ -67,12 +76,13 @@ try {
 
 // Login automático após cadastro
 session_regenerate_id(true);
-$_SESSION['usuario_id']   = $id;
-$_SESSION['usuario_nome'] = $nome;
-$_SESSION['nivel_acesso'] = 'cliente';
+$_SESSION['usuario_id']      = $id;
+$_SESSION['usuario_nome']    = $nome;
+$_SESSION['nivel_acesso']    = 'cliente';
+$_SESSION['email_verificado'] = false;
 
 redirecionarComMensagem(
     BASE . '/agendamento/index.php',
-    'Conta criada com sucesso! Que tal agendar agora? 🌸',
+    'Conta criada! Enviamos um link de verificação para ' . h($email) . '.',
     'success'
 );

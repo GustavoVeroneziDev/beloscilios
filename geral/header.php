@@ -309,4 +309,28 @@ $base          = '/beloscilios';
 
 <main class="container-lg py-4">
     <?php flashMsg() ?>
+
+    <?php
+    // Banner de verificação de e-mail — carrega status uma vez por sessão
+    if (estaLogado() && !($ehPainel ?? false)) {
+        if (!isset($_SESSION['email_verificado'])) {
+            try {
+                $evStmt = $pdo->prepare('SELECT EmailVerificado FROM Usuarios WHERE IDUsuario = :id LIMIT 1');
+                $evStmt->execute([':id' => $_SESSION['usuario_id']]);
+                $_SESSION['email_verificado'] = (bool) $evStmt->fetchColumn();
+            } catch (PDOException) {
+                $_SESSION['email_verificado'] = true; // falha silenciosa
+            }
+        }
+        if (!$_SESSION['email_verificado']) {
+            echo '<div class="alert alert-warning alert-dismissible d-flex align-items-center gap-2 mb-3" role="alert">'
+               . '<i class="bi bi-envelope-exclamation-fill flex-shrink-0"></i>'
+               . '<div>Confirme seu e-mail para receber lembretes de agendamento. '
+               . '<a href="' . BASE . '/usuario/reenviar_verificacao.php" class="alert-link">Reenviar link</a>'
+               . '</div>'
+               . '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>'
+               . '</div>';
+        }
+    }
+    ?>
 <?php endif ?>

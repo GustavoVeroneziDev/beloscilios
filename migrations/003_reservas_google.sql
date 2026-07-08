@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS ReservasTemporarias (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Google OAuth: adiciona coluna GoogleId e torna Senha nullable
+-- Execute cada linha separadamente se já tiver rodado parcialmente
 ALTER TABLE Usuarios
-    ADD COLUMN IF NOT EXISTS GoogleId VARCHAR(100) NULL UNIQUE AFTER AtualizadoEm,
+    ADD COLUMN GoogleId VARCHAR(100) NULL UNIQUE AFTER AtualizadoEm;
+
+ALTER TABLE Usuarios
     MODIFY COLUMN Senha VARCHAR(255) NULL;

@@ -96,35 +96,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->prepare('DELETE FROM ReservasTemporarias WHERE TokenSessao = :s')
             ->execute([':s' => session_id()]);
 
-        // Enviar WhatsApp de confirmação (se configurado)
-        $usuario = $pdo->prepare(
-            'SELECT Nome, Telefone FROM Usuarios WHERE IDUsuario = :id LIMIT 1'
+        // Notificações: WhatsApp + E-mail
+        $usuarioStmt = $pdo->prepare(
+            'SELECT Nome, Email, Telefone FROM Usuarios WHERE IDUsuario = :id LIMIT 1'
         );
-        $usuario->execute([':id' => $uid]);
-        $usuario = $usuario->fetch();
+        $usuarioStmt->execute([':id' => $uid]);
+        $usuarioDados = $usuarioStmt->fetch();
 
-        if ($usuario && $usuario['Telefone']) {
-            $msgTpl = getConfig($pdo, 'msg_confirmacao', '');
-            if ($msgTpl) {
-                $msg = str_replace(
-                    ['{nome}', '{data}', '{hora}', '{servico}'],
-                    [$usuario['Nome'], date('d/m/Y', strtotime($data)), $hora, $nome],
-                    $msgTpl
-                );
-                $ok = enviarWhatsApp($usuario['Telefone'], $msg);
-                registrarLogWhatsApp($pdo, $usuario['Telefone'], $msg, 'confirmacao',
-                    $ok ? 'enviado' : 'erro', $id);
-                if ($ok) {
-                    $pdo->prepare(
-                        'UPDATE Agendamentos SET NotificacaoConfirmacaoEnviada=1 WHERE IDAgendamento=:id'
-                    )->execute([':id' => $id]);
+        if ($usuarioDados) {
+            $nomeU  = $usuarioDados['Nome'];
+            $emailU = $usuarioDados['Email'];
+            $telU   = $usuarioDados['Telefone'];
+            $dataFmt = date('d/m/Y (l)', strtotime($data));
+            $valorFmt = formatarMoeda($preco);
+
+            // WhatsApp
+            if ($telU) {
+                $msgTpl = getConfig($pdo, 'msg_confirmacao', '');
+                if ($msgTpl) {
+                    $msg = str_replace(
+                        ['{nome}', '{data}', '{hora}', '{servico}'],
+                        [$nomeU, date('d/m/Y', strtotime($data)), $hora, $nome],
+                        $msgTpl
+                    );
+                    $okWa = enviarWhatsApp($telU, $msg);
+                    registrarLogWhatsApp($pdo, $telU, $msg, 'confirmacao',
+                        $okWa ? 'enviado' : 'erro', $id);
+                    if ($okWa) {
+                        $pdo->prepare(
+                            'UPDATE Agendamentos SET NotificacaoConfirmacaoEnviada=1 WHERE IDAgendamento=:id'
+                        )->execute([':id' => $id]);
+                    }
                 }
+            }
+
+            // E-mail
+            if ($emailU) {
+                enviarEmailConfirmacaoAgendamento(
+                    $emailU, $nomeU, $nome, $dataFmt, $hora, $valorFmt
+                );
             }
         }
 
         redirecionarComMensagem(
             BASE . '/usuario/perfil.php',
-            "Agendamento confirmado! Te esperamos em {$data} às {$hora}. 🌸",
+            "Agendamento confirmado! Te esperamos em {$data} às {$hora}.",
             'success'
         );
     } catch (PDOException $e) {

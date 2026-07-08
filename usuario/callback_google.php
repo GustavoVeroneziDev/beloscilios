@@ -94,11 +94,11 @@ try {
             $pdo->prepare('UPDATE Usuarios SET GoogleId = :gid WHERE IDUsuario = :id')
                 ->execute([':gid' => $googleId, ':id' => $usuario['IDUsuario']]);
         } else {
-            // Cria nova conta
+            // Cria nova conta — e-mail já verificado pelo Google
             $novoId = gerarUuid();
             $pdo->prepare(
-                'INSERT INTO Usuarios (IDUsuario, Nome, Email, GoogleId, NivelAcesso)
-                 VALUES (:id, :nome, :email, :gid, \'cliente\')'
+                'INSERT INTO Usuarios (IDUsuario, Nome, Email, GoogleId, NivelAcesso, EmailVerificado)
+                 VALUES (:id, :nome, :email, :gid, \'cliente\', 1)'
             )->execute([
                 ':id'   => $novoId,
                 ':nome' => $nome,
@@ -109,10 +109,15 @@ try {
         }
     }
 
+    // Vincula GoogleId também marca e-mail como verificado em contas existentes
+    $pdo->prepare('UPDATE Usuarios SET EmailVerificado = 1 WHERE IDUsuario = :id AND EmailVerificado = 0')
+        ->execute([':id' => $usuario['IDUsuario']]);
+
     session_regenerate_id(true);
-    $_SESSION['usuario_id']   = $usuario['IDUsuario'];
-    $_SESSION['usuario_nome'] = $usuario['Nome'];
-    $_SESSION['nivel_acesso'] = $usuario['NivelAcesso'];
+    $_SESSION['usuario_id']       = $usuario['IDUsuario'];
+    $_SESSION['usuario_nome']     = $usuario['Nome'];
+    $_SESSION['nivel_acesso']     = $usuario['NivelAcesso'];
+    $_SESSION['email_verificado'] = true; // Google sempre verifica e-mails
 
     if ($usuario['NivelAcesso'] === 'designer') {
         header('Location: ' . BASE . '/painel/index.php');
