@@ -23,7 +23,7 @@ require_once __DIR__ . '/geral/header.php';
 <section class="py-5 text-center">
     <div class="row justify-content-center">
         <div class="col-lg-7">
-            <div class="mb-3" style="font-size:3.5rem;">✨</div>
+            <i class="bi bi-stars text-accent mb-3" style="font-size:3.5rem;"></i>
             <h1 class="display-5 fw-bold mb-3" style="color:var(--text-main);">
                 Realce sua beleza com quem entende
             </h1>
@@ -59,7 +59,7 @@ require_once __DIR__ . '/geral/header.php';
         <?php foreach ($servicos as $s): ?>
         <div class="col-sm-6 col-lg-3">
             <div class="card h-100 p-3">
-                <div class="mb-2" style="font-size:2rem;">💆</div>
+                <i class="bi bi-scissors text-accent mb-2" style="font-size:2rem;"></i>
                 <h5 class="fw-semibold mb-1"><?= h($s['Nome']) ?></h5>
                 <p class="small text-secondary flex-grow-1 mb-2"><?= h($s['Descricao']) ?></p>
                 <div class="d-flex align-items-center justify-content-between">

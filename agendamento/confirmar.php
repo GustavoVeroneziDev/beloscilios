@@ -12,6 +12,7 @@ $preco     = (float)($_GET['preco']   ?? 0);
 $duracao   = (int)($_GET['duracao']   ?? 60);
 $data      = trim($_GET['data']       ?? '');
 $hora      = trim($_GET['hora']       ?? '');
+$token     = trim($_GET['token']      ?? '');
 
 if (!$servicoId || !$data || !$hora) {
     redirecionarComMensagem(BASE . '/agendamento/index.php', 'Dados incompletos. Tente novamente.', 'warning');
@@ -27,9 +28,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $uid = $_SESSION['usuario_id'];
     try {
-        // Verificar duplo-booking (concorrência)
         $inicio = new DateTimeImmutable($dataHora);
         $fim    = $inicio->modify("+{$duracao} minutes");
+
+        // Verifica se a sessão ainda tem reserva ativa para este slot
+        $temReserva = $pdo->prepare(
+            'SELECT COUNT(*) FROM ReservasTemporarias
+             WHERE TokenSessao = :s AND DataHoraSlot = :ini AND ExpiraEm > NOW()'
+        );
+        $temReserva->execute([':s' => session_id(), ':ini' => $inicio->format('Y-m-d H:i:s')]);
+        if ((int)$temReserva->fetchColumn() === 0) {
+            redirecionarComMensagem(
+                BASE . '/agendamento/horarios.php?' . http_build_query([
+                    'servico_id' => $servicoId, 'sub_id' => $subId,
+                    'nome' => $nome, 'preco' => $preco, 'duracao' => $duracao, 'data' => $data,
+                ]),
+                'A reserva do horário expirou. Selecione novamente.',
+                'warning'
+            );
+        }
+
+        // Verificar duplo-booking (concorrência)
 
         $check = $pdo->prepare(
             'SELECT COUNT(*) FROM Agendamentos
@@ -73,35 +92,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':preco'=> $preco,
         ]);
 
-        // Enviar WhatsApp de confirmação (se configurado)
-        $usuario = $pdo->prepare(
-            'SELECT Nome, Telefone FROM Usuarios WHERE IDUsuario = :id LIMIT 1'
-        );
-        $usuario->execute([':id' => $uid]);
-        $usuario = $usuario->fetch();
+        // Remove reserva temporária desta sessão
+        $pdo->prepare('DELETE FROM ReservasTemporarias WHERE TokenSessao = :s')
+            ->execute([':s' => session_id()]);
 
-        if ($usuario && $usuario['Telefone']) {
-            $msgTpl = getConfig($pdo, 'msg_confirmacao', '');
-            if ($msgTpl) {
-                $msg = str_replace(
-                    ['{nome}', '{data}', '{hora}', '{servico}'],
-                    [$usuario['Nome'], date('d/m/Y', strtotime($data)), $hora, $nome],
-                    $msgTpl
-                );
-                $ok = enviarWhatsApp($usuario['Telefone'], $msg);
-                registrarLogWhatsApp($pdo, $usuario['Telefone'], $msg, 'confirmacao',
-                    $ok ? 'enviado' : 'erro', $id);
-                if ($ok) {
-                    $pdo->prepare(
-                        'UPDATE Agendamentos SET NotificacaoConfirmacaoEnviada=1 WHERE IDAgendamento=:id'
-                    )->execute([':id' => $id]);
+        // Notificações: WhatsApp + E-mail
+        $usuarioStmt = $pdo->prepare(
+            'SELECT Nome, Email, Telefone FROM Usuarios WHERE IDUsuario = :id LIMIT 1'
+        );
+        $usuarioStmt->execute([':id' => $uid]);
+        $usuarioDados = $usuarioStmt->fetch();
+
+        if ($usuarioDados) {
+            $nomeU  = $usuarioDados['Nome'];
+            $emailU = $usuarioDados['Email'];
+            $telU   = $usuarioDados['Telefone'];
+            $dataFmt = date('d/m/Y (l)', strtotime($data));
+            $valorFmt = formatarMoeda($preco);
+
+            // WhatsApp
+            if ($telU) {
+                $msgTpl = getConfig($pdo, 'msg_confirmacao', '');
+                if ($msgTpl) {
+                    $msg = str_replace(
+                        ['{nome}', '{data}', '{hora}', '{servico}'],
+                        [$nomeU, date('d/m/Y', strtotime($data)), $hora, $nome],
+                        $msgTpl
+                    );
+                    $okWa = enviarWhatsApp($telU, $msg);
+                    registrarLogWhatsApp($pdo, $telU, $msg, 'confirmacao',
+                        $okWa ? 'enviado' : 'erro', $id);
+                    if ($okWa) {
+                        $pdo->prepare(
+                            'UPDATE Agendamentos SET NotificacaoConfirmacaoEnviada=1 WHERE IDAgendamento=:id'
+                        )->execute([':id' => $id]);
+                    }
                 }
+            }
+
+            // E-mail
+            if ($emailU) {
+                enviarEmailConfirmacaoAgendamento(
+                    $emailU, $nomeU, $nome, $dataFmt, $hora, $valorFmt
+                );
             }
         }
 
         redirecionarComMensagem(
             BASE . '/usuario/perfil.php',
-            "Agendamento confirmado! Te esperamos em {$data} às {$hora}. 🌸",
+            "Agendamento confirmado! Te esperamos em {$data} às {$hora}.",
             'success'
         );
     } catch (PDOException $e) {
@@ -138,7 +177,7 @@ require_once __DIR__ . '/../geral/header.php';
     <div class="col-md-8 col-lg-6">
         <div class="card p-4">
             <div class="text-center mb-4">
-                <div style="font-size:2.5rem;">✨</div>
+                <i class="bi bi-calendar-check text-accent" style="font-size:2.5rem;"></i>
                 <h5 class="fw-bold mt-2">Confirme seu agendamento</h5>
                 <p class="text-secondary">Revise os detalhes abaixo antes de confirmar.</p>
             </div>
@@ -165,6 +204,7 @@ require_once __DIR__ . '/../geral/header.php';
 
             <form method="POST">
                 <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
+                <input type="hidden" name="token"      value="<?= h($token) ?>">
 
                 <div class="mb-3">
                     <label class="form-label">Observações <span class="text-secondary">(opcional)</span></label>

@@ -56,6 +56,18 @@ try {
     $agStmt->execute([':data' => $dataSel]);
     $agendados = $agStmt->fetchAll();
 
+    // Reservas temporárias de outras sessões
+    $minhaSessao = session_id();
+    $pdo->exec("DELETE FROM ReservasTemporarias WHERE ExpiraEm < NOW()");
+    $tempStmt = $pdo->prepare(
+        'SELECT DataHoraSlot, DataHoraFim FROM ReservasTemporarias
+         WHERE DATE(DataHoraSlot) = :data
+           AND TokenSessao != :sessao
+           AND ExpiraEm > NOW()'
+    );
+    $tempStmt->execute([':data' => $dataSel, ':sessao' => $minhaSessao]);
+    $reservasTemp = $tempStmt->fetchAll();
+
     // Bloqueios que interceptam este dia
     $bloqStmt = $pdo->prepare(
         'SELECT DataInicio, DataFim FROM BloqueiosAgenda
@@ -66,7 +78,8 @@ try {
 } catch (PDOException $e) {
     error_log('[Horarios] ' . $e->getMessage());
     $horario = null;
-    $agendados = $bloqueios = [];
+    $agendados = $bloqueios = $reservasTemp = [];
+    $minhaSessao = session_id();
 }
 
 // Gerar slots disponíveis
@@ -87,9 +100,15 @@ if ($horario) {
         foreach ($agendados as $ag) {
             $agIni = strtotime($ag['DataHoraAgendamento']);
             $agFim = strtotime($ag['DataHoraFim']);
-            if ($ts < $agFim && $slotFim > $agIni) {
-                $livre = false;
-                break;
+            if ($ts < $agFim && $slotFim > $agIni) { $livre = false; break; }
+        }
+
+        // Verificar reservas temporárias de outras sessões
+        if ($livre) {
+            foreach ($reservasTemp as $rt) {
+                $rtIni = strtotime($rt['DataHoraSlot']);
+                $rtFim = strtotime($rt['DataHoraFim']);
+                if ($ts < $rtFim && $slotFim > $rtIni) { $livre = false; break; }
             }
         }
 
@@ -98,10 +117,7 @@ if ($horario) {
             foreach ($bloqueios as $b) {
                 $bIni = strtotime($b['DataInicio']);
                 $bFim = strtotime($b['DataFim']);
-                if ($ts < $bFim && $slotFim > $bIni) {
-                    $livre = false;
-                    break;
-                }
+                if ($ts < $bFim && $slotFim > $bIni) { $livre = false; break; }
             }
         }
 
@@ -195,6 +211,12 @@ require_once __DIR__ . '/../geral/header.php';
                 <dt class="small text-secondary">Horário</dt>
                 <dd id="resumoHora">—</dd>
             </dl>
+            <!-- Countdown de reserva -->
+            <div id="boxCountdown" class="d-none alert alert-warning py-2 px-3 mb-3 d-flex align-items-center gap-2" style="font-size:.9rem;">
+                <i class="bi bi-hourglass-split text-warning"></i>
+                <span>Horário reservado por <strong id="textoCountdown">10:00</strong></span>
+            </div>
+
             <a href="#" id="btnConfirmar"
                class="btn btn-accent btn-lg w-100 disabled">
                 Confirmar agendamento <i class="bi bi-arrow-right ms-1"></i>
@@ -211,6 +233,7 @@ require_once __DIR__ . '/../geral/header.php';
     <input type="hidden" name="duracao"    value="<?= h($duracao) ?>">
     <input type="hidden" name="data"       value="<?= h($dataSel) ?>">
     <input type="hidden" name="hora"       id="inp_hora">
+    <input type="hidden" name="token"      id="inp_token">
 </form>
 
 <script>
@@ -221,30 +244,106 @@ function irParaData() {
     url.searchParams.set('data', data);
     location.href = url.toString();
 }
-
 document.getElementById('seletorData')?.addEventListener('change', irParaData);
 
 let slotSelecionado = null;
-function selecionarSlot(btn) {
-    if (slotSelecionado) {
-        slotSelecionado.classList.remove('btn-accent');
-        slotSelecionado.classList.add('btn-outline-accent');
+let countdownInterval = null;
+let countdownExpira   = null;
+
+function iniciarCountdown(expiraISO) {
+    clearInterval(countdownInterval);
+    const box = document.getElementById('boxCountdown');
+    const txt = document.getElementById('textoCountdown');
+    if (!box || !txt) return;
+
+    countdownExpira = new Date(expiraISO.replace(' ', 'T'));
+    box.classList.remove('d-none');
+
+    function tick() {
+        const diff = Math.round((countdownExpira - new Date()) / 1000);
+        if (diff <= 0) {
+            clearInterval(countdownInterval);
+            txt.textContent = '00:00';
+            // Remove seleção e desativa botão
+            if (slotSelecionado) {
+                slotSelecionado.classList.add('btn-outline-accent');
+                slotSelecionado.classList.remove('btn-accent');
+                slotSelecionado.disabled = false;
+                slotSelecionado = null;
+            }
+            document.getElementById('btnConfirmar').classList.add('disabled');
+            box.classList.add('d-none');
+            return;
+        }
+        const m = String(Math.floor(diff / 60)).padStart(2, '0');
+        const s = String(diff % 60).padStart(2, '0');
+        txt.textContent = m + ':' + s;
     }
-    btn.classList.remove('btn-outline-accent');
-    btn.classList.add('btn-accent');
-    slotSelecionado = btn;
+    tick();
+    countdownInterval = setInterval(tick, 1000);
+}
+
+function selecionarSlot(btn) {
+    if (btn.disabled) return;
+
+    // Desativa todos os botões enquanto faz a reserva
+    document.querySelectorAll('.slot-btn').forEach(b => b.disabled = true);
 
     const hora = btn.dataset.hora;
-    document.getElementById('inp_hora').value = hora;
-    document.getElementById('resumoData').textContent = '<?= date('d/m/Y', $dataTs) ?>';
-    document.getElementById('resumoHora').textContent = hora;
+    const data = '<?= $dataSel ?>';
 
-    const btnConf = document.getElementById('btnConfirmar');
-    btnConf.classList.remove('disabled');
-    btnConf.onclick = function(e) {
-        e.preventDefault();
-        document.getElementById('formConfirmar').submit();
-    };
+    fetch('<?= BASE ?>/agendamento/reservar_slot.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams({
+            data:       data,
+            hora:       hora,
+            servico_id: '<?= h($servicoId) ?>',
+            sub_id:     '<?= h($subId) ?>',
+            duracao:    '<?= $duracao ?>',
+        })
+    })
+    .then(r => r.json())
+    .then(res => {
+        document.querySelectorAll('.slot-btn').forEach(b => b.disabled = false);
+
+        if (!res.ok) {
+            // Marca slot como indisponível e mostra aviso
+            btn.disabled = true;
+            btn.classList.remove('btn-outline-accent', 'btn-accent');
+            btn.classList.add('btn-secondary', 'opacity-50');
+            alert(res.msg || 'Horário indisponível. Tente outro.');
+            return;
+        }
+
+        // Desmarca slot anterior
+        if (slotSelecionado && slotSelecionado !== btn) {
+            slotSelecionado.classList.remove('btn-accent');
+            slotSelecionado.classList.add('btn-outline-accent');
+        }
+
+        btn.classList.remove('btn-outline-accent');
+        btn.classList.add('btn-accent');
+        slotSelecionado = btn;
+
+        document.getElementById('inp_hora').value  = hora;
+        document.getElementById('inp_token').value = res.token;
+        document.getElementById('resumoData').textContent = data.split('-').reverse().join('/');
+        document.getElementById('resumoHora').textContent = hora;
+
+        const btnConf = document.getElementById('btnConfirmar');
+        btnConf.classList.remove('disabled');
+        btnConf.onclick = function(e) {
+            e.preventDefault();
+            document.getElementById('formConfirmar').submit();
+        };
+
+        iniciarCountdown(res.expira);
+    })
+    .catch(() => {
+        document.querySelectorAll('.slot-btn').forEach(b => b.disabled = false);
+        alert('Erro de conexão. Tente novamente.');
+    });
 }
 </script>
 
