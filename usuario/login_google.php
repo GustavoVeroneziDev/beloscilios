@@ -4,7 +4,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 require_once __DIR__ . '/../config/conexao.php';
 require_once '../config/funcoes.php';
-require_once 'google_oauth.php';
+require_once '../config/google_oauth.php';
 
 $clientID = '808511905880-9jd31jmci1m9ibikht6r2vlerjeb8r4l.apps.googleusercontent.com';
 
