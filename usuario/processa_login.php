@@ -64,7 +64,8 @@ $_SESSION['nivel_acesso']     = $usuario['NivelAcesso'];
 $_SESSION['email_verificado'] = (bool) $usuario['EmailVerificado'];
 
 if ($usuario['NivelAcesso'] === 'designer') {
-    redirecionarComMensagem(BASE . '/painel/index.php', 'Bem-vinda, ' . $usuario['Nome'] . '!', 'success');
+    header('Location: ' . BASE . '/painel/index.php');
 } else {
-    redirecionarComMensagem(BASE . '/usuario/perfil.php', 'Bem-vinda, ' . $usuario['Nome'] . '!', 'success');
+    header('Location: ' . BASE . '/usuario/perfil.php');
 }
+exit;

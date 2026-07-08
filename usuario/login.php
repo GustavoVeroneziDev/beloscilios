@@ -19,8 +19,7 @@ require_once __DIR__ . '/../geral/header.php';
             <div class="text-center mb-4">
                 <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="Belos Cílios"
                      style="height:64px;width:auto;">
-                <h4 class="fw-bold mt-2 mb-0">Bem-vinda de volta!</h4>
-                <p class="text-secondary small">Entre para acessar seus agendamentos</p>
+                <h4 class="fw-bold mt-2 mb-0">Entrar na sua conta</h4>
             </div>
 
             <form action="<?= BASE ?>/usuario/processa_login.php" method="POST" novalidate>

@@ -58,12 +58,12 @@ require_once __DIR__ . '/../geral/header.php';
                 <?= mb_strtoupper(mb_substr($usuario['Nome'], 0, 1)) ?>
             </div>
             <div class="flex-grow-1 min-w-0">
-                <h5 class="fw-bold mb-0">Olá, <?= h(explode(' ', $usuario['Nome'])[0]) ?>!</h5>
+                <h5 class="fw-bold mb-0"><?= h($usuario['Nome']) ?></h5>
+                <?php if ($totalAg > 0): ?>
                 <p class="text-secondary small mb-0">
-                    <?= $totalAg > 0
-                        ? $totalAg . ' ' . ($totalAg === 1 ? 'atendimento realizado' : 'atendimentos realizados')
-                        : 'Que bom ter você aqui!' ?>
+                    <?= $totalAg ?> <?= $totalAg === 1 ? 'atendimento realizado' : 'atendimentos realizados' ?>
                 </p>
+                <?php endif ?>
             </div>
             <a href="<?= BASE ?>/agendamento/index.php" class="btn btn-accent flex-shrink-0">
                 <i class="bi bi-calendar-plus me-1"></i> Agendar

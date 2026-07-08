@@ -102,6 +102,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Bloqueio removido.', 'success');
         }
     }
+
+    if ($acao === 'edit_bloqueio') {
+        $bid     = trim($_POST['bid']         ?? '');
+        $dataIni = trim($_POST['bloq_ini']    ?? '');
+        $dataFim = trim($_POST['bloq_fim']    ?? '');
+        $motivo  = trim($_POST['bloq_motivo'] ?? '');
+        if ($bid && $dataIni && $dataFim) {
+            if ($dataFim <= $dataIni) {
+                redirecionarComMensagem(BASE . '/painel/configuracoes.php#tabBloqueios', 'A data de fim deve ser posterior à data de início.', 'warning');
+            }
+            try {
+                $pdo->prepare(
+                    'UPDATE BloqueiosAgenda SET DataInicio=:ini, DataFim=:fim, Motivo=:mot WHERE IDBloqueio=:id'
+                )->execute([':ini' => $dataIni, ':fim' => $dataFim, ':mot' => $motivo ?: null, ':id' => $bid]);
+                redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Bloqueio atualizado!', 'success');
+            } catch (PDOException $e) {
+                error_log('[Bloqueio] ' . $e->getMessage());
+                redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Erro ao atualizar bloqueio.', 'danger');
+            }
+        }
+    }
 }
 
 // Carregar dados
@@ -435,6 +456,55 @@ require_once __DIR__ . '/../geral/header.php';
             </form>
         </div>
 
+        <!-- Modal editar bloqueio -->
+        <div class="modal fade" id="modalEditBloqueio" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg" style="border-radius:14px;">
+                    <div class="modal-header border-0 pb-0 px-4 pt-4">
+                        <h6 class="modal-title fw-semibold"><i class="bi bi-pencil-square me-2 text-accent"></i>Editar bloqueio</h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="POST" id="formEditBloqueio">
+                        <div class="modal-body px-4 pb-0">
+                            <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
+                            <input type="hidden" name="acao" value="edit_bloqueio">
+                            <input type="hidden" name="bid" id="editBid">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Início *</label>
+                                    <input type="datetime-local" name="bloq_ini" id="editIni" class="form-control" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Fim *</label>
+                                    <input type="datetime-local" name="bloq_fim" id="editFim" class="form-control" required>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Motivo</label>
+                                    <input type="text" name="bloq_motivo" id="editMotivo" class="form-control"
+                                           placeholder="Ex: Folga, feriado...">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer border-0 px-4 pb-4 pt-3 gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-accent btn-sm">
+                                <i class="bi bi-save me-1"></i> Salvar alterações
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <script>
+        document.getElementById('modalEditBloqueio')?.addEventListener('show.bs.modal', function(e) {
+            const btn = e.relatedTarget;
+            document.getElementById('editBid').value    = btn.dataset.bid;
+            document.getElementById('editIni').value    = btn.dataset.ini;
+            document.getElementById('editFim').value    = btn.dataset.fim;
+            document.getElementById('editMotivo').value = btn.dataset.motivo;
+        });
+        </script>
+
         <?php if (!empty($bloqueios)): ?>
             <div class="card">
                 <div class="card-header px-4 py-3">Bloqueios ativos / futuros</div>
@@ -447,16 +517,26 @@ require_once __DIR__ . '/../geral/header.php';
                                     <?= formatarDataHora($b['DataInicio']) ?> → <?= formatarDataHora($b['DataFim']) ?>
                                 </div>
                             </div>
-                            <form method="POST">
-                                <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
-                                <input type="hidden" name="acao" value="rem_bloqueio">
-                                <input type="hidden" name="bid" value="<?= h($b['IDBloqueio']) ?>">
-                                <button class="btn btn-sm btn-outline-danger" type="button"
-                                    data-confirm="Remover este bloqueio de horário?"
-                                    data-confirm-label="Remover">
-                                    <i class="bi bi-trash"></i>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-accent" type="button"
+                                    data-bs-toggle="modal" data-bs-target="#modalEditBloqueio"
+                                    data-bid="<?= h($b['IDBloqueio']) ?>"
+                                    data-ini="<?= h(str_replace(' ', 'T', substr($b['DataInicio'], 0, 16))) ?>"
+                                    data-fim="<?= h(str_replace(' ', 'T', substr($b['DataFim'], 0, 16))) ?>"
+                                    data-motivo="<?= h($b['Motivo'] ?? '') ?>">
+                                    <i class="bi bi-pencil"></i>
                                 </button>
-                            </form>
+                                <form method="POST">
+                                    <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
+                                    <input type="hidden" name="acao" value="rem_bloqueio">
+                                    <input type="hidden" name="bid" value="<?= h($b['IDBloqueio']) ?>">
+                                    <button class="btn btn-sm btn-outline-danger" type="button"
+                                        data-confirm="Remover este bloqueio de horário?"
+                                        data-confirm-label="Remover">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
                         </li>
                     <?php endforeach ?>
                 </ul>
