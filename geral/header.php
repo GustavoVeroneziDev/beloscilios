@@ -29,7 +29,7 @@ $base          = '/beloscilios';
 
     <link rel="stylesheet" href="<?= BASE ?>/geral/vendor/bs/css/bootstrap.min.css">
     <link rel="stylesheet" href="<?= BASE ?>/geral/vendor/bi/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="<?= BASE ?>/geral/css/estilo.css">
+    <link rel="stylesheet" href="<?= BASE ?>/geral/css/estilo.css?v=<?= APP_VERSAO ?>">
 </head>
 
 <body>

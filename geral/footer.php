@@ -3,7 +3,7 @@
 <?php else: ?>
 </main>
 
-<footer class="border-top py-4 mt-5" style="background:var(--bg-card);">
+<footer class="border-top py-4 mt-auto" style="background:var(--bg-card);">
     <div class="container-lg text-center text-secondary small">
         <span style="color:var(--accent);font-weight:600;">Belos Cílios</span> &copy; <?= date('Y') ?>
         &nbsp;·&nbsp; Todos os direitos reservados
@@ -13,7 +13,7 @@
 <?php endif ?>
 
 <!-- Bootstrap JS (self-hosted, cache 1 ano) -->
-<script src="<?= BASE ?>/geral/vendor/bs/js/bootstrap.bundle.min.js"></script>
+<script src="<?= BASE ?>/geral/vendor/bs/js/bootstrap.bundle.min.js?v=<?= APP_VERSAO ?>"></script>
 
 <!-- Modal de confirmação global -->
 <div class="modal fade" id="modalConfirm" tabindex="-1" aria-hidden="true">
