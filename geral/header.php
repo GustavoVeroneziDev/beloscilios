@@ -9,7 +9,7 @@ require_once __DIR__ . '/../config/versao.php';
 $paginaTitulo  = $paginaTitulo  ?? 'Belos Cílios';
 $areaAtual     = $areaAtual     ?? '';
 $ehPainel      = $areaAtual === 'painel';
-$usuario       = $_SESSION['usuario_nome'] ?? '';
+$_nomeSession  = $_SESSION['usuario_nome'] ?? '';
 $nivelAcesso   = $_SESSION['nivel_acesso'] ?? '';
 $base          = '/beloscilios';
 ?>
@@ -69,7 +69,7 @@ $base          = '/beloscilios';
                 <?php endforeach ?>
             </ul>
             <div class="sidebar-footer">
-                <div class="mb-1"><i class="bi bi-person-circle me-1"></i> <?= h($usuario) ?></div>
+                <div class="mb-1"><i class="bi bi-person-circle me-1"></i> <?= h($_nomeSession) ?></div>
                 <a href="<?= BASE ?>/usuario/logout.php"><i class="bi bi-box-arrow-right me-1"></i> Sair</a>
             </div>
         </nav>
@@ -104,7 +104,7 @@ $base          = '/beloscilios';
                             </a>
                             <div class="dropdown">
                                 <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
-                                    <i class="bi bi-person-circle me-1"></i> <?= h($usuario) ?>
+                                    <i class="bi bi-person-circle me-1"></i> <?= h($_nomeSession) ?>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <li><a class="dropdown-item" href="<?= BASE ?>/usuario/perfil.php">
