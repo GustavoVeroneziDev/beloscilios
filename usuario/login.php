@@ -17,7 +17,8 @@ require_once __DIR__ . '/../geral/header.php';
     <div class="col-sm-10 col-md-7 col-lg-5 col-xl-4">
         <div class="card p-4 mt-2">
             <div class="text-center mb-4">
-                <i class="bi bi-stars text-accent" style="font-size:2.5rem;"></i>
+                <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="Belos Cílios"
+                     style="height:64px;width:auto;">
                 <h4 class="fw-bold mt-2 mb-0">Bem-vinda de volta!</h4>
                 <p class="text-secondary small">Entre para acessar seus agendamentos</p>
             </div>

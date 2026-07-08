@@ -23,7 +23,8 @@ require_once __DIR__ . '/geral/header.php';
 <section class="py-5 text-center">
     <div class="row justify-content-center">
         <div class="col-lg-7">
-            <i class="bi bi-stars text-accent mb-3" style="font-size:3.5rem;"></i>
+            <img src="<?= BASE ?>/geral/img/NomeCompleto.png" alt="Belos Cílios"
+                 class="mb-3" style="max-width:320px;width:100%;">
             <h1 class="display-5 fw-bold mb-3" style="color:var(--text-main);">
                 Realce sua beleza com quem entende
             </h1>
