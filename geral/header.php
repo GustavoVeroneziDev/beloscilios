@@ -37,12 +37,12 @@ $base          = '/beloscilios';
         <div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()"></div>
         <nav class="sidebar" id="sidebar">
             <div class="sidebar-brand">
-                <div class="d-flex align-items-center mb-1">
+                <a href="<?= BASE ?>/index.php" class="d-flex align-items-center mb-1 text-decoration-none">
                     <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="Ícone BC"
                         style="height:40px;width:auto;filter:brightness(0) invert(1);opacity:.9;margin-right:6px;">
                     <img src="<?= BASE ?>/geral/img/NomeCompleto.png" alt="Belos Cílios"
                         style="height:40px;max-width:90px;width:auto;filter:brightness(0) invert(1);object-fit:contain;">
-                </div>
+                </a>
                 <small>Painel da Designer</small>
             </div>
             <?php
@@ -78,8 +78,10 @@ $base          = '/beloscilios';
                 <button class="btn btn-sm btn-outline-secondary" onclick="abrirSidebar()">
                     <i class="bi bi-list fs-5"></i>
                 </button>
-                <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="Ícone" style="height:35px;width:auto;">
-                <img src="<?= BASE ?>/geral/img/NomeCompleto.png" alt="Belos Cílios" style="height:35px;max-width:90px;width:auto;object-fit:contain;">
+                <a href="<?= BASE ?>/index.php" class="d-flex align-items-center gap-2 text-decoration-none">
+                    <img src="<?= BASE ?>/geral/img/LogoTransparente.png" alt="Ícone" style="height:35px;width:auto;">
+                    <img src="<?= BASE ?>/geral/img/NomeCompleto.png" alt="Belos Cílios" style="height:35px;max-width:90px;width:auto;object-fit:contain;">
+                </a>
             </div>
 
             <?php flashMsg() ?>
