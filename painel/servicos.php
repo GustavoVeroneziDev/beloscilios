@@ -183,7 +183,9 @@ require_once __DIR__ . '/../geral/header.php';
                     <i class="bi bi-plus"></i> Manutenção
                 </button>
                 <?php if ($sv['Ativo']): ?>
-                <form method="POST" onsubmit="return confirm('Desativar serviço?')">
+                <form method="POST"
+                      data-confirm="Desativar este serviço?"
+                      data-confirm-label="Desativar">
                     <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
                     <input type="hidden" name="acao" value="excluir">
                     <input type="hidden" name="id" value="<?= h($sv['IDServico']) ?>">

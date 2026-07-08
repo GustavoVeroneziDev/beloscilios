@@ -312,7 +312,7 @@ function selecionarSlot(btn) {
             btn.disabled = true;
             btn.classList.remove('btn-outline-accent', 'btn-accent');
             btn.classList.add('btn-secondary', 'opacity-50');
-            alert(res.msg || 'Horário indisponível. Tente outro.');
+            bcToast(res.msg || 'Horário indisponível. Tente outro.', 'warning');
             return;
         }
 
@@ -342,7 +342,7 @@ function selecionarSlot(btn) {
     })
     .catch(() => {
         document.querySelectorAll('.slot-btn').forEach(b => b.disabled = false);
-        alert('Erro de conexão. Tente novamente.');
+        bcToast('Erro de conexão. Tente novamente.', 'danger');
     });
 }
 </script>

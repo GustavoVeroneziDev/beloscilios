@@ -307,7 +307,9 @@ require_once __DIR__ . '/../geral/header.php';
                         <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
                         <input type="hidden" name="acao" value="rem_bloqueio">
                         <input type="hidden" name="bid" value="<?= h($b['IDBloqueio']) ?>">
-                        <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Remover bloqueio?')">
+                        <button class="btn btn-sm btn-outline-danger" type="button"
+                                data-confirm="Remover este bloqueio de horário?"
+                                data-confirm-label="Remover">
                             <i class="bi bi-trash"></i>
                         </button>
                     </form>

@@ -3,6 +3,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+require_once __DIR__ . '/config/conexao.php';
+
 if (!empty($_SESSION['usuario_id'])) {
     if ($_SESSION['nivel_acesso'] === 'designer') {
         header('Location: ' . BASE . '/painel/index.php');
@@ -11,8 +13,6 @@ if (!empty($_SESSION['usuario_id'])) {
     }
     exit;
 }
-
-require_once __DIR__ . '/config/conexao.php';
 
 $paginaTitulo = 'Início';
 $areaAtual    = 'publico';

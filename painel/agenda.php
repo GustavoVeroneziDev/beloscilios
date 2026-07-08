@@ -149,7 +149,8 @@ for ($d = 0; $d < 7; $d++):
                     <?php endif ?>
                     <?php if (in_array($ag['StatusAgendamento'], ['pendente','confirmado'])): ?>
                     <form method="POST" class="d-inline"
-                          onsubmit="return confirm('Confirma o cancelamento?')">
+                          data-confirm="Confirma o cancelamento deste agendamento?"
+                          data-confirm-label="Cancelar agendamento">
                         <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
                         <input type="hidden" name="acao" value="cancelar">
                         <input type="hidden" name="id" value="<?= h($ag['IDAgendamento']) ?>">
