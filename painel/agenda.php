@@ -258,12 +258,19 @@ document.getElementById('buscaCliente')?.addEventListener('input', function () {
             .then(r => r.json())
             .then(data => {
                 const el = document.getElementById('resultadosBusca');
-                el.innerHTML = data.map(c =>
-                    `<button type="button" class="list-group-item list-group-item-action"
-                             onclick="selecionarCliente('${c.id}','${c.nome}')">
-                         ${c.nome} <small class="text-secondary">${c.email}</small>
-                     </button>`
-                ).join('');
+                el.innerHTML = '';
+                data.forEach(c => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'list-group-item list-group-item-action';
+                    btn.addEventListener('click', function () { selecionarCliente(c.id, c.nome); });
+                    btn.textContent = c.nome + ' ';
+                    const small = document.createElement('small');
+                    small.className = 'text-secondary';
+                    small.textContent = c.email;
+                    btn.appendChild(small);
+                    el.appendChild(btn);
+                });
             });
     }, 300);
 });

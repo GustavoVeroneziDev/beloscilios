@@ -11,14 +11,39 @@ if (!estaLogado()) {
     exit;
 }
 
+if (!validarTokenCSRF($_POST['csrf_token'] ?? '')) {
+    echo json_encode(['ok' => false, 'msg' => 'Token inválido.']);
+    exit;
+}
+
 $data      = trim($_POST['data']       ?? '');
 $hora      = trim($_POST['hora']       ?? '');
 $servicoId = trim($_POST['servico_id'] ?? '');
 $subId     = trim($_POST['sub_id']     ?? '') ?: null;
-$duracao   = (int)($_POST['duracao']   ?? 60);
 
 if (!$data || !$hora || !$servicoId) {
     echo json_encode(['ok' => false, 'msg' => 'Dados incompletos']);
+    exit;
+}
+
+// Busca duração real do banco — não confiar no valor enviado pelo cliente
+try {
+    if ($subId) {
+        $durQ = $pdo->prepare('SELECT DuracaoMinutos FROM SubServicos WHERE IDSubServico = :id AND Ativo = 1 LIMIT 1');
+        $durQ->execute([':id' => $subId]);
+    } else {
+        $durQ = $pdo->prepare('SELECT DuracaoMinutos FROM Servicos WHERE IDServico = :id AND Ativo = 1 LIMIT 1');
+        $durQ->execute([':id' => $servicoId]);
+    }
+    $svRow = $durQ->fetch();
+    if (!$svRow) {
+        echo json_encode(['ok' => false, 'msg' => 'Serviço não encontrado.']);
+        exit;
+    }
+    $duracao = (int) $svRow['DuracaoMinutos'];
+} catch (PDOException $e) {
+    error_log('[ReservarSlot] ' . $e->getMessage());
+    echo json_encode(['ok' => false, 'msg' => 'Erro interno. Tente novamente.']);
     exit;
 }
 

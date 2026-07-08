@@ -301,6 +301,7 @@ function selecionarSlot(btn) {
             servico_id: '<?= h($servicoId) ?>',
             sub_id:     '<?= h($subId) ?>',
             duracao:    '<?= $duracao ?>',
+            csrf_token: '<?= h(gerarTokenCSRF()) ?>',
         })
     })
     .then(r => r.json())

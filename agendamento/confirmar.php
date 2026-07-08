@@ -78,7 +78,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
         }
 
-        // Verificar duplo-booking (concorrência)
+        // Transação atômica: check de conflito + INSERT + remoção da reserva temp
+        $pdo->beginTransaction();
+
         $check = $pdo->prepare(
             'SELECT COUNT(*) FROM Agendamentos
              WHERE StatusAgendamento NOT IN (\'cancelado\')
@@ -90,6 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':fim' => $fim->format('Y-m-d H:i:s'),
         ]);
         if ((int) $check->fetchColumn() > 0) {
+            $pdo->rollBack();
             redirecionarComMensagem(
                 BASE . '/agendamento/horarios.php?' . http_build_query([
                     'servico_id' => $servicoId,
@@ -122,11 +125,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':obs'  => $obs,
         ]);
 
-        // Remove reserva temporária desta sessão
         $pdo->prepare('DELETE FROM ReservasTemporarias WHERE TokenSessao = :s')
             ->execute([':s' => session_id()]);
 
-        // Notificações: WhatsApp + E-mail
+        $pdo->commit();
+
+        // Notificações após o commit — falha aqui não desfaz o agendamento
         $usuarioStmt = $pdo->prepare(
             'SELECT Nome, Email, Telefone FROM Usuarios WHERE IDUsuario = :id LIMIT 1'
         );
@@ -174,6 +178,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'success'
         );
     } catch (PDOException $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
         error_log('[Confirmar] ' . $e->getMessage());
         redirecionarComMensagem(BASE . '/agendamento/index.php', 'Erro ao agendar. Tente novamente.', 'danger');
     }
