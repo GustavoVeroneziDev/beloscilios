@@ -126,7 +126,7 @@ require_once __DIR__ . '/../geral/header.php';
 
 <?php if (empty($servicos)): ?>
 <div class="text-center py-5 text-secondary card">
-    <i class="bi bi-scissors fs-1 d-block mb-2 opacity-25"></i>
+    <img src="<?= BASE ?>/geral/img/mascara.png" alt="" class="d-block mb-2 mx-auto opacity-25" style="width:3rem;height:3rem;object-fit:contain;">
     <p>Nenhum serviço cadastrado.</p>
     <div><button class="btn btn-accent btn-sm" data-bs-toggle="modal" data-bs-target="#modalServico">
         Criar primeiro serviço

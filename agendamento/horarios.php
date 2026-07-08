@@ -198,7 +198,7 @@ require_once __DIR__ . '/../geral/header.php';
     <!-- Resumo do serviço -->
     <div class="col-lg-4">
         <div class="card p-4 sticky-top" style="top:80px;">
-            <h6 class="fw-bold mb-3"><i class="bi bi-scissors me-2 text-accent"></i>Resumo</h6>
+            <h6 class="fw-bold mb-3"><img src="<?= BASE ?>/geral/img/mascara.png" alt="" style="width:1.1rem;height:1.1rem;object-fit:contain;vertical-align:middle;" class="me-2">Resumo</h6>
             <dl class="mb-3">
                 <dt class="small text-secondary">Serviço</dt>
                 <dd class="fw-medium"><?= h($nome) ?></dd>

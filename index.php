@@ -60,7 +60,7 @@ require_once __DIR__ . '/geral/header.php';
         <?php foreach ($servicos as $s): ?>
         <div class="col-sm-6 col-lg-3">
             <div class="card h-100 p-3">
-                <i class="bi bi-scissors text-accent mb-2" style="font-size:2rem;"></i>
+                <img src="<?= BASE ?>/geral/img/mascara.png" alt="" class="mb-2" style="width:2.2rem;height:2.2rem;object-fit:contain;">
                 <h5 class="fw-semibold mb-1"><?= h($s['Nome']) ?></h5>
                 <p class="small text-secondary flex-grow-1 mb-2"><?= h($s['Descricao']) ?></p>
                 <div class="d-flex align-items-center justify-content-between">
