@@ -29,13 +29,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $params = [':nome' => $nome, ':tel' => sanitizarTelefone($telefone), ':id' => $uid];
 
+        $temSenha = !empty($usuario['Senha']);
+
         // Trocar senha se informada
         if ($novaSenha !== '') {
-            if (!password_verify($senhaAtual, $usuario['Senha'])) {
+            if ($temSenha && !password_verify($senhaAtual, $usuario['Senha'])) {
                 redirecionarComMensagem(BASE . '/usuario/editar_perfil.php', 'Senha atual incorreta.', 'danger');
             }
-            if (strlen($novaSenha) < 8) {
-                redirecionarComMensagem(BASE . '/usuario/editar_perfil.php', 'A nova senha deve ter ao menos 8 caracteres.', 'warning');
+            if (strlen($novaSenha) < 4) {
+                redirecionarComMensagem(BASE . '/usuario/editar_perfil.php', 'A nova senha deve ter ao menos 4 caracteres.', 'warning');
             }
             if ($novaSenha !== $novaSenhaC) {
                 redirecionarComMensagem(BASE . '/usuario/editar_perfil.php', 'As senhas não coincidem.', 'warning');
@@ -102,18 +104,26 @@ require_once __DIR__ . '/../geral/header.php';
                     </div>
                 </div>
 
+                <?php $temSenha = !empty($usuario['Senha']); ?>
                 <hr>
-                <h6 class="fw-semibold mb-3">Alterar senha <span class="text-secondary fw-normal">(opcional)</span></h6>
-
-                <div class="mb-3">
-                    <label class="form-label">Senha atual</label>
-                    <input type="password" name="senha_atual" class="form-control"
-                           placeholder="Deixe em branco para não alterar">
-                </div>
+                <?php if ($temSenha): ?>
+                    <h6 class="fw-semibold mb-3">Alterar senha <span class="text-secondary fw-normal">(opcional)</span></h6>
+                    <div class="mb-3">
+                        <label class="form-label">Senha atual</label>
+                        <input type="password" name="senha_atual" class="form-control"
+                               placeholder="Deixe em branco para não alterar">
+                    </div>
+                <?php else: ?>
+                    <h6 class="fw-semibold mb-1">Criar senha <span class="text-secondary fw-normal">(opcional)</span></h6>
+                    <p class="text-secondary small mb-3">
+                        Você entrou com o Google e ainda não tem senha.
+                        Defina uma para poder acessar também por e-mail e senha.
+                    </p>
+                <?php endif ?>
                 <div class="mb-3">
                     <label class="form-label">Nova senha</label>
                     <input type="password" name="nova_senha" class="form-control"
-                           placeholder="Mínimo 8 caracteres" minlength="8">
+                           placeholder="Mínimo 4 caracteres" minlength="4">
                 </div>
                 <div class="mb-4">
                     <label class="form-label">Confirmar nova senha</label>
