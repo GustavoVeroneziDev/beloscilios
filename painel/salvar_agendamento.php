@@ -35,6 +35,21 @@ try {
     $inicio = new DateTimeImmutable($dataHora);
     $fim    = $inicio->modify("+{$servico['DuracaoMinutos']} minutes");
 
+    // Verifica conflito com agendamentos existentes
+    $checkConflito = $pdo->prepare(
+        'SELECT COUNT(*) FROM Agendamentos
+         WHERE StatusAgendamento NOT IN (\'cancelado\')
+           AND DataHoraAgendamento < :fim
+           AND DataHoraFim > :ini'
+    );
+    $checkConflito->execute([
+        ':ini' => $inicio->format('Y-m-d H:i:s'),
+        ':fim' => $fim->format('Y-m-d H:i:s'),
+    ]);
+    if ((int)$checkConflito->fetchColumn() > 0) {
+        redirecionarComMensagem(BASE . '/painel/agenda.php', 'Conflito: já existe agendamento neste horário.', 'warning');
+    }
+
     $id = gerarUuid();
     $stmt = $pdo->prepare(
         'INSERT INTO Agendamentos

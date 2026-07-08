@@ -8,8 +8,6 @@ exigirLogin('cliente');
 $servicoId = trim($_GET['servico_id'] ?? '');
 $subId     = trim($_GET['sub_id']     ?? '');
 $nome      = trim($_GET['nome']       ?? '');
-$preco     = (float)($_GET['preco']   ?? 0);
-$duracao   = (int)($_GET['duracao']   ?? 60);
 $data      = trim($_GET['data']       ?? '');
 $hora      = trim($_GET['hora']       ?? '');
 $token     = trim($_GET['token']      ?? '');
@@ -19,6 +17,26 @@ if (!$servicoId || !$data || !$hora) {
 }
 
 $dataHora = "{$data} {$hora}:00";
+
+// Busca preço e duração do banco — não confiar nos valores do GET
+try {
+    if ($subId) {
+        $svQ = $pdo->prepare('SELECT Preco, DuracaoMinutos FROM SubServicos WHERE IDSubServico = :id AND Ativo = 1 LIMIT 1');
+        $svQ->execute([':id' => $subId]);
+    } else {
+        $svQ = $pdo->prepare('SELECT Preco, DuracaoMinutos FROM Servicos WHERE IDServico = :id AND Ativo = 1 LIMIT 1');
+        $svQ->execute([':id' => $servicoId]);
+    }
+    $svDados = $svQ->fetch();
+    if (!$svDados) {
+        redirecionarComMensagem(BASE . '/agendamento/index.php', 'Serviço não encontrado.', 'danger');
+    }
+    $preco   = (float) $svDados['Preco'];
+    $duracao = (int)   $svDados['DuracaoMinutos'];
+} catch (PDOException $e) {
+    error_log('[Confirmar] ' . $e->getMessage());
+    redirecionarComMensagem(BASE . '/agendamento/index.php', 'Erro interno. Tente novamente.', 'danger');
+}
 
 // Salvar agendamento
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -31,6 +49,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $inicio = new DateTimeImmutable($dataHora);
         $fim    = $inicio->modify("+{$duracao} minutes");
 
+        // Rejeita agendamentos no passado
+        if ($inicio <= new DateTimeImmutable()) {
+            redirecionarComMensagem(
+                BASE . '/agendamento/horarios.php?' . http_build_query([
+                    'servico_id' => $servicoId, 'sub_id' => $subId,
+                    'nome' => $nome, 'duracao' => $duracao, 'data' => $data,
+                ]),
+                'Horário no passado. Selecione uma data futura.',
+                'warning'
+            );
+        }
+
         // Verifica se a sessão ainda tem reserva ativa para este slot
         $temReserva = $pdo->prepare(
             'SELECT COUNT(*) FROM ReservasTemporarias
@@ -41,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirecionarComMensagem(
                 BASE . '/agendamento/horarios.php?' . http_build_query([
                     'servico_id' => $servicoId, 'sub_id' => $subId,
-                    'nome' => $nome, 'preco' => $preco, 'duracao' => $duracao, 'data' => $data,
+                    'nome' => $nome, 'duracao' => $duracao, 'data' => $data,
                 ]),
                 'A reserva do horário expirou. Selecione novamente.',
                 'warning'
@@ -49,7 +79,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Verificar duplo-booking (concorrência)
-
         $check = $pdo->prepare(
             'SELECT COUNT(*) FROM Agendamentos
              WHERE StatusAgendamento NOT IN (\'cancelado\')
@@ -66,7 +95,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'servico_id' => $servicoId,
                     'sub_id'     => $subId,
                     'nome'       => $nome,
-                    'preco'      => $preco,
                     'duracao'    => $duracao,
                     'data'       => $data,
                 ]),
@@ -75,12 +103,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
         }
 
-        $id = gerarUuid();
+        $id  = gerarUuid();
+        $obs = trim($_POST['obs'] ?? '') ?: null;
         $stmt = $pdo->prepare(
             'INSERT INTO Agendamentos
                 (IDAgendamento, FKCliente, FKServico, FKSubServico,
-                 DataHoraAgendamento, DataHoraFim, StatusAgendamento, ValorCobrado)
-             VALUES (:id,:fkc,:fks,:fkss,:ini,:fim,\'pendente\',:preco)'
+                 DataHoraAgendamento, DataHoraFim, StatusAgendamento, ValorCobrado, Observacoes)
+             VALUES (:id,:fkc,:fks,:fkss,:ini,:fim,\'pendente\',:preco,:obs)'
         );
         $stmt->execute([
             ':id'   => $id,
@@ -90,6 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':ini'  => $inicio->format('Y-m-d H:i:s'),
             ':fim'  => $fim->format('Y-m-d H:i:s'),
             ':preco'=> $preco,
+            ':obs'  => $obs,
         ]);
 
         // Remove reserva temporária desta sessão
@@ -104,23 +134,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $usuarioDados = $usuarioStmt->fetch();
 
         if ($usuarioDados) {
-            $nomeU  = $usuarioDados['Nome'];
-            $emailU = $usuarioDados['Email'];
-            $telU   = $usuarioDados['Telefone'];
-            $dataFmt = date('d/m/Y (l)', strtotime($data));
+            $nomeU    = $usuarioDados['Nome'];
+            $emailU   = $usuarioDados['Email'];
+            $dataFmt  = date('d/m/Y (l)', strtotime($data));
             $valorFmt = formatarMoeda($preco);
 
-            // WhatsApp
-            if ($telU) {
+            // WhatsApp — sanitiza número antes de enviar
+            $telSanitizado = sanitizarTelefone((string)($usuarioDados['Telefone'] ?? ''));
+            if ($telSanitizado) {
                 $msgTpl = getConfig($pdo, 'msg_confirmacao', '');
                 if ($msgTpl) {
-                    $msg = str_replace(
+                    $msgWa = str_replace(
                         ['{nome}', '{data}', '{hora}', '{servico}'],
                         [$nomeU, date('d/m/Y', strtotime($data)), $hora, $nome],
                         $msgTpl
                     );
-                    $okWa = enviarWhatsApp($telU, $msg);
-                    registrarLogWhatsApp($pdo, $telU, $msg, 'confirmacao',
+                    $okWa = enviarWhatsApp($telSanitizado, $msgWa);
+                    registrarLogWhatsApp($pdo, $telSanitizado, $msgWa, 'confirmacao',
                         $okWa ? 'enviado' : 'erro', $id);
                     if ($okWa) {
                         $pdo->prepare(
