@@ -11,3 +11,4 @@ ALTER TABLE Usuarios
 
 -- Marca como verificado quem já veio do Google (já verificado pelo Google)
 UPDATE Usuarios SET EmailVerificado = 1 WHERE GoogleId IS NOT NULL;
+A

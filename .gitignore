@@ -1,9 +1,14 @@
+# ─── Dependências ─────────────────────────────────────────────
 /vendor/
+/node_modules/
+
+# ─── Uploads e logs ───────────────────────────────────────────
 /uploads/*
 !/uploads/.gitkeep
-/logs/*.log
-/logs/*.txt
+/logs/*
 !/logs/.gitkeep
+
+# ─── Configurações sensíveis ──────────────────────────────────
 .env
 .env.*
 config/conexao.php
@@ -13,5 +18,52 @@ config/evolution_keys.php
 config/google_oauth.php
 config/*_keys.php
 config/*_secret*.php
-*.DS_Store
+config/*_oauth.php
+
+# ─── PHP ──────────────────────────────────────────────────────
+*.log
+error_log
+php_errorlog
+/composer.lock
+
+# ─── Cache / sessões locais ───────────────────────────────────
+/cache/*
+!/cache/.gitkeep
+/tmp/*
+/temp/*
+/sessions/*
+
+# ─── Backups e arquivos temporários ──────────────────────────
+*.bak
+*.backup
+*.old
+*.orig
+*.sql.gz
+*.tar.gz
+*.zip
+*~
+*.swp
+*.swo
+
+# ─── IDEs ─────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.phpstorm.meta.php
+_ide_helper.php
+.php-version
+
+# ─── Sistema operacional ──────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ─── XAMPP / servidor local ───────────────────────────────────
+*.local.php
+local_config.php
