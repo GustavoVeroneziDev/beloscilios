@@ -71,7 +71,6 @@ $base          = '/beloscilios';
             <div class="sidebar-footer">
                 <div class="mb-1"><i class="bi bi-person-circle me-1"></i> <?= h($usuario) ?></div>
                 <a href="<?= BASE ?>/usuario/logout.php"><i class="bi bi-box-arrow-right me-1"></i> Sair</a>
-                <div class="mt-2 opacity-50" style="font-size:.7rem;">v<?= APP_VERSAO ?></div>
             </div>
         </nav>
 
