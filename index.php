@@ -3,6 +3,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+require_once __DIR__ . '/config/conexao.php';
+
 if (!empty($_SESSION['usuario_id'])) {
     if ($_SESSION['nivel_acesso'] === 'designer') {
         header('Location: ' . BASE . '/painel/index.php');
@@ -11,8 +13,6 @@ if (!empty($_SESSION['usuario_id'])) {
     }
     exit;
 }
-
-require_once __DIR__ . '/config/conexao.php';
 
 $paginaTitulo = 'Início';
 $areaAtual    = 'publico';
@@ -23,7 +23,8 @@ require_once __DIR__ . '/geral/header.php';
 <section class="py-5 text-center">
     <div class="row justify-content-center">
         <div class="col-lg-7">
-            <i class="bi bi-stars text-accent mb-3" style="font-size:3.5rem;"></i>
+            <img src="<?= BASE ?>/geral/img/NomeCompleto.png" alt="Belos Cílios"
+                class="mb-3" style="max-width:320px;width:100%;">
             <h1 class="display-5 fw-bold mb-3" style="color:var(--text-main);">
                 Realce sua beleza com quem entende
             </h1>
@@ -57,19 +58,19 @@ require_once __DIR__ . '/geral/header.php';
     ?>
     <div class="row g-3 justify-content-center">
         <?php foreach ($servicos as $s): ?>
-        <div class="col-sm-6 col-lg-3">
-            <div class="card h-100 p-3">
-                <i class="bi bi-scissors text-accent mb-2" style="font-size:2rem;"></i>
-                <h5 class="fw-semibold mb-1"><?= h($s['Nome']) ?></h5>
-                <p class="small text-secondary flex-grow-1 mb-2"><?= h($s['Descricao']) ?></p>
-                <div class="d-flex align-items-center justify-content-between">
-                    <span class="fw-bold text-accent"><?= formatarMoeda((float)$s['Preco']) ?></span>
-                    <span class="small text-secondary">
-                        <i class="bi bi-clock me-1"></i><?= (int)$s['DuracaoMinutos'] ?>min
-                    </span>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card h-100 p-3">
+                    <img src="<?= BASE ?>/geral/img/mascara.png" alt="" class="mb-2" style="width:2.2rem;height:2.2rem;object-fit:contain;">
+                    <h5 class="fw-semibold mb-1"><?= h($s['Nome']) ?></h5>
+                    <p class="small text-secondary flex-grow-1 mb-2"><?= h($s['Descricao']) ?></p>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <span class="fw-bold text-accent"><?= formatarMoeda((float)$s['Preco']) ?></span>
+                        <span class="small text-secondary">
+                            <i class="bi bi-clock me-1"></i><?= (int)$s['DuracaoMinutos'] ?>min
+                        </span>
+                    </div>
                 </div>
             </div>
-        </div>
         <?php endforeach ?>
     </div>
     <div class="text-center mt-4">
@@ -91,17 +92,17 @@ require_once __DIR__ . '/geral/header.php';
         ];
         foreach ($diferenciais as [$icon, $color, $title, $desc]):
         ?>
-        <div class="col-6 col-md-3">
-            <div class="card p-4 h-100">
-                <div class="mb-3">
-                    <span style="font-size:2rem;color:<?= $color ?>">
-                        <i class="bi <?= $icon ?>"></i>
-                    </span>
+            <div class="col-6 col-md-3">
+                <div class="card p-4 h-100">
+                    <div class="mb-3">
+                        <span style="font-size:2rem;color:<?= $color ?>">
+                            <i class="bi <?= $icon ?>"></i>
+                        </span>
+                    </div>
+                    <h6 class="fw-semibold mb-1"><?= $title ?></h6>
+                    <p class="small text-secondary mb-0"><?= $desc ?></p>
                 </div>
-                <h6 class="fw-semibold mb-1"><?= $title ?></h6>
-                <p class="small text-secondary mb-0"><?= $desc ?></p>
             </div>
-        </div>
         <?php endforeach ?>
     </div>
 </section>

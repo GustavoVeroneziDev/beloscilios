@@ -13,10 +13,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $acao = $_POST['acao'] ?? '';
 
     if ($acao === 'config') {
+        $intervaloMin = (int)($_POST['intervalo_minutos'] ?? 0);
+        if ($intervaloMin < 1) {
+            redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Intervalo entre atendimentos deve ser pelo menos 1 minuto.', 'warning');
+        }
         $campos = [
-            'nome_estudio','telefone_estudio','endereco_estudio',
-            'intervalo_minutos','antecedencia_minima_h','dias_agenda_futura',
-            'msg_confirmacao','msg_lembrete','msg_followup',
+            'nome_estudio',
+            'telefone_estudio',
+            'endereco_estudio',
+            'intervalo_minutos',
+            'antecedencia_minima_h',
+            'dias_agenda_futura',
+            'msg_confirmacao',
+            'msg_lembrete',
+            'msg_followup',
         ];
         try {
             foreach ($campos as $c) {
@@ -38,12 +48,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $ativo = isset($_POST["dia_{$d}_ativo"]) ? 1 : 0;
                 $ini   = $_POST["dia_{$d}_ini"] ?? '09:00';
                 $fim   = $_POST["dia_{$d}_fim"] ?? '18:00';
+                $temAlmoco  = isset($_POST["dia_{$d}_almoco_ativo"]);
+                $almocoIni  = $temAlmoco ? (trim($_POST["dia_{$d}_almoco_ini"] ?? '') ?: null) : null;
+                $almocoFim  = $temAlmoco ? (trim($_POST["dia_{$d}_almoco_fim"] ?? '') ?: null) : null;
                 if ($ativo) {
                     $stmt = $pdo->prepare(
-                        'INSERT INTO HorariosAtendimento (IDHorario,DiaSemana,HoraInicio,HoraFim,Ativo)
-                         VALUES (:id,:d,:ini,:fim,1)'
+                        'INSERT INTO HorariosAtendimento
+                            (IDHorario, DiaSemana, HoraInicio, HoraFim, AlmocoInicio, AlmocoFim, Ativo)
+                         VALUES (:id, :d, :ini, :fim, :alni, :alfm, 1)'
                     );
-                    $stmt->execute([':id'=>gerarUuid(),':d'=>$d,':ini'=>$ini,':fim'=>$fim]);
+                    $stmt->execute([
+                        ':id'   => gerarUuid(),
+                        ':d'    => $d,
+                        ':ini'  => $ini,
+                        ':fim'  => $fim,
+                        ':alni' => $almocoIni,
+                        ':alfm' => $almocoFim,
+                    ]);
                 }
             }
             redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Horários atualizados!', 'success');
@@ -58,14 +79,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $dataFim = trim($_POST['bloq_fim'] ?? '');
         $motivo  = trim($_POST['bloq_motivo'] ?? '');
         if ($dataIni && $dataFim) {
+            if ($dataFim <= $dataIni) {
+                redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'A data de fim deve ser posterior à data de início.', 'warning');
+            }
             try {
                 $pdo->prepare(
                     'INSERT INTO BloqueiosAgenda (IDBloqueio,DataInicio,DataFim,Motivo)
                      VALUES (:id,:ini,:fim,:mot)'
-                )->execute([':id'=>gerarUuid(),':ini'=>$dataIni,':fim'=>$dataFim,':mot'=>$motivo?:null]);
+                )->execute([':id' => gerarUuid(), ':ini' => $dataIni, ':fim' => $dataFim, ':mot' => $motivo ?: null]);
                 redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Bloqueio adicionado!', 'success');
             } catch (PDOException $e) {
                 error_log('[Bloqueio] ' . $e->getMessage());
+                redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Erro ao adicionar bloqueio.', 'danger');
             }
         }
     }
@@ -73,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($acao === 'rem_bloqueio') {
         $bid = $_POST['bid'] ?? '';
         if ($bid) {
-            $pdo->prepare('DELETE FROM BloqueiosAgenda WHERE IDBloqueio=:id')->execute([':id'=>$bid]);
+            $pdo->prepare('DELETE FROM BloqueiosAgenda WHERE IDBloqueio=:id')->execute([':id' => $bid]);
             redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Bloqueio removido.', 'success');
         }
     }
@@ -81,9 +106,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Carregar dados
 try {
-    $cfgKeys = ['nome_estudio','telefone_estudio','endereco_estudio',
-                'intervalo_minutos','antecedencia_minima_h','dias_agenda_futura',
-                'msg_confirmacao','msg_lembrete','msg_followup'];
+    $cfgKeys = [
+        'nome_estudio',
+        'telefone_estudio',
+        'endereco_estudio',
+        'intervalo_minutos',
+        'antecedencia_minima_h',
+        'dias_agenda_futura',
+        'msg_confirmacao',
+        'msg_lembrete',
+        'msg_followup'
+    ];
     $cfg = [];
     foreach ($cfgKeys as $k) {
         $cfg[$k] = getConfig($pdo, $k);
@@ -103,7 +136,7 @@ try {
     $cfg = $horarios = $bloqueios = [];
 }
 
-$diasNomes = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+$diasNomes = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
 $paginaTitulo = 'Configurações';
 $areaAtual    = 'painel';
@@ -147,32 +180,32 @@ require_once __DIR__ . '/../geral/header.php';
                     <div class="col-md-6">
                         <label class="form-label">Nome do estúdio</label>
                         <input type="text" name="nome_estudio" class="form-control"
-                               value="<?= h($cfg['nome_estudio'] ?? '') ?>">
+                            value="<?= h($cfg['nome_estudio'] ?? '') ?>">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Telefone de contato</label>
                         <input type="tel" name="telefone_estudio" class="form-control"
-                               value="<?= h($cfg['telefone_estudio'] ?? '') ?>">
+                            value="<?= h($cfg['telefone_estudio'] ?? '') ?>">
                     </div>
                     <div class="col-12">
                         <label class="form-label">Endereço</label>
                         <input type="text" name="endereco_estudio" class="form-control"
-                               value="<?= h($cfg['endereco_estudio'] ?? '') ?>">
+                            value="<?= h($cfg['endereco_estudio'] ?? '') ?>">
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Intervalo entre atendimentos (min)</label>
                         <input type="number" name="intervalo_minutos" class="form-control"
-                               min="0" step="5" value="<?= h($cfg['intervalo_minutos'] ?? '15') ?>">
+                            min="0" step="5" value="<?= h($cfg['intervalo_minutos'] ?? '15') ?>">
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Antecedência mínima (horas)</label>
                         <input type="number" name="antecedencia_minima_h" class="form-control"
-                               min="0" value="<?= h($cfg['antecedencia_minima_h'] ?? '2') ?>">
+                            min="0" value="<?= h($cfg['antecedencia_minima_h'] ?? '2') ?>">
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Dias de agenda disponível</label>
                         <input type="number" name="dias_agenda_futura" class="form-control"
-                               min="7" max="365" value="<?= h($cfg['dias_agenda_futura'] ?? '60') ?>">
+                            min="7" max="365" value="<?= h($cfg['dias_agenda_futura'] ?? '60') ?>">
                     </div>
                 </div>
                 <div class="mt-4">
@@ -185,44 +218,80 @@ require_once __DIR__ . '/../geral/header.php';
     <!-- Horários -->
     <div class="tab-pane fade" id="tabHorarios">
         <div class="card">
-            <form method="POST" class="card-body p-4">
+            <form method="POST" id="formHorarios" class="card-body p-4">
                 <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
                 <input type="hidden" name="acao" value="horarios">
                 <div class="table-responsive">
-                    <table class="table align-middle">
+                    <table class="table align-middle" style="min-width:680px;">
                         <thead>
                             <tr>
                                 <th>Dia</th>
                                 <th>Ativo</th>
+                                <th>Almoço</th>
                                 <th>Abertura</th>
-                                <th>Fechamento</th>
+                                <th>Início almoço</th>
+                                <th>Fim almoço</th>
+                                <th>Término</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php for ($d = 0; $d <= 6; $d++): ?>
-                            <?php $h_row = $horarios[$d] ?? null; ?>
-                            <tr>
-                                <td class="fw-medium"><?= $diasNomes[$d] ?></td>
-                                <td>
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox"
-                                               name="dia_<?= $d ?>_ativo" id="dia<?= $d ?>"
-                                               <?= $h_row ? 'checked' : '' ?>>
-                                    </div>
-                                </td>
-                                <td>
-                                    <input type="time" name="dia_<?= $d ?>_ini"
-                                           class="form-control form-control-sm"
-                                           value="<?= h($h_row['HoraInicio'] ?? '09:00') ?>"
-                                           style="width:120px;">
-                                </td>
-                                <td>
-                                    <input type="time" name="dia_<?= $d ?>_fim"
-                                           class="form-control form-control-sm"
-                                           value="<?= h($h_row['HoraFim'] ?? '18:00') ?>"
-                                           style="width:120px;">
-                                </td>
-                            </tr>
+                                <?php
+                                $h_row  = $horarios[$d] ?? null;
+                                $temAlm = $h_row && !empty($h_row['AlmocoInicio']);
+                                $almIni = substr($h_row['AlmocoInicio'] ?? '12:00', 0, 5);
+                                $almFim = substr($h_row['AlmocoFim']    ?? '13:00', 0, 5);
+                                ?>
+                                <tr>
+                                    <td class="fw-medium"><?= $diasNomes[$d] ?></td>
+                                    <td>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox"
+                                                name="dia_<?= $d ?>_ativo" id="dia<?= $d ?>"
+                                                <?= $h_row ? 'checked' : '' ?>>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input"
+                                                type="checkbox"
+                                                name="dia_<?= $d ?>_almoco_ativo"
+                                                id="almoco<?= $d ?>"
+                                                <?= $temAlm ? 'checked' : '' ?>
+                                                onchange="toggleAlmoco(<?= $d ?>)">
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <input type="time" name="dia_<?= $d ?>_ini"
+                                            id="ini_<?= $d ?>"
+                                            class="form-control form-control-sm"
+                                            value="<?= h($h_row['HoraInicio'] ?? '09:00') ?>"
+                                            style="width:110px;">
+                                    </td>
+                                    <td>
+                                        <input type="time" name="dia_<?= $d ?>_almoco_ini"
+                                            id="almoco_ini_<?= $d ?>"
+                                            class="form-control form-control-sm"
+                                            value="<?= h($almIni) ?>"
+                                            style="width:110px;"
+                                            <?= $temAlm ? '' : 'disabled' ?>>
+                                    </td>
+                                    <td>
+                                        <input type="time" name="dia_<?= $d ?>_almoco_fim"
+                                            id="almoco_fim_<?= $d ?>"
+                                            class="form-control form-control-sm"
+                                            value="<?= h($almFim) ?>"
+                                            style="width:110px;"
+                                            <?= $temAlm ? '' : 'disabled' ?>>
+                                    </td>
+                                    <td>
+                                        <input type="time" name="dia_<?= $d ?>_fim"
+                                            id="fim_<?= $d ?>"
+                                            class="form-control form-control-sm"
+                                            value="<?= h($h_row['HoraFim'] ?? '18:00') ?>"
+                                            style="width:110px;">
+                                    </td>
+                                </tr>
                             <?php endfor ?>
                         </tbody>
                     </table>
@@ -231,6 +300,81 @@ require_once __DIR__ . '/../geral/header.php';
             </form>
         </div>
     </div>
+
+    <!-- Modal de erro de horário -->
+    <div class="modal fade" id="modalErroHorario" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content border-0 shadow-lg" style="border-radius:14px;">
+                <div class="modal-body text-center px-4 pt-4 pb-2">
+                    <i class="bi bi-exclamation-triangle-fill d-block mb-3"
+                        style="font-size:2.4rem;color:#f59e0b;"></i>
+                    <p class="fw-semibold mb-0" id="modalErroMsg" style="color:var(--text-main);"></p>
+                </div>
+                <div class="modal-footer justify-content-center border-0 pt-2 pb-4">
+                    <button type="button" class="btn btn-accent px-5"
+                        data-bs-dismiss="modal">Entendi</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const diasNomes = <?= json_encode($diasNomes) ?>;
+
+        function toggleAlmoco(d) {
+            const on = document.getElementById('almoco' + d).checked;
+            document.getElementById('almoco_ini_' + d).disabled = !on;
+            document.getElementById('almoco_fim_' + d).disabled = !on;
+        }
+
+        function erroHorario(msg) {
+            document.getElementById('modalErroMsg').textContent = msg;
+            new bootstrap.Modal(document.getElementById('modalErroHorario')).show();
+        }
+
+        document.getElementById('formHorarios').addEventListener('submit', function(e) {
+            for (let d = 0; d <= 6; d++) {
+                const ativo = document.getElementById('dia' + d).checked;
+                if (!ativo) continue;
+
+                const ini = document.getElementById('ini_' + d).value;
+                const fim = document.getElementById('fim_' + d).value;
+                const almOn = document.getElementById('almoco' + d).checked;
+                const almIni = document.getElementById('almoco_ini_' + d).value;
+                const almFim = document.getElementById('almoco_fim_' + d).value;
+                const dia = diasNomes[d];
+
+                if (ini >= fim) {
+                    e.preventDefault();
+                    erroHorario(dia + ': o horário de abertura (' + ini + ') deve ser anterior ao término (' + fim + ').');
+                    return;
+                }
+
+                if (almOn) {
+                    if (!almIni || !almFim) {
+                        e.preventDefault();
+                        erroHorario(dia + ': preencha os dois horários do intervalo de almoço.');
+                        return;
+                    }
+                    if (almIni >= almFim) {
+                        e.preventDefault();
+                        erroHorario(dia + ': o início do almoço (' + almIni + ') deve ser anterior ao fim (' + almFim + ').');
+                        return;
+                    }
+                    if (almIni <= ini) {
+                        e.preventDefault();
+                        erroHorario(dia + ': o início do almoço (' + almIni + ') deve ser após a abertura (' + ini + ').');
+                        return;
+                    }
+                    if (almFim >= fim) {
+                        e.preventDefault();
+                        erroHorario(dia + ': o fim do almoço (' + almFim + ') deve ser antes do término (' + fim + ').');
+                        return;
+                    }
+                }
+            }
+        });
+    </script>
 
     <!-- Mensagens WA -->
     <div class="tab-pane fade" id="tabMensagens">
@@ -251,11 +395,11 @@ require_once __DIR__ . '/../geral/header.php';
                 ];
                 foreach ($msgs as [$key, $label, $info]):
                 ?>
-                <div class="mb-4">
-                    <label class="form-label fw-medium"><?= $label ?></label>
-                    <div class="small text-secondary mb-1"><?= $info ?></div>
-                    <textarea name="<?= $key ?>" class="form-control" rows="4"><?= h($cfg[$key] ?? '') ?></textarea>
-                </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-medium"><?= $label ?></label>
+                        <div class="small text-secondary mb-1"><?= $info ?></div>
+                        <textarea name="<?= $key ?>" class="form-control" rows="4"><?= h($cfg[$key] ?? '') ?></textarea>
+                    </div>
                 <?php endforeach ?>
                 <button class="btn btn-accent"><i class="bi bi-save me-1"></i> Salvar mensagens</button>
             </form>
@@ -292,29 +436,31 @@ require_once __DIR__ . '/../geral/header.php';
         </div>
 
         <?php if (!empty($bloqueios)): ?>
-        <div class="card">
-            <div class="card-header px-4 py-3">Bloqueios ativos / futuros</div>
-            <ul class="list-group list-group-flush">
-                <?php foreach ($bloqueios as $b): ?>
-                <li class="list-group-item px-4 py-3 d-flex align-items-center justify-content-between">
-                    <div>
-                        <div class="fw-medium"><?= h($b['Motivo'] ?? 'Sem motivo') ?></div>
-                        <div class="small text-secondary">
-                            <?= formatarDataHora($b['DataInicio']) ?> → <?= formatarDataHora($b['DataFim']) ?>
-                        </div>
-                    </div>
-                    <form method="POST">
-                        <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
-                        <input type="hidden" name="acao" value="rem_bloqueio">
-                        <input type="hidden" name="bid" value="<?= h($b['IDBloqueio']) ?>">
-                        <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Remover bloqueio?')">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </form>
-                </li>
-                <?php endforeach ?>
-            </ul>
-        </div>
+            <div class="card">
+                <div class="card-header px-4 py-3">Bloqueios ativos / futuros</div>
+                <ul class="list-group list-group-flush">
+                    <?php foreach ($bloqueios as $b): ?>
+                        <li class="list-group-item px-4 py-3 d-flex align-items-center justify-content-between">
+                            <div>
+                                <div class="fw-medium"><?= h($b['Motivo'] ?? 'Sem motivo') ?></div>
+                                <div class="small text-secondary">
+                                    <?= formatarDataHora($b['DataInicio']) ?> → <?= formatarDataHora($b['DataFim']) ?>
+                                </div>
+                            </div>
+                            <form method="POST">
+                                <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
+                                <input type="hidden" name="acao" value="rem_bloqueio">
+                                <input type="hidden" name="bid" value="<?= h($b['IDBloqueio']) ?>">
+                                <button class="btn btn-sm btn-outline-danger" type="button"
+                                    data-confirm="Remover este bloqueio de horário?"
+                                    data-confirm-label="Remover">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </li>
+                    <?php endforeach ?>
+                </ul>
+            </div>
         <?php endif ?>
     </div>
 </div>

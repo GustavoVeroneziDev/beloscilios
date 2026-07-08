@@ -41,7 +41,7 @@ if ($dataSel < $dataMin) {
 $diaSemana = (int) date('w', $dataTs); // 0=dom
 try {
     $horStmt = $pdo->prepare(
-        'SELECT HoraInicio, HoraFim FROM HorariosAtendimento
+        'SELECT HoraInicio, HoraFim, AlmocoInicio, AlmocoFim FROM HorariosAtendimento
          WHERE DiaSemana = :d AND Ativo = 1 LIMIT 1'
     );
     $horStmt->execute([':d' => $diaSemana]);
@@ -121,6 +121,13 @@ if ($horario) {
             }
         }
 
+        // Verificar intervalo de almoço
+        if ($livre && !empty($horario['AlmocoInicio']) && !empty($horario['AlmocoFim'])) {
+            $alIni = strtotime("{$dataSel} {$horario['AlmocoInicio']}");
+            $alFim = strtotime("{$dataSel} {$horario['AlmocoFim']}");
+            if ($ts < $alFim && $slotFim > $alIni) { $livre = false; }
+        }
+
         if ($livre) {
             $slots[] = date('H:i', $ts);
         }
@@ -198,7 +205,7 @@ require_once __DIR__ . '/../geral/header.php';
     <!-- Resumo do serviço -->
     <div class="col-lg-4">
         <div class="card p-4 sticky-top" style="top:80px;">
-            <h6 class="fw-bold mb-3"><i class="bi bi-scissors me-2 text-accent"></i>Resumo</h6>
+            <h6 class="fw-bold mb-3"><img src="<?= BASE ?>/geral/img/mascara.png" alt="" style="width:1.1rem;height:1.1rem;object-fit:contain;vertical-align:middle;" class="me-2">Resumo</h6>
             <dl class="mb-3">
                 <dt class="small text-secondary">Serviço</dt>
                 <dd class="fw-medium"><?= h($nome) ?></dd>
@@ -301,6 +308,7 @@ function selecionarSlot(btn) {
             servico_id: '<?= h($servicoId) ?>',
             sub_id:     '<?= h($subId) ?>',
             duracao:    '<?= $duracao ?>',
+            csrf_token: '<?= h(gerarTokenCSRF()) ?>',
         })
     })
     .then(r => r.json())
@@ -312,7 +320,7 @@ function selecionarSlot(btn) {
             btn.disabled = true;
             btn.classList.remove('btn-outline-accent', 'btn-accent');
             btn.classList.add('btn-secondary', 'opacity-50');
-            alert(res.msg || 'Horário indisponível. Tente outro.');
+            bcToast(res.msg || 'Horário indisponível. Tente outro.', 'warning');
             return;
         }
 
@@ -342,7 +350,7 @@ function selecionarSlot(btn) {
     })
     .catch(() => {
         document.querySelectorAll('.slot-btn').forEach(b => b.disabled = false);
-        alert('Erro de conexão. Tente novamente.');
+        bcToast('Erro de conexão. Tente novamente.', 'danger');
     });
 }
 </script>

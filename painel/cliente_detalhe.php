@@ -69,12 +69,12 @@ require_once __DIR__ . '/../geral/header.php';
                 <dt class="small text-secondary">WhatsApp</dt>
                 <dd>
                     <?php if ($cliente['Telefone']): ?>
-                    <a href="https://wa.me/<?= h($cliente['Telefone']) ?>" target="_blank"
-                       class="btn btn-sm btn-outline-success">
-                        <i class="bi bi-whatsapp me-1"></i><?= h($cliente['Telefone']) ?>
-                    </a>
+                        <a href="https://wa.me/<?= h($cliente['Telefone']) ?>" target="_blank"
+                            class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-whatsapp me-1"></i><?= h($cliente['Telefone']) ?>
+                        </a>
                     <?php else: ?>
-                    <span class="text-secondary">Não informado</span>
+                        <span class="text-secondary">Não informado</span>
                     <?php endif ?>
                 </dd>
                 <dt class="small text-secondary">Total gasto (pago)</dt>
@@ -84,10 +84,10 @@ require_once __DIR__ . '/../geral/header.php';
             </dl>
 
             <?php if ($cliente['Telefone']): ?>
-            <a href="https://wa.me/<?= h($cliente['Telefone']) ?>" target="_blank"
-               class="btn btn-outline-success w-100 mb-2">
-                <i class="bi bi-whatsapp me-1"></i> Abrir conversa
-            </a>
+                <a href="https://wa.me/<?= h($cliente['Telefone']) ?>" target="_blank"
+                    class="btn btn-outline-success w-100 mb-2">
+                    <i class="bi bi-whatsapp me-1"></i> Abrir conversa
+                </a>
             <?php endif ?>
             <a href="<?= BASE ?>/painel/agenda.php?acao=novo" class="btn btn-accent w-100">
                 <i class="bi bi-calendar-plus me-1"></i> Novo agendamento
@@ -103,38 +103,38 @@ require_once __DIR__ . '/../geral/header.php';
             </div>
             <div class="card-body p-0">
                 <?php if (empty($historico)): ?>
-                <div class="text-center py-5 text-secondary">
-                    <i class="bi bi-calendar-x fs-1 d-block mb-2 opacity-25"></i>
-                    <p>Nenhum procedimento encontrado.</p>
-                </div>
+                    <div class="text-center py-5 text-secondary">
+                        <i class="bi bi-calendar-x fs-1 d-block mb-2 opacity-25"></i>
+                        <p>Nenhum procedimento encontrado.</p>
+                    </div>
                 <?php else: ?>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead style="background:var(--bg-hover);">
-                            <tr>
-                                <th class="px-4 py-3">Data</th>
-                                <th>Serviço</th>
-                                <th>Valor</th>
-                                <th>Status</th>
-                                <th>Pagamento</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($historico as $h_ag): ?>
-                            <tr>
-                                <td class="px-4">
-                                    <div class="fw-medium"><?= date('d/m/Y', strtotime($h_ag['DataHoraAgendamento'])) ?></div>
-                                    <div class="small text-secondary"><?= date('H:i', strtotime($h_ag['DataHoraAgendamento'])) ?></div>
-                                </td>
-                                <td class="small"><?= h($h_ag['NomeSubServico'] ?? $h_ag['NomeServico']) ?></td>
-                                <td><?= $h_ag['ValorCobrado'] ? formatarMoeda((float)$h_ag['ValorCobrado']) : '—' ?></td>
-                                <td><?= labelStatus($h_ag['StatusAgendamento']) ?></td>
-                                <td><?= labelStatusPag($h_ag['StatusPagamento']) ?></td>
-                            </tr>
-                            <?php endforeach ?>
-                        </tbody>
-                    </table>
-                </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead style="background:var(--bg-hover);">
+                                <tr>
+                                    <th class="px-4 py-3">Data</th>
+                                    <th>Serviço</th>
+                                    <th>Valor</th>
+                                    <th>Status</th>
+                                    <th>Pagamento</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($historico as $h_ag): ?>
+                                    <tr>
+                                        <td class="px-4">
+                                            <div class="fw-medium"><?= date('d/m/Y', strtotime($h_ag['DataHoraAgendamento'])) ?></div>
+                                            <div class="small text-secondary"><?= date('H:i', strtotime($h_ag['DataHoraAgendamento'])) ?></div>
+                                        </td>
+                                        <td class="small"><?= h($h_ag['NomeSubServico'] ?? $h_ag['NomeServico']) ?></td>
+                                        <td><?= $h_ag['ValorCobrado'] ? formatarMoeda((float)$h_ag['ValorCobrado']) : '—' ?></td>
+                                        <td><?= labelStatus($h_ag['StatusAgendamento']) ?></td>
+                                        <td><?= labelStatusPag($h_ag['StatusPagamento']) ?></td>
+                                    </tr>
+                                <?php endforeach ?>
+                            </tbody>
+                        </table>
+                    </div>
                 <?php endif ?>
             </div>
         </div>

@@ -134,8 +134,10 @@ function emailHtml(string $titulo, string $corpo): string
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#faf5ff;padding:32px 16px;">
 <tr><td align="center">
 <table width="100%" style="max-width:520px;background:#fff;border-radius:14px;border:1px solid #e0aaff;overflow:hidden;box-shadow:0 2px 12px rgba(16,0,43,.07);">
-  <tr><td style="background:#10002b;padding:20px 28px;text-align:center;">
-    <span style="color:#b38cff;font-size:1.15rem;font-weight:700;">Belos C&iacute;lios</span>
+  <tr><td style="background:#ffffff;padding:20px 28px;text-align:center;border-bottom:2px solid #5a189a;">
+    <img src="https://beloscilios.com/geral/img/NomeCompleto.png"
+         alt="Belos C&iacute;lios" width="200" height="auto"
+         style="display:inline-block;max-width:200px;">
   </td></tr>
   <tr><td style="padding:28px 32px;color:#10002b;line-height:1.6;">
     {$corpo}
