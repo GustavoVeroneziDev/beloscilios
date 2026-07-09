@@ -26,8 +26,17 @@ if (!isset($tiposValidos[$tipo])) jsonErr('Tipo inválido. Use JPEG, PNG ou WebP
 
 $ext      = $tiposValidos[$tipo];
 $titulo   = trim($_POST['titulo']   ?? '');
-$catInput = trim($_POST['categoria'] ?? 'galeria');
-$cat      = in_array($catInput, ['galeria', 'servico', 'espaco', 'outro']) ? $catInput : 'galeria';
+$catInput = trim($_POST['categoria'] ?? '');
+
+// Valida categoria contra a tabela dinâmica
+$stmCat = $pdo->prepare('SELECT IDCategoria FROM CategoriasGaleria WHERE IDCategoria = :id');
+$stmCat->execute([':id' => $catInput]);
+if (!$stmCat->fetch()) {
+    // Fallback: pega a primeira categoria (menor Ordem) ou 'cat-outros'
+    $catFb = $pdo->query('SELECT IDCategoria FROM CategoriasGaleria ORDER BY Ordem ASC LIMIT 1')->fetchColumn();
+    $catInput = $catFb ?: 'cat-outros';
+}
+$cat = $catInput;
 
 $dir = __DIR__ . '/../geral/img/galeria/';
 if (!is_dir($dir) && !mkdir($dir, 0755, true)) jsonErr('Não foi possível criar diretório de upload.');

@@ -3,24 +3,31 @@ if (session_status() === PHP_SESSION_NONE) session_start();
 require_once __DIR__ . '/../config/conexao.php';
 exigirLogin('designer');
 
-$categorias = ['galeria' => 'Galeria', 'servico' => 'Serviço', 'espaco' => 'Espaço', 'outro' => 'Outro'];
-$catFiltro  = trim($_GET['cat'] ?? '');
-if ($catFiltro && !isset($categorias[$catFiltro])) $catFiltro = '';
+// Carrega categorias do banco
+$categorias = $pdo->query('SELECT * FROM CategoriasGaleria ORDER BY Ordem ASC')->fetchAll();
+$catMap = [];
+foreach ($categorias as $c) $catMap[$c['IDCategoria']] = $c['Nome'];
 
-$sql    = 'SELECT * FROM Imagens';
+$catFiltro = trim($_GET['cat'] ?? '');
+if ($catFiltro && !isset($catMap[$catFiltro])) $catFiltro = '';
+
+$sql    = 'SELECT i.*, c.Nome AS CategoriaNome
+           FROM Imagens i
+           LEFT JOIN CategoriasGaleria c ON c.IDCategoria = i.Categoria';
 $params = [];
 if ($catFiltro) {
-    $sql .= ' WHERE Categoria = :cat';
+    $sql .= ' WHERE i.Categoria = :cat';
     $params[':cat'] = $catFiltro;
 }
-$sql .= ' ORDER BY MomentoRegistro DESC';
+$sql .= ' ORDER BY i.MomentoRegistro DESC';
 
-$imagens = $pdo->prepare($sql);
-$imagens->execute($params);
-$imagens = $imagens->fetchAll();
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
+$imagens = $stmt->fetchAll();
 
-$totalGeral = $pdo->query('SELECT COUNT(*) FROM Imagens')->fetchColumn();
+$totalGeral = (int) $pdo->query('SELECT COUNT(*) FROM Imagens')->fetchColumn();
 
+$csrfToken    = gerarTokenCSRF();
 $paginaTitulo = 'Galeria de Imagens';
 $areaAtual    = 'painel';
 require_once __DIR__ . '/../geral/header.php';
@@ -56,7 +63,10 @@ require_once __DIR__ . '/../geral/header.php';
 }
 .upload-dropzone:hover,
 .upload-dropzone.dragover { background:rgba(90,24,154,.07);border-color:var(--roxo-400,#9d4edd); }
-.btn-xxs { font-size:.68rem;line-height:1.4;padding:.2rem .5rem; }
+.cat-row { display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;border-radius:8px;transition:background .15s; }
+.cat-row:hover { background:var(--bg-hover); }
+.cat-row-nome { flex:1;font-size:.9rem;font-weight:500; }
+.cat-form-section { border-top:1px solid var(--card-border-color);padding-top:1rem;margin-top:.5rem; }
 </style>
 
 <!-- Cabeçalho -->
@@ -67,9 +77,14 @@ require_once __DIR__ . '/../geral/header.php';
             <?= $totalGeral ?> imagem<?= $totalGeral != 1 ? 's' : '' ?> no total
         </p>
     </div>
-    <button class="btn btn-accent" data-bs-toggle="modal" data-bs-target="#modalUpload">
-        <i class="bi bi-plus-lg me-2"></i>Adicionar imagem
-    </button>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-accent" data-bs-toggle="modal" data-bs-target="#modalCats">
+            <i class="bi bi-tags me-2"></i>Categorias
+        </button>
+        <button class="btn btn-accent" data-bs-toggle="modal" data-bs-target="#modalUpload">
+            <i class="bi bi-plus-lg me-2"></i>Adicionar imagem
+        </button>
+    </div>
 </div>
 
 <!-- Filtros -->
@@ -78,14 +93,14 @@ require_once __DIR__ . '/../geral/header.php';
        class="btn btn-sm <?= !$catFiltro ? 'btn-accent' : 'btn-outline-secondary' ?>">
         Todas <span class="badge bg-secondary ms-1"><?= $totalGeral ?></span>
     </a>
-    <?php foreach ($categorias as $k => $v):
-        $cnt = $pdo->prepare('SELECT COUNT(*) FROM Imagens WHERE Categoria = :c');
-        $cnt->execute([':c' => $k]);
-        $cnt = $cnt->fetchColumn();
+    <?php foreach ($categorias as $cat):
+        $stm2 = $pdo->prepare('SELECT COUNT(*) FROM Imagens WHERE Categoria = :c');
+        $stm2->execute([':c' => $cat['IDCategoria']]);
+        $cnt = (int) $stm2->fetchColumn();
     ?>
-    <a href="?cat=<?= $k ?>"
-       class="btn btn-sm <?= $catFiltro === $k ? 'btn-accent' : 'btn-outline-secondary' ?>">
-        <?= $v ?> <span class="badge bg-secondary ms-1"><?= $cnt ?></span>
+    <a href="?cat=<?= h($cat['IDCategoria']) ?>"
+       class="btn btn-sm <?= $catFiltro === $cat['IDCategoria'] ? 'btn-accent' : 'btn-outline-secondary' ?>">
+        <?= h($cat['Nome']) ?> <span class="badge bg-secondary ms-1"><?= $cnt ?></span>
     </a>
     <?php endforeach ?>
 </div>
@@ -108,7 +123,7 @@ require_once __DIR__ . '/../geral/header.php';
                 <img src="<?= BASE ?>/geral/img/galeria/<?= h($img['NomeArquivo']) ?>"
                      alt="<?= h($img['TituloExibicao'] ?? '') ?>"
                      loading="lazy">
-                <span class="gal-cat-badge"><?= h($categorias[$img['Categoria']] ?? $img['Categoria']) ?></span>
+                <span class="gal-cat-badge"><?= h($img['CategoriaNome'] ?? '—') ?></span>
                 <div class="gal-overlay">
                     <button class="btn btn-sm btn-light py-1 px-2"
                             onclick="copiarUrl('<?= BASE ?>/geral/img/galeria/<?= h($img['NomeArquivo']) ?>')"
@@ -131,10 +146,9 @@ require_once __DIR__ . '/../geral/header.php';
                 <div class="d-flex align-items-center justify-content-between">
                     <span class="text-secondary" style="font-size:.68rem;">
                         <?php if ($img['Largura']): ?>
-                            <?= $img['Largura'] ?>×<?= $img['Altura'] ?>px
-                            · <?= round($img['TamanhoBytes'] / 1024) ?> KB
+                            <?= $img['Largura'] ?>×<?= $img['Altura'] ?>px · <?= round($img['TamanhoBytes'] / 1024) ?> KB
                         <?php else: ?>
-                            <?= $img['NomeArquivo'] ?>
+                            <?= h($img['NomeArquivo']) ?>
                         <?php endif ?>
                     </span>
                 </div>
@@ -144,6 +158,73 @@ require_once __DIR__ . '/../geral/header.php';
     <?php endforeach ?>
 </div>
 <?php endif ?>
+
+
+<!-- ══════════════════════════════════
+     Modal: Gerenciar Categorias
+════════════════════════════════════ -->
+<div class="modal fade" id="modalCats" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:440px">
+        <div class="modal-content border-0" style="border-radius:16px">
+
+            <div class="modal-header border-0 pb-1">
+                <h5 class="modal-title fw-bold"><i class="bi bi-tags me-2 text-accent"></i>Categorias</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body pt-1">
+                <!-- Lista -->
+                <div id="catLista">
+                    <?php if (empty($categorias)): ?>
+                    <p class="text-secondary small text-center py-3">Nenhuma categoria ainda.</p>
+                    <?php else: ?>
+                    <?php foreach ($categorias as $cat): ?>
+                    <div class="cat-row" id="catrow-<?= h($cat['IDCategoria']) ?>">
+                        <span class="cat-row-nome"><?= h($cat['Nome']) ?></span>
+                        <button class="btn btn-sm btn-outline-secondary py-0 px-2"
+                                onclick="editarCat('<?= h($cat['IDCategoria']) ?>','<?= h(addslashes($cat['Nome'])) ?>')"
+                                title="Editar">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger py-0 px-2"
+                                onclick="deletarCat('<?= h($cat['IDCategoria']) ?>','<?= h(addslashes($cat['Nome'])) ?>')"
+                                title="Excluir">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                    <?php endforeach ?>
+                    <?php endif ?>
+                </div>
+
+                <!-- Formulário inline (criar / editar) -->
+                <div class="cat-form-section" id="catFormSection" style="display:none">
+                    <p class="small fw-semibold mb-2" id="catFormTitulo">Nova categoria</p>
+                    <input type="hidden" id="catFormId">
+                    <div class="input-group input-group-sm">
+                        <input type="text" id="catFormNome" class="form-control"
+                               placeholder="Nome da categoria" maxlength="100">
+                        <button class="btn btn-accent" onclick="salvarCat()">
+                            <i class="bi bi-check-lg"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="fecharFormCat()">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-accent btn-sm" onclick="abrirFormCat()">
+                    <i class="bi bi-plus-lg me-1"></i>Nova categoria
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" data-bs-dismiss="modal">
+                    Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 <!-- ══════════════════════════════════
      Modal de Upload
@@ -158,8 +239,7 @@ require_once __DIR__ . '/../geral/header.php';
             </div>
 
             <div class="modal-body pt-2">
-
-                <!-- Passo 1: selecionar -->
+                <!-- Passo 1 -->
                 <div id="stepSelect">
                     <label for="inputImg" class="upload-dropzone" id="dropZone">
                         <i class="bi bi-cloud-arrow-up" style="font-size:3rem;color:var(--accent)"></i>
@@ -169,14 +249,12 @@ require_once __DIR__ . '/../geral/header.php';
                     <input type="file" id="inputImg" accept="image/jpeg,image/png,image/webp" class="d-none">
                 </div>
 
-                <!-- Passo 2: recortar + metadados -->
+                <!-- Passo 2 -->
                 <div id="stepCrop" style="display:none">
-                    <!-- Área do crop -->
                     <div id="cropWrap" style="max-height:400px;background:#0d0020;border-radius:10px;overflow:hidden;">
                         <img id="imgCropper" style="max-width:100%;display:block;">
                     </div>
 
-                    <!-- Toolbar do crop -->
                     <div class="mt-3 d-flex align-items-center gap-2 flex-wrap">
                         <span class="text-secondary small fw-semibold me-1">Proporção:</span>
                         <div class="btn-group btn-group-sm" role="group">
@@ -187,23 +265,24 @@ require_once __DIR__ . '/../geral/header.php';
                             <button type="button" class="btn btn-outline-secondary" onclick="setAspect(3/4)">3:4</button>
                         </div>
                         <div class="btn-group btn-group-sm ms-auto" role="group">
-                            <button type="button" class="btn btn-outline-secondary" onclick="cropperIns&&cropperIns.rotate(-90)" title="Girar esquerda">
+                            <button type="button" class="btn btn-outline-secondary"
+                                    onclick="cropperIns&&cropperIns.rotate(-90)" title="Girar esquerda">
                                 <i class="bi bi-arrow-counterclockwise"></i>
                             </button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="cropperIns&&cropperIns.rotate(90)" title="Girar direita">
+                            <button type="button" class="btn btn-outline-secondary"
+                                    onclick="cropperIns&&cropperIns.rotate(90)" title="Girar direita">
                                 <i class="bi bi-arrow-clockwise"></i>
                             </button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="cropperIns&&cropperIns.reset()" title="Resetar">
+                            <button type="button" class="btn btn-outline-secondary"
+                                    onclick="cropperIns&&cropperIns.reset()" title="Resetar">
                                 <i class="bi bi-x-lg"></i>
                             </button>
                         </div>
                     </div>
-
                     <p class="text-secondary" style="font-size:.72rem;margin-top:.4rem;">
                         Arraste para mover · Scroll para zoom · Ajuste as alças para recortar
                     </p>
 
-                    <!-- Metadados -->
                     <div class="row g-2 mt-1">
                         <div class="col-sm-7">
                             <label class="form-label small fw-semibold mb-1">Título <span class="text-secondary fw-normal">(opcional)</span></label>
@@ -213,15 +292,13 @@ require_once __DIR__ . '/../geral/header.php';
                         <div class="col-sm-5">
                             <label class="form-label small fw-semibold mb-1">Categoria</label>
                             <select id="selectCat" class="form-select form-select-sm">
-                                <option value="galeria">Galeria</option>
-                                <option value="servico">Serviço</option>
-                                <option value="espaco">Espaço</option>
-                                <option value="outro">Outro</option>
+                                <?php foreach ($categorias as $cat): ?>
+                                <option value="<?= h($cat['IDCategoria']) ?>"><?= h($cat['Nome']) ?></option>
+                                <?php endforeach ?>
                             </select>
                         </div>
                     </div>
 
-                    <!-- Barra de progresso (oculta até enviar) -->
                     <div id="uploadProg" style="display:none" class="mt-3">
                         <div class="progress" style="height:5px">
                             <div class="progress-bar progress-bar-striped progress-bar-animated"
@@ -230,7 +307,6 @@ require_once __DIR__ . '/../geral/header.php';
                         <p class="text-secondary small mt-1 mb-0">Enviando…</p>
                     </div>
                 </div>
-
             </div>
 
             <div class="modal-footer border-0 pt-1 gap-2">
@@ -248,22 +324,85 @@ require_once __DIR__ . '/../geral/header.php';
     </div>
 </div>
 
-<!-- Cropper.js (self-contained, ~25kb) via CDN apenas no painel -->
 <link rel="stylesheet" href="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.css">
 <script src="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.js"></script>
 
 <script>
 (function () {
-    var CSRF    = '<?= gerarTokenCSRF() ?>';
+    var CSRF    = '<?= $csrfToken ?>';
     var BASE    = '<?= BASE ?>';
-    var modal   = null;
     var cropperIns  = null;
     var arquivoOrig = null;
     var enviando    = false;
+    window.cropperIns = null;
 
-    window.cropperIns = null; // expor para inline onclick de rotação
+    // ── Categorias CRUD ──────────────────────────────────────────
+    window.abrirFormCat = function(id, nome) {
+        document.getElementById('catFormSection').style.display = 'block';
+        document.getElementById('catFormId').value    = id   || '';
+        document.getElementById('catFormNome').value  = nome || '';
+        document.getElementById('catFormTitulo').textContent = id ? 'Editar categoria' : 'Nova categoria';
+        document.getElementById('catFormNome').focus();
+    };
+    window.editarCat = function(id, nome) { abrirFormCat(id, nome); };
+    window.fecharFormCat = function() {
+        document.getElementById('catFormSection').style.display = 'none';
+        document.getElementById('catFormId').value   = '';
+        document.getElementById('catFormNome').value = '';
+    };
 
-    // ── Drag & drop ──────────────────────────────────────────
+    window.salvarCat = function() {
+        var id   = document.getElementById('catFormId').value.trim();
+        var nome = document.getElementById('catFormNome').value.trim();
+        if (!nome) { bcToast('Informe um nome.', 'warning'); return; }
+
+        var fd = new FormData();
+        fd.append('csrf_token', CSRF);
+        fd.append('acao', id ? 'editar' : 'criar');
+        fd.append('nome', nome);
+        if (id) fd.append('id', id);
+
+        fetch(BASE + '/painel/categoria_galeria.php', { method: 'POST', body: fd })
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (!d.ok) { bcToast(d.msg, 'danger'); return; }
+                bcToast(id ? 'Categoria atualizada.' : 'Categoria criada.', 'success');
+                fecharFormCat();
+                // Atualiza a linha ou adiciona nova sem reload
+                if (id) {
+                    var row = document.getElementById('catrow-' + id);
+                    if (row) row.querySelector('.cat-row-nome').textContent = nome;
+                } else {
+                    // Reload para refletir novos filtros e select
+                    location.reload();
+                }
+            })
+            .catch(function() { bcToast('Falha de conexão.', 'danger'); });
+    };
+
+    window.deletarCat = function(id, nome) {
+        bcConfirm('Excluir a categoria "' + nome + '"? Ela não pode ter imagens vinculadas.', function() {
+            var fd = new FormData();
+            fd.append('csrf_token', CSRF);
+            fd.append('acao', 'deletar');
+            fd.append('id', id);
+            fetch(BASE + '/painel/categoria_galeria.php', { method: 'POST', body: fd })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (!d.ok) { bcToast(d.msg, 'danger'); return; }
+                    var row = document.getElementById('catrow-' + id);
+                    if (row) row.remove();
+                    bcToast('Categoria excluída.', 'success');
+                });
+        }, 'Excluir');
+    };
+
+    // Enter no campo nome do formulário
+    document.getElementById('catFormNome').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); salvarCat(); }
+    });
+
+    // ── Upload ───────────────────────────────────────────────────
     var dz = document.getElementById('dropZone');
     dz.addEventListener('dragover',  function(e){ e.preventDefault(); dz.classList.add('dragover'); });
     dz.addEventListener('dragleave', function()  { dz.classList.remove('dragover'); });
@@ -285,20 +424,12 @@ require_once __DIR__ . '/../geral/header.php';
             document.getElementById('stepCrop').style.display   = 'block';
             document.getElementById('btnOriginal').style.display = 'inline-flex';
             document.getElementById('btnCrop').style.display    = 'inline-flex';
-
             var img = document.getElementById('imgCropper');
             img.src = ev.target.result;
-
             if (cropperIns) { cropperIns.destroy(); cropperIns = null; }
             cropperIns = new Cropper(img, {
-                viewMode: 1,
-                autoCropArea: 0.88,
-                responsive: true,
-                background: false,
-                movable: true,
-                zoomable: true,
-                rotatable: true,
-                scalable: true,
+                viewMode: 1, autoCropArea: 0.88, responsive: true,
+                background: false, movable: true, zoomable: true, rotatable: true, scalable: true,
             });
             window.cropperIns = cropperIns;
         };
@@ -310,11 +441,8 @@ require_once __DIR__ . '/../geral/header.php';
     window.salvarCrop = function() {
         if (!cropperIns || enviando) return;
         var canvas = cropperIns.getCroppedCanvas({
-            maxWidth:  9999,
-            maxHeight: 9999,
-            fillColor: '#fff',
-            imageSmoothingEnabled: true,
-            imageSmoothingQuality: 'high',
+            maxWidth: 9999, maxHeight: 9999,
+            fillColor: '#fff', imageSmoothingEnabled: true, imageSmoothingQuality: 'high',
         });
         canvas.toBlob(function(blob) { enviar(blob, 'upload.jpg'); }, 'image/jpeg', 0.95);
     };
@@ -332,18 +460,16 @@ require_once __DIR__ . '/../geral/header.php';
 
         var fd = new FormData();
         fd.append('csrf_token', CSRF);
-        fd.append('titulo',     document.getElementById('inputTitulo').value.trim());
-        fd.append('categoria',  document.getElementById('selectCat').value);
-        fd.append('imagem',     blob, nome);
+        fd.append('titulo',    document.getElementById('inputTitulo').value.trim());
+        fd.append('categoria', document.getElementById('selectCat').value);
+        fd.append('imagem',    blob, nome);
 
         fetch(BASE + '/painel/upload_imagem.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 enviando = false;
-                if (data.ok) {
-                    fecharModal();
-                    location.reload();
-                } else {
+                if (data.ok) { fecharModal(); location.reload(); }
+                else {
                     bcToast(data.msg || 'Erro ao enviar.', 'danger');
                     document.getElementById('uploadProg').style.display = 'none';
                     document.getElementById('btnCrop').disabled     = false;
@@ -361,8 +487,7 @@ require_once __DIR__ . '/../geral/header.php';
 
     window.fecharModal = function() {
         if (enviando) return;
-        var m = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalUpload'));
-        m.hide();
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalUpload')).hide();
         resetModal();
     };
 
@@ -378,20 +503,18 @@ require_once __DIR__ . '/../geral/header.php';
         document.getElementById('btnOriginal').disabled = false;
         document.getElementById('inputImg').value       = '';
         document.getElementById('inputTitulo').value    = '';
-        document.getElementById('selectCat').value      = 'galeria';
         document.getElementById('imgCropper').src       = '';
     }
-
     document.getElementById('modalUpload').addEventListener('hidden.bs.modal', resetModal);
 
-    // ── Copiar URL ────────────────────────────────────────────
+    // ── Copiar URL ────────────────────────────────────────────────
     window.copiarUrl = function(url) {
         navigator.clipboard.writeText(url)
             .then(function() { bcToast('URL copiada!', 'success'); })
             .catch(function() { bcToast('Não foi possível copiar.', 'warning'); });
     };
 
-    // ── Deletar ───────────────────────────────────────────────
+    // ── Deletar imagem ────────────────────────────────────────────
     window.confirmarDelete = function(id, nome) {
         bcConfirm('Deletar "' + nome + '"? Essa ação não pode ser desfeita.', function() {
             var fd = new FormData();
@@ -404,12 +527,8 @@ require_once __DIR__ . '/../geral/header.php';
                         var card = document.getElementById('gcard-' + id);
                         if (card) card.remove();
                         bcToast('Imagem deletada.', 'success');
-                        // atualizar contador no cabeçalho
-                        var c = document.querySelectorAll('#galeriaGrid .col-6').length;
-                        if (c === 0) location.reload();
-                    } else {
-                        bcToast(data.msg, 'danger');
-                    }
+                        if (!document.querySelectorAll('#galeriaGrid .col-6').length) location.reload();
+                    } else { bcToast(data.msg, 'danger'); }
                 });
         }, 'Deletar');
     };
