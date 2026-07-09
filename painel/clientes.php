@@ -59,7 +59,7 @@ try {
     $total = (int) $cntStmt->fetchColumn();
 
     $stmt = $pdo->prepare(
-        "SELECT u.IDUsuario, u.Nome, u.Email, u.Telefone, u.MomentoRegistro,
+        "SELECT u.IDUsuario, u.Nome, u.Email, u.Telefone, u.MomentoRegistro, u.EmailVerificado,
                 COUNT(a.IDAgendamento) AS TotalAg
          FROM Usuarios u
          LEFT JOIN Agendamentos a ON a.FKCliente = u.IDUsuario
@@ -116,48 +116,151 @@ require_once __DIR__ . '/../geral/header.php';
                 <p>Nenhuma cliente encontrada.</p>
             </div>
         <?php else: ?>
+            <style>
+            /* E-mail truncado com ellipsis */
+            .email-cell {
+                max-width: 200px;
+            }
+            .email-cell span {
+                display: block;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            /* Linha de detalhe mobile */
+            .row-detail { display: none; }
+            .row-detail.aberta { display: table-row; }
+            .row-detail td {
+                background: var(--bg-hover);
+                border-top: none !important;
+                padding: .75rem 1rem !important;
+            }
+            .detalhe-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: .5rem .75rem;
+                font-size: .82rem;
+            }
+            .detalhe-item strong {
+                display: block;
+                font-size: .7rem;
+                text-transform: uppercase;
+                letter-spacing: .04em;
+                color: var(--text-secondary, #888);
+                margin-bottom: 2px;
+            }
+            /* Chevron animado */
+            .btn-expand { transition: transform .2s; }
+            .btn-expand.rotated { transform: rotate(180deg); }
+            </style>
+
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+                <table class="table table-hover align-middle mb-0" id="tabelaClientes">
                     <thead style="background:var(--bg-hover);">
                         <tr>
                             <th class="px-4 py-3">Nome</th>
-                            <th>E-mail</th>
-                            <th>WhatsApp</th>
-                            <th class="text-center">Procedimentos</th>
-                            <th>Cadastro</th>
+                            <th class="d-none d-md-table-cell email-cell">E-mail</th>
+                            <th class="d-none d-md-table-cell">WhatsApp</th>
+                            <th class="d-none d-md-table-cell text-center">Atend.</th>
+                            <th class="d-none d-md-table-cell">Cadastro</th>
                             <th></th>
+                            <th class="d-md-none"></th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($clientes as $c): ?>
-                            <tr>
-                                <td class="px-4 fw-medium"><?= h($c['Nome']) ?></td>
-                                <td class="text-secondary small"><?= h($c['Email']) ?></td>
-                                <td>
+                        <?php foreach ($clientes as $i => $c):
+                            $verif    = (bool)$c['EmailVerificado'];
+                            $verifTip = $verif ? 'E-mail verificado' : 'E-mail não verificado';
+                            $verifIcon = $verif
+                                ? '<i class="bi bi-patch-check-fill text-success" title="' . $verifTip . '"></i>'
+                                : '<i class="bi bi-clock text-warning" title="' . $verifTip . '"></i>';
+                            $rid = 'det-' . $i;
+                        ?>
+                            <tr class="linha-cliente" data-detail="<?= $rid ?>">
+                                <td class="px-4 fw-medium">
+                                    <?= h($c['Nome']) ?>
+                                    <!-- status verificação visível só no mobile, abaixo do nome -->
+                                    <span class="d-md-none ms-1" style="font-size:.8rem;"><?= $verifIcon ?></span>
+                                </td>
+                                <td class="d-none d-md-table-cell text-secondary small email-cell">
+                                    <span title="<?= h($c['Email']) ?>"><?= h($c['Email']) ?></span>
+                                    <span class="ms-1"><?= $verifIcon ?></span>
+                                </td>
+                                <td class="d-none d-md-table-cell">
                                     <?php if ($c['Telefone']): ?>
                                         <a href="https://wa.me/<?= h($c['Telefone']) ?>" target="_blank"
-                                            class="btn btn-sm btn-outline-success">
+                                            class="btn btn-sm btn-outline-success d-inline-flex align-items-center justify-content-center"
+                                            style="width:30px;height:30px;padding:0;">
                                             <i class="bi bi-whatsapp"></i>
                                         </a>
                                     <?php else: ?>
                                         <span class="text-secondary">—</span>
                                     <?php endif ?>
                                 </td>
-                                <td class="text-center">
+                                <td class="d-none d-md-table-cell text-center">
                                     <span class="badge bg-secondary"><?= (int)$c['TotalAg'] ?></span>
                                 </td>
-                                <td class="small text-secondary"><?= formatarData($c['MomentoRegistro']) ?></td>
+                                <td class="d-none d-md-table-cell small text-secondary"><?= formatarData($c['MomentoRegistro']) ?></td>
                                 <td>
                                     <a href="<?= BASE ?>/painel/cliente_detalhe.php?id=<?= h($c['IDUsuario']) ?>"
                                         class="btn btn-sm btn-outline-accent">
-                                        <i class="bi bi-eye me-1"></i>Ver
+                                        <i class="bi bi-eye"></i><span class="d-none d-md-inline ms-1">Ver</span>
                                     </a>
+                                </td>
+                                <!-- Chevron só no mobile -->
+                                <td class="d-md-none">
+                                    <button class="btn btn-sm btn-link text-secondary p-0 btn-expand"
+                                            data-target="<?= $rid ?>" aria-label="Detalhes">
+                                        <i class="bi bi-chevron-down"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <!-- Linha de detalhe (mobile) -->
+                            <tr class="row-detail" id="<?= $rid ?>">
+                                <td colspan="3">
+                                    <div class="detalhe-grid">
+                                        <div class="detalhe-item" style="grid-column:1/-1;">
+                                            <strong>E-mail</strong>
+                                            <span style="word-break:break-all;"><?= h($c['Email']) ?></span>
+                                            <?= $verifIcon ?>
+                                        </div>
+                                        <?php if ($c['Telefone']): ?>
+                                        <div class="detalhe-item">
+                                            <strong>WhatsApp</strong>
+                                            <a href="https://wa.me/<?= h($c['Telefone']) ?>" target="_blank"
+                                               class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1 mt-1"
+                                               style="height:28px;font-size:.78rem;padding:0 .6rem;">
+                                                <i class="bi bi-whatsapp"></i> Abrir
+                                            </a>
+                                        </div>
+                                        <?php endif ?>
+                                        <div class="detalhe-item">
+                                            <strong>Atendimentos</strong>
+                                            <span class="badge bg-secondary"><?= (int)$c['TotalAg'] ?></span>
+                                        </div>
+                                        <div class="detalhe-item">
+                                            <strong>Cadastro</strong>
+                                            <?= formatarData($c['MomentoRegistro']) ?>
+                                        </div>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach ?>
                     </tbody>
                 </table>
             </div>
+
+            <script>
+            document.querySelectorAll('.btn-expand').forEach(function (btn) {
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    var rid  = btn.dataset.target;
+                    var det  = document.getElementById(rid);
+                    var open = det.classList.toggle('aberta');
+                    btn.classList.toggle('rotated', open);
+                });
+            });
+            </script>
 
             <?php if ($totalPag > 1): ?>
                 <div class="d-flex justify-content-center py-3">
