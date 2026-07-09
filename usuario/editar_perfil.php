@@ -85,7 +85,7 @@ require_once __DIR__ . '/../geral/header.php';
                 <div class="mb-3">
                     <label class="form-label fw-medium">Nome completo *</label>
                     <input type="text" name="nome" class="form-control"
-                           value="<?= h($usuario['Nome']) ?>" required>
+                           value="<?= h($usuario['Nome']) ?>" required maxlength="100">
                 </div>
 
                 <div class="mb-3">
@@ -99,8 +99,9 @@ require_once __DIR__ . '/../geral/header.php';
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-whatsapp"></i></span>
                         <input type="tel" name="telefone" class="form-control"
-                               value="<?= h($usuario['Telefone'] ?? '') ?>"
-                               placeholder="(11) 99999-9999">
+                               value="<?= h(formatarTelefoneExibicao($usuario['Telefone'] ?? '')) ?>"
+                               placeholder="(11) 99999-9999"
+                               data-mask="tel" maxlength="15">
                     </div>
                 </div>
 
@@ -111,7 +112,7 @@ require_once __DIR__ . '/../geral/header.php';
                     <div class="mb-3">
                         <label class="form-label">Senha atual</label>
                         <input type="password" name="senha_atual" class="form-control"
-                               placeholder="Deixe em branco para não alterar">
+                               placeholder="Deixe em branco para não alterar" maxlength="72">
                     </div>
                 <?php else: ?>
                     <h6 class="fw-semibold mb-1">Criar senha <span class="text-secondary fw-normal">(opcional)</span></h6>
@@ -123,12 +124,12 @@ require_once __DIR__ . '/../geral/header.php';
                 <div class="mb-3">
                     <label class="form-label">Nova senha</label>
                     <input type="password" name="nova_senha" class="form-control"
-                           placeholder="Mínimo 4 caracteres" minlength="4">
+                           placeholder="Mínimo 4 caracteres" minlength="4" maxlength="72">
                 </div>
                 <div class="mb-4">
                     <label class="form-label">Confirmar nova senha</label>
                     <input type="password" name="nova_senha_c" class="form-control"
-                           placeholder="Repita a nova senha">
+                           placeholder="Repita a nova senha" maxlength="72">
                 </div>
 
                 <div class="d-grid">

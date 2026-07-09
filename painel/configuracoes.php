@@ -201,17 +201,21 @@ require_once __DIR__ . '/../geral/header.php';
                     <div class="col-md-6">
                         <label class="form-label">Nome do estúdio</label>
                         <input type="text" name="nome_estudio" class="form-control"
-                            value="<?= h($cfg['nome_estudio'] ?? '') ?>">
+                            value="<?= h($cfg['nome_estudio'] ?? '') ?>"
+                            maxlength="100">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Telefone de contato</label>
                         <input type="tel" name="telefone_estudio" class="form-control"
-                            value="<?= h($cfg['telefone_estudio'] ?? '') ?>">
+                            value="<?= h(formatarTelefoneExibicao($cfg['telefone_estudio'] ?? '')) ?>"
+                            placeholder="(11) 99999-9999"
+                            data-mask="tel" maxlength="15">
                     </div>
                     <div class="col-12">
                         <label class="form-label">Endereço</label>
                         <input type="text" name="endereco_estudio" class="form-control"
-                            value="<?= h($cfg['endereco_estudio'] ?? '') ?>">
+                            value="<?= h($cfg['endereco_estudio'] ?? '') ?>"
+                            maxlength="255">
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Intervalo entre atendimentos (min)</label>
@@ -221,7 +225,7 @@ require_once __DIR__ . '/../geral/header.php';
                     <div class="col-md-4">
                         <label class="form-label">Antecedência mínima (horas)</label>
                         <input type="number" name="antecedencia_minima_h" class="form-control"
-                            min="0" value="<?= h($cfg['antecedencia_minima_h'] ?? '2') ?>">
+                            min="0" max="72" value="<?= h($cfg['antecedencia_minima_h'] ?? '2') ?>">
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Dias de agenda disponível</label>

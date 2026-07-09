@@ -237,22 +237,22 @@ require_once __DIR__ . '/../geral/header.php';
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Nome *</label>
-                        <input type="text" name="nome" id="svNome" class="form-control" required>
+                        <input type="text" name="nome" id="svNome" class="form-control" required maxlength="100">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Descrição</label>
-                        <textarea name="desc" id="svDesc" class="form-control" rows="2"></textarea>
+                        <textarea name="desc" id="svDesc" class="form-control" rows="2" maxlength="500"></textarea>
                     </div>
                     <div class="row g-2 mb-3">
                         <div class="col-6">
                             <label class="form-label">Preço (R$) *</label>
                             <input type="number" name="preco" id="svPreco" class="form-control"
-                                step="0.01" min="0" required>
+                                step="0.01" min="0" max="99999.99" required>
                         </div>
                         <div class="col-6">
                             <label class="form-label">Duração (min) *</label>
                             <input type="number" name="dur" id="svDur" class="form-control"
-                                min="15" step="15" required>
+                                min="15" max="480" step="15" required>
                         </div>
                     </div>
                     <div class="row g-2 mb-3">
@@ -299,20 +299,20 @@ require_once __DIR__ . '/../geral/header.php';
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Nome da manutenção *</label>
-                        <input type="text" name="sub_nome" class="form-control" required>
+                        <input type="text" name="sub_nome" class="form-control" required maxlength="100">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Descrição</label>
-                        <textarea name="sub_desc" class="form-control" rows="2"></textarea>
+                        <textarea name="sub_desc" class="form-control" rows="2" maxlength="500"></textarea>
                     </div>
                     <div class="row g-2">
                         <div class="col-6">
                             <label class="form-label">Preço (R$)</label>
-                            <input type="number" name="sub_preco" class="form-control" step="0.01" min="0">
+                            <input type="number" name="sub_preco" class="form-control" step="0.01" min="0" max="99999.99">
                         </div>
                         <div class="col-6">
                             <label class="form-label">Duração (min)</label>
-                            <input type="number" name="sub_dur" class="form-control" value="60" min="15" step="15">
+                            <input type="number" name="sub_dur" class="form-control" value="60" min="15" max="480" step="15">
                         </div>
                     </div>
                 </div>

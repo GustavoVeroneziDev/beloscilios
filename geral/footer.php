@@ -78,6 +78,21 @@ function bcConfirm(msg, onOk, label) {
     new bootstrap.Modal(document.getElementById('modalConfirm')).show();
 }
 
+// ── Máscara de telefone ───────────────────────────────────────
+function bcMascaraTel(input) {
+    function fmt() {
+        var d = input.value.replace(/\D/g, '').slice(0, 11);
+        if (!d)           { input.value = ''; return; }
+        if (d.length <= 2)  { input.value = '(' + d; return; }
+        if (d.length <= 6)  { input.value = '(' + d.slice(0,2) + ') ' + d.slice(2); return; }
+        if (d.length <= 10) { input.value = '(' + d.slice(0,2) + ') ' + d.slice(2,6) + '-' + d.slice(6); return; }
+        input.value = '(' + d.slice(0,2) + ') ' + d.slice(2,7) + '-' + d.slice(7);
+    }
+    input.addEventListener('input', fmt);
+    input.setAttribute('inputmode', 'numeric');
+}
+document.querySelectorAll('[data-mask="tel"]').forEach(bcMascaraTel);
+
 // ── data-confirm em forms e botões ────────────────────────────
 document.addEventListener('submit', function (e) {
     var form = e.target, msg = form.dataset.confirm;

@@ -50,7 +50,6 @@ function enviarWhatsApp(string $numero, string $mensagem): bool
 
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
 
     if ($httpCode >= 200 && $httpCode < 300) {
         return true;
@@ -199,6 +198,22 @@ function labelStatus(string $status): string
         'concluido'  => '<span class="badge bg-secondary">Concluído</span>',
         default      => '<span class="badge bg-light text-dark">' . h($status) . '</span>',
     };
+}
+
+function formatarTelefoneExibicao(?string $tel): string
+{
+    if (!$tel) return '';
+    $d = preg_replace('/\D/', '', $tel);
+    if (strlen($d) === 13 && str_starts_with($d, '55')) {
+        $d = substr($d, 2);
+    }
+    if (strlen($d) === 11) {
+        return '(' . substr($d, 0, 2) . ') ' . substr($d, 2, 5) . '-' . substr($d, 7);
+    }
+    if (strlen($d) === 10) {
+        return '(' . substr($d, 0, 2) . ') ' . substr($d, 2, 4) . '-' . substr($d, 6);
+    }
+    return $tel;
 }
 
 function labelStatusPag(string $status): string

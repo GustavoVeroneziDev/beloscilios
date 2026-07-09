@@ -32,6 +32,7 @@ require_once __DIR__ . '/../geral/header.php';
                         <span class="input-group-text"><i class="bi bi-person"></i></span>
                         <input type="text" id="nome" name="nome" class="form-control"
                                placeholder="Seu nome" required autocomplete="name"
+                               maxlength="100"
                                value="<?= h($_GET['nome'] ?? '') ?>">
                     </div>
                 </div>
@@ -42,6 +43,7 @@ require_once __DIR__ . '/../geral/header.php';
                         <span class="input-group-text"><i class="bi bi-envelope"></i></span>
                         <input type="email" id="email" name="email" class="form-control"
                                placeholder="seu@email.com" required autocomplete="email"
+                               maxlength="150"
                                value="<?= h($_GET['email'] ?? '') ?>">
                     </div>
                 </div>
@@ -53,7 +55,8 @@ require_once __DIR__ . '/../geral/header.php';
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-whatsapp"></i></span>
                         <input type="tel" id="telefone" name="telefone" class="form-control"
-                               placeholder="(11) 99999-9999" autocomplete="tel">
+                               placeholder="(11) 99999-9999" autocomplete="tel"
+                               data-mask="tel" maxlength="15">
                     </div>
                 </div>
 
@@ -62,7 +65,7 @@ require_once __DIR__ . '/../geral/header.php';
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-lock"></i></span>
                         <input type="password" id="senha" name="senha" class="form-control"
-                               placeholder="Mínimo 4 caracteres" required minlength="4">
+                               placeholder="Mínimo 4 caracteres" required minlength="4" maxlength="72">
                         <button class="btn btn-outline-secondary" type="button" id="toggleSenha">
                             <i class="bi bi-eye" id="iconeSenha"></i>
                         </button>
@@ -74,7 +77,7 @@ require_once __DIR__ . '/../geral/header.php';
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
                         <input type="password" id="senha_conf" name="senha_conf" class="form-control"
-                               placeholder="Repita a senha" required>
+                               placeholder="Repita a senha" required maxlength="72">
                     </div>
                 </div>
 
