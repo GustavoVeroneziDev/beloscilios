@@ -41,7 +41,85 @@
     </div>
 </div>
 
+<!-- Modal de instalação PWA -->
+<div class="modal fade" id="modalPwa" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg" style="border-radius:20px;overflow:hidden;">
+            <div class="modal-body text-center px-4 pt-4 pb-3">
+                <img src="<?= BASE ?>/geral/img/LogoCírculo.png" alt="Belos Cílios"
+                     style="width:80px;height:80px;object-fit:contain;border-radius:20px;margin-bottom:1rem;box-shadow:0 4px 16px rgba(90,24,154,.25);">
+                <h5 class="fw-bold mb-1" style="color:var(--accent);">Instale o app</h5>
+                <p class="text-secondary small mb-0">
+                    Adicione à tela inicial para acessar rapidamente, como um app nativo — sem precisar abrir o navegador.
+                </p>
+            </div>
+            <div class="modal-footer border-0 pt-0 pb-4 px-4 flex-column gap-2">
+                <button class="btn btn-accent w-100" onclick="bcPwaInstalar(true)">
+                    <i class="bi bi-download me-2"></i>Instalar agora
+                </button>
+                <button class="btn btn-link text-secondary small w-100 p-0" data-bs-dismiss="modal" onclick="bcPwaDescartar()">
+                    Agora não
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+// ── PWA ───────────────────────────────────────────────────────────────────────
+var _bcPwaEvento = null;
+
+window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    _bcPwaEvento = e;
+    // Mostra botões fixos em todos os contextos
+    document.querySelectorAll('#btnPwaSidebar,#btnPwaNav').forEach(function (b) { b.style.display = ''; });
+    // Mostra o modal automático apenas na página marcada e se não foi descartado
+    if (document.body.dataset.pwaModal === '1' && !localStorage.getItem('bc_pwa_ok')) {
+        setTimeout(function () {
+            var m = document.getElementById('modalPwa');
+            if (m) bootstrap.Modal.getOrCreateInstance(m).show();
+        }, 1200);
+    }
+});
+
+window.addEventListener('appinstalled', function () {
+    _bcPwaEvento = null;
+    localStorage.setItem('bc_pwa_ok', '1');
+    document.querySelectorAll('#btnPwaSidebar,#btnPwaNav').forEach(function (b) { b.style.display = 'none'; });
+    var m = document.getElementById('modalPwa');
+    if (m) bootstrap.Modal.getInstance(m)?.hide();
+});
+
+function bcPwaInstalar(fecharModal) {
+    if (!_bcPwaEvento) return;
+    _bcPwaEvento.prompt();
+    _bcPwaEvento.userChoice.then(function (r) {
+        if (r.outcome === 'accepted') {
+            localStorage.setItem('bc_pwa_ok', '1');
+            document.querySelectorAll('#btnPwaSidebar,#btnPwaNav').forEach(function (b) { b.style.display = 'none'; });
+        }
+        _bcPwaEvento = null;
+    });
+    if (fecharModal) {
+        var m = document.getElementById('modalPwa');
+        if (m) bootstrap.Modal.getInstance(m)?.hide();
+    }
+}
+
+function bcPwaDescartar() {
+    localStorage.setItem('bc_pwa_ok', '1');
+}
+
+// Registra o Service Worker
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+        navigator.serviceWorker.register('<?= BASE ?>/sw.php', { scope: '<?= BASE ?>/' })
+            .catch(function (e) { console.warn('SW:', e); });
+    });
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function abrirSidebar() {
     document.getElementById('sidebar').classList.add('aberta');
     document.getElementById('sidebarOverlay').classList.add('ativo');

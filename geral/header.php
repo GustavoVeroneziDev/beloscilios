@@ -21,10 +21,13 @@ $base          = '/beloscilios';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= h($paginaTitulo) ?> — Belos Cílios</title>
     <link rel="icon" href="<?= BASE ?>/geral/img/ico.ico" type="image/x-icon">
+    <link rel="apple-touch-icon" href="<?= BASE ?>/geral/img/LogoCírculo.png">
+    <link rel="manifest" href="<?= BASE ?>/manifest.php">
 
-    <meta name="theme-color" content="#10002b">
+    <meta name="theme-color" content="#5a189a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Belos Cílios">
     <meta name="format-detection" content="telephone=no">
 
     <link rel="stylesheet" href="<?= BASE ?>/geral/vendor/bs/css/bootstrap.min.css">
@@ -32,7 +35,8 @@ $base          = '/beloscilios';
     <link rel="stylesheet" href="<?= BASE ?>/geral/css/estilo.css?v=<?= APP_VERSAO ?>">
 </head>
 
-<body>
+<body<?= isset($_bcPwaModal) && $_bcPwaModal ? ' data-pwa-modal="1"' : '' ?>>
+
 
     <?php if ($ehPainel): ?>
         <div class="sidebar-overlay" id="sidebarOverlay" onclick="fecharSidebar()"></div>
@@ -71,6 +75,10 @@ $base          = '/beloscilios';
             </ul>
             <div class="sidebar-footer">
                 <div class="mb-1"><i class="bi bi-person-circle me-1"></i> <?= h($_nomeSession) ?></div>
+                <button id="btnPwaSidebar" onclick="bcPwaInstalar()"
+                    class="btn btn-sm btn-outline-accent w-100 mb-2" style="display:none;">
+                    <i class="bi bi-download me-1"></i> Instalar app
+                </button>
                 <a href="<?= BASE ?>/usuario/logout.php"><i class="bi bi-box-arrow-right me-1"></i> Sair</a>
             </div>
         </nav>
@@ -116,6 +124,11 @@ $base          = '/beloscilios';
                                             <i class="bi bi-calendar-plus me-2"></i>Agendar</a></li>
                                     <li>
                                         <hr class="dropdown-divider">
+                                    </li>
+                                    <li>
+                                        <button class="dropdown-item" id="btnPwaNav" onclick="bcPwaInstalar()" style="display:none;">
+                                            <i class="bi bi-download me-2"></i>Instalar app
+                                        </button>
                                     </li>
                                     <li><a class="dropdown-item text-danger" href="<?= BASE ?>/usuario/logout.php">
                                             <i class="bi bi-box-arrow-right me-2"></i>Sair</a></li>

@@ -5,6 +5,8 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/../config/conexao.php';
 exigirLogin('designer');
 
+$_bcPwaModal = true; // exibe modal de instalação PWA no dashboard
+
 // Estatísticas do dia
 try {
     $hoje = date('Y-m-d');
