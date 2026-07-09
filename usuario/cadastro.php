@@ -56,7 +56,7 @@ require_once __DIR__ . '/../geral/header.php';
                         <span class="input-group-text"><i class="bi bi-whatsapp"></i></span>
                         <input type="tel" id="telefone" name="telefone" class="form-control"
                                placeholder="(11) 99999-9999" autocomplete="tel"
-                               data-mask="tel" maxlength="15">
+                               data-mask="tel" maxlength="15" required>
                     </div>
                 </div>
 

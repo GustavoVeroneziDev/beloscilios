@@ -20,7 +20,7 @@ $telefone = trim($_POST['telefone'] ?? '');
 $senha    = $_POST['senha']         ?? '';
 $senhaCf  = $_POST['senha_conf']    ?? '';
 
-if ($nome === '' || $email === '' || $senha === '') {
+if ($nome === '' || $email === '' || $telefone === '' || $senha === '') {
     redirecionarComMensagem(BASE . '/usuario/cadastro.php', 'Preencha todos os campos obrigatórios.', 'warning');
 }
 
@@ -36,7 +36,10 @@ if ($senha !== $senhaCf) {
     redirecionarComMensagem(BASE . '/usuario/cadastro.php', 'As senhas não coincidem.', 'warning');
 }
 
-$telefoneFmt = $telefone !== '' ? sanitizarTelefone($telefone) : null;
+$telefoneFmt = sanitizarTelefone($telefone);
+if ($telefoneFmt === null) {
+    redirecionarComMensagem(BASE . '/usuario/cadastro.php', 'Número de WhatsApp inválido. Use o formato (11) 99999-9999.', 'warning');
+}
 
 try {
     $check = $pdo->prepare('SELECT IDUsuario FROM Usuarios WHERE Email = :email LIMIT 1');
