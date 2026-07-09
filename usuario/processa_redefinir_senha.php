@@ -23,10 +23,10 @@ if ($idToken === '' || $tokenPlain === '' || $novaSenha === '' || $confirmar ===
     redirecionarComMensagem(BASE . '/usuario/login.php', 'Dados incompletos. Solicite um novo link.', 'warning');
 }
 
-if (strlen($novaSenha) < 8) {
+if (strlen($novaSenha) < 4) {
     redirecionarComMensagem(
         BASE . '/usuario/redefinir_senha.php?id=' . urlencode($idToken) . '&t=' . urlencode($tokenPlain),
-        'A senha deve ter pelo menos 8 caracteres.',
+        'A senha deve ter pelo menos 4 caracteres.',
         'warning'
     );
 }

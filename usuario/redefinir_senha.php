@@ -57,8 +57,8 @@ require_once __DIR__ . '/../geral/header.php';
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-lock"></i></span>
                             <input type="password" id="nova_senha" name="nova_senha" class="form-control"
-                                   placeholder="Mínimo 8 caracteres" required autocomplete="new-password"
-                                   minlength="8">
+                                   placeholder="Mínimo 4 caracteres" required autocomplete="new-password"
+                                   minlength="4">
                             <button class="btn btn-outline-secondary" type="button" id="toggleNova">
                                 <i class="bi bi-eye" id="iconeNova"></i>
                             </button>
