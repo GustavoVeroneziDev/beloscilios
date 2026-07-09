@@ -74,6 +74,7 @@ require_once __DIR__ . '/geral/header.php';
     background: #0d0020;
     display: flex;
     align-items: stretch;
+    justify-content: center;
     overflow: hidden;
     margin-top: -1.5rem;
     position: relative;
