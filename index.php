@@ -73,13 +73,12 @@ require_once __DIR__ . '/geral/header.php';
     min-height: 100vh;
     background: #0d0020;
     display: flex;
-    align-items: center;
+    align-items: stretch;
     justify-content: center;
     overflow: hidden;
-    margin-top: -1.5rem;       /* cancela py-4 do main */
+    margin-top: -1.5rem;
     position: relative;
     clip-path: polygon(0 0, 100% 0, 100% 93%, 50% 100%, 0 93%);
-    padding-bottom: 8%;
 }
 
 /* Orbs bokeh */
@@ -149,11 +148,65 @@ require_once __DIR__ . '/geral/header.php';
     50%     { opacity:.7; transform:scale(2.5); }
 }
 
-.lp-hero-inner {
+/* Grid dois‑colunas do hero */
+.lp-hero-wrap {
     position: relative; z-index: 1;
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+    max-width: 1240px;
+    padding: 5rem 1.5rem 10% 1.5rem;
+    align-items: flex-end;
+}
+@media (min-width: 768px) {
+    .lp-hero-wrap {
+        grid-template-columns: 1fr 1fr;
+        padding: 0 2.5rem;
+        gap: 0;
+    }
+}
+
+/* Coluna de texto */
+.lp-hero-text {
     text-align: center;
-    padding: 2rem 1.5rem;
-    max-width: 740px;
+    padding-bottom: 2rem;
+}
+@media (min-width: 768px) {
+    .lp-hero-text {
+        text-align: left;
+        padding-bottom: 10%;
+    }
+    .lp-hero-eyebrow { justify-content: flex-start; }
+    .lp-hero-ctas    { justify-content: flex-start; }
+}
+
+/* Coluna da foto */
+.lp-hero-foto {
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+}
+@media (min-width: 768px) {
+    .lp-hero-foto { display: flex; min-height: 100vh; }
+}
+
+.lp-hero-principal {
+    display: block;
+    width: 100%;
+    max-width: 520px;
+    height: auto;
+    object-fit: contain;
+    object-position: bottom center;
+    align-self: flex-end;
+    max-height: 92vh;
+    /* fade suave nos lados */
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%);
+    mask-image:         linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%);
+    animation: fadeSlideRight .9s .4s cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes fadeSlideRight {
+    from { opacity:0; transform: translateX(40px); }
+    to   { opacity:1; transform: none; }
 }
 
 .lp-hero-logo {
@@ -600,31 +653,40 @@ require_once __DIR__ . '/geral/header.php';
         <span></span><span></span><span></span><span></span>
         <span></span><span></span><span></span><span></span>
     </div>
-    <!-- Conteúdo -->
-    <div class="lp-hero-inner">
-        <img src="<?= BASE ?>/geral/img/NomeCompleto.png"
-             alt="Belos Cílios" class="lp-hero-logo">
+    <!-- Grid -->
+    <div class="lp-hero-wrap">
+        <!-- Texto -->
+        <div class="lp-hero-text">
+            <img src="<?= BASE ?>/geral/img/NomeCompleto.png"
+                 alt="Belos Cílios" class="lp-hero-logo">
 
-        <div class="lp-hero-eyebrow">
-            Extensão de Cílios &nbsp;·&nbsp; Design de Sobrancelhas
+            <div class="lp-hero-eyebrow">
+                Extensão de Cílios &nbsp;·&nbsp; Design de Sobrancelhas
+            </div>
+
+            <h1 class="lp-hero-h1">
+                Beleza que<br>
+                <em>fala por você.</em>
+            </h1>
+
+            <p class="lp-hero-p">
+                Arte, técnica e cuidado para realçar o melhor em cada olhar.
+            </p>
+
+            <div class="lp-hero-ctas">
+                <a href="<?= BASE ?>/usuario/cadastro.php" class="lp-btn-primary">
+                    <i class="bi bi-calendar-heart"></i> Agendar agora
+                </a>
+                <a href="#servicos" class="lp-btn-ghost">
+                    <i class="bi bi-grid-3x3-gap"></i> Ver serviços
+                </a>
+            </div>
         </div>
 
-        <h1 class="lp-hero-h1">
-            Beleza que<br>
-            <em>fala por você.</em>
-        </h1>
-
-        <p class="lp-hero-p">
-            Arte, técnica e cuidado para realçar o melhor em cada olhar.
-        </p>
-
-        <div class="lp-hero-ctas">
-            <a href="<?= BASE ?>/usuario/cadastro.php" class="lp-btn-primary">
-                <i class="bi bi-calendar-heart"></i> Agendar agora
-            </a>
-            <a href="#servicos" class="lp-btn-ghost">
-                <i class="bi bi-grid-3x3-gap"></i> Ver serviços
-            </a>
+        <!-- Foto da designer -->
+        <div class="lp-hero-foto" aria-hidden="true">
+            <img src="<?= BASE ?>/geral/img/Principal.png"
+                 alt="" class="lp-hero-principal">
         </div>
     </div>
 
