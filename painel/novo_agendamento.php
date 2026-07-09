@@ -78,7 +78,7 @@ if ($horario) {
                 $fim = strtotime($ag['DataHoraFim']);
                 if ($ts >= $ini && $ts < $fim) {
                     $status = 'ocupado';
-                    $info   = h($ag['NomeCliente']) . ' — ' . h($ag['NomeServico']);
+                    $info   = $ag['NomeCliente'] . ' — ' . $ag['NomeServico'];
                     break;
                 }
             }
@@ -90,7 +90,7 @@ if ($horario) {
                 $fim = strtotime($b['DataFim']);
                 if ($ts >= $ini && $ts < $fim) {
                     $status = 'bloqueado';
-                    $info   = h($b['Motivo'] ?: 'Bloqueado');
+                    $info   = $b['Motivo'] ?: 'Bloqueado';
                     break;
                 }
             }
@@ -113,7 +113,7 @@ $bloqJson = json_encode(array_map(fn($b) => [
     'info'   => $b['Motivo'] ?: 'Bloqueado',
 ], $bloqueios));
 
-$almocoJson = (!empty($horario['AlmocoInicio']) && !empty($horario['AlmocoFim']))
+$almocoJson = ($horario && !empty($horario['AlmocoInicio']) && !empty($horario['AlmocoFim']))
     ? json_encode([
         'ini' => strtotime("{$dataSel} {$horario['AlmocoInicio']}"),
         'fim' => strtotime("{$dataSel} {$horario['AlmocoFim']}"),
@@ -607,11 +607,19 @@ function aplicarDuracaoPreco(duracao, preco) {
     atualizarHoraFim();
     atualizarValidezSlots();
 
-    // Se o slot selecionado ficou inválido, desmarca
-    if (slotSelecionadoTs) {
-        var btnSel = document.querySelector('.slot-livre.slot-sel');
-        if (btnSel && btnSel.classList.contains('slot-invalido')) {
-            btnSel.classList.remove('slot-sel');
+    // Se o slot selecionado ficou inválido com o novo serviço, desmarca
+    // (não podemos checar slot-invalido no btn porque a guarda no toggle o omite do slot-sel)
+    if (slotSelecionadoTs && duracaoAtual > 0) {
+        var fimSel   = slotSelecionadoTs + duracaoAtual * 60;
+        var invalSel = false;
+        if (fimSel > FIM_JORNADA_TS) invalSel = true;
+        if (!invalSel) invalSel = AGENDAMENTOS.some(function (ag) { return slotSelecionadoTs < ag.fim && fimSel > ag.ini; });
+        if (!invalSel) invalSel = BLOQUEIOS.some(function (b) { return slotSelecionadoTs < b.fim && fimSel > b.ini; });
+        if (!invalSel && ALMOCO) invalSel = (slotSelecionadoTs < ALMOCO.fim && fimSel > ALMOCO.ini);
+
+        if (invalSel) {
+            var btnSel = document.querySelector('.slot-livre.slot-sel');
+            if (btnSel) btnSel.classList.remove('slot-sel');
             slotSelecionadoTs = null;
             document.getElementById('inp_hora').value = '';
             document.getElementById('lblHoraSel').textContent = '—';
@@ -639,13 +647,23 @@ function buscarCliente(q) {
         fetch('<?= BASE ?>/painel/api_busca_clientes.php?q=' + encodeURIComponent(q))
             .then(function (r) { return r.json(); })
             .then(function (lista) {
+                drop.innerHTML = '';
                 if (!lista.length) { drop.style.display = 'none'; return; }
-                drop.innerHTML = lista.map(function (c) {
-                    return '<div class="dc-item" onclick="escolherCliente(\'' + c.id + '\',\'' +
-                           c.nome.replace(/'/g, "\\'") + '\')">' +
-                           '<span>' + c.nome + '</span>' +
-                           '<small>' + (c.telefone || c.email || '') + '</small></div>';
-                }).join('');
+                lista.forEach(function (c) {
+                    var item = document.createElement('div');
+                    item.className = 'dc-item';
+                    item.addEventListener('click', function () { escolherCliente(c.id, c.nome); });
+
+                    var nome = document.createElement('span');
+                    nome.textContent = c.nome;
+                    item.appendChild(nome);
+
+                    var sub = document.createElement('small');
+                    sub.textContent = c.telefone || c.email || '';
+                    item.appendChild(sub);
+
+                    drop.appendChild(item);
+                });
                 drop.style.display = 'block';
             });
     }, 280);
