@@ -11,9 +11,16 @@ if (!empty($_SESSION['usuario_id']) && ($_SESSION['nivel_acesso'] ?? '') === 'de
 }
 
 try {
-    $telefoneWa = getConfig($pdo, 'telefone_estudio', '');
+    $telefoneWa  = getConfig($pdo, 'telefone_estudio', '');
+    $fotosGaleria = $pdo->query(
+        'SELECT NomeArquivo, TituloExibicao
+         FROM Imagens
+         ORDER BY (TituloExibicao LIKE \'%wispy%\') DESC, MomentoRegistro DESC
+         LIMIT 6'
+    )->fetchAll();
 } catch (PDOException) {
-    $telefoneWa = '';
+    $telefoneWa   = '';
+    $fotosGaleria = [];
 }
 
 $waLink = $telefoneWa
@@ -385,18 +392,14 @@ require_once __DIR__ . '/geral/header.php';
     border-radius: 14px;
     overflow: hidden;
     position: relative;
+    background: #1a0040;
 }
-/* Trocar .lp-ph-bg por <img> quando tiver fotos reais */
-.lp-ph-bg {
+.lp-ph img {
     width: 100%; height: 100%;
-    display: flex; align-items: center; justify-content: center;
+    object-fit: cover;
+    object-position: top center;
+    display: block;
 }
-.lp-ph:nth-child(1) .lp-ph-bg { background: linear-gradient(145deg,#1a0040 0%,#7b2fbe 100%); }
-.lp-ph:nth-child(2) .lp-ph-bg { background: linear-gradient(145deg,#5a189a 0%,#c77dff 100%); }
-.lp-ph:nth-child(3) .lp-ph-bg { background: linear-gradient(145deg,#3d0070 0%,#9d4edd 100%); }
-.lp-ph:nth-child(4) .lp-ph-bg { background: linear-gradient(145deg,#240046 0%,#6739c7 100%); }
-.lp-ph:nth-child(5) .lp-ph-bg { background: linear-gradient(145deg,#10002b 0%,#5a189a 100%); }
-.lp-ph:nth-child(6) .lp-ph-bg { background: linear-gradient(145deg,#6739c7 0%,#e0aaff 100%); }
 
 .lp-ph-tag {
     position: absolute;
@@ -643,32 +646,17 @@ require_once __DIR__ . '/geral/header.php';
     </div>
 
     <div class="lp-gallery-wrap">
-        <!-- ↓ Substitua .lp-ph-bg por <img src="..." alt="..."> quando tiver fotos reais -->
         <div class="lp-gallery">
+            <?php foreach ($fotosGaleria as $foto): ?>
             <div class="lp-ph">
-                <div class="lp-ph-bg"></div>
-                <div class="lp-ph-tag">Extensão Volume</div>
+                <img src="<?= BASE ?>/geral/img/galeria/<?= h($foto['NomeArquivo']) ?>"
+                     alt="<?= h($foto['TituloExibicao'] ?? 'Resultado') ?>"
+                     loading="lazy">
+                <?php if (!empty($foto['TituloExibicao'])): ?>
+                <div class="lp-ph-tag"><?= h($foto['TituloExibicao']) ?></div>
+                <?php endif ?>
             </div>
-            <div class="lp-ph">
-                <div class="lp-ph-bg"></div>
-                <div class="lp-ph-tag">Híbrido</div>
-            </div>
-            <div class="lp-ph">
-                <div class="lp-ph-bg"></div>
-                <div class="lp-ph-tag">Clássico</div>
-            </div>
-            <div class="lp-ph">
-                <div class="lp-ph-bg"></div>
-                <div class="lp-ph-tag">Design de Sobrancelha</div>
-            </div>
-            <div class="lp-ph">
-                <div class="lp-ph-bg"></div>
-                <div class="lp-ph-tag">Mega Volume</div>
-            </div>
-            <div class="lp-ph">
-                <div class="lp-ph-bg"></div>
-                <div class="lp-ph-tag">Fio a Fio</div>
-            </div>
+            <?php endforeach ?>
         </div>
         <p class="lp-ig-cta">
             Mais resultados no Instagram →
