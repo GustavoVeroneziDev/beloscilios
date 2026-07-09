@@ -125,9 +125,16 @@ try {
     $subServicos = $pdo->query(
         'SELECT * FROM SubServicos WHERE Ativo=1 ORDER BY FKServico, Nome'
     )->fetchAll();
+
+    $imagensGaleria = $pdo->query(
+        'SELECT i.IDImagem, i.NomeArquivo, i.TituloExibicao, c.Nome AS CategoriaNome
+         FROM Imagens i
+         LEFT JOIN CategoriasGaleria c ON c.IDCategoria = i.Categoria
+         ORDER BY i.MomentoRegistro DESC'
+    )->fetchAll();
 } catch (PDOException $e) {
     error_log('[Servicos] ' . $e->getMessage());
-    $servicos = $subServicos = [];
+    $servicos = $subServicos = $imagensGaleria = [];
 }
 
 // Agrupar sub-serviços por serviço pai
@@ -233,7 +240,7 @@ require_once __DIR__ . '/../geral/header.php';
 
 <!-- Modal: Serviço -->
 <div class="modal fade" id="modalServico" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-scrollable">
         <div class="modal-content">
             <form method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
@@ -277,10 +284,56 @@ require_once __DIR__ . '/../geral/header.php';
                             </div>
                         </div>
                     </div>
-                    <div class="mb-3">
+
+                    <!-- Foto -->
+                    <div class="mb-0">
                         <label class="form-label">Foto do serviço</label>
-                        <input type="file" name="foto" class="form-control" accept="image/*">
-                        <div id="svFotoPreview"></div>
+
+                        <!-- Preview -->
+                        <div id="svFotoPreview" class="mb-2"></div>
+
+                        <!-- Upload de arquivo -->
+                        <div class="d-flex gap-2 align-items-center mb-2">
+                            <input type="file" name="foto" id="svFotoFile" class="form-control form-control-sm" accept="image/*">
+                            <button type="button" class="btn btn-sm btn-outline-accent text-nowrap"
+                                    onclick="togglePickerGaleria()">
+                                <i class="bi bi-images me-1"></i>Da galeria
+                            </button>
+                        </div>
+
+                        <!-- Picker inline da galeria -->
+                        <div id="svGaleriaPicker" style="display:none">
+                            <div style="border:1px solid var(--card-border-color);border-radius:10px;overflow:hidden;">
+                                <!-- Barra de busca -->
+                                <div class="p-2 border-bottom" style="border-color:var(--card-border-color)!important;background:var(--bg-hover);">
+                                    <input type="text" id="svGaleriaFiltro" class="form-control form-control-sm"
+                                           placeholder="Buscar por título ou categoria…"
+                                           oninput="filtrarPickerGaleria(this.value)">
+                                </div>
+                                <!-- Grid de imagens -->
+                                <div id="svGaleriaGrid"
+                                     style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:10px;max-height:280px;overflow-y:auto;">
+                                    <?php foreach ($imagensGaleria as $gi): ?>
+                                    <button type="button"
+                                            class="picker-img-btn"
+                                            data-url="<?= BASE ?>/geral/img/galeria/<?= h($gi['NomeArquivo']) ?>"
+                                            data-busca="<?= h(strtolower(($gi['TituloExibicao'] ?? '') . ' ' . ($gi['CategoriaNome'] ?? ''))) ?>"
+                                            onclick="selecionarFotoGaleria(this)"
+                                            style="border:2px solid transparent;border-radius:8px;padding:0;overflow:hidden;cursor:pointer;background:none;aspect-ratio:1;">
+                                        <img src="<?= BASE ?>/geral/img/galeria/<?= h($gi['NomeArquivo']) ?>"
+                                             alt="<?= h($gi['TituloExibicao'] ?? '') ?>"
+                                             loading="lazy"
+                                             style="width:100%;height:100%;object-fit:cover;display:block;">
+                                    </button>
+                                    <?php endforeach ?>
+                                    <?php if (empty($imagensGaleria)): ?>
+                                    <p class="text-secondary small col-span-3 text-center py-3 m-0" style="grid-column:1/-1">
+                                        Nenhuma imagem na galeria.
+                                    </p>
+                                    <?php endif ?>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -336,8 +389,33 @@ require_once __DIR__ . '/../geral/header.php';
     </div>
 </div>
 
+<style>
+.picker-img-btn:hover,
+.picker-img-btn.selecionada { border-color: var(--accent) !important; }
+.picker-img-btn.selecionada { box-shadow: 0 0 0 2px var(--accent); }
+</style>
+
 <script>
     // ── Serviço ──────────────────────────────────────────────────────────────
+    function setFotoPreview(url) {
+        var prev = document.getElementById('svFotoPreview');
+        if (url) {
+            prev.innerHTML = '<div class="d-flex align-items-center gap-2">'
+                + '<img src="' + url + '" class="rounded" style="height:72px;width:72px;object-fit:cover;border:2px solid var(--accent);">'
+                + '<button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="limparFoto()" title="Remover foto">'
+                + '<i class="bi bi-x-lg"></i></button></div>';
+        } else {
+            prev.innerHTML = '';
+        }
+    }
+
+    function limparFoto() {
+        document.getElementById('svFotoAtual').value = '';
+        document.getElementById('svFotoFile').value  = '';
+        document.getElementById('svFotoPreview').innerHTML = '';
+        document.querySelectorAll('.picker-img-btn').forEach(function(b){ b.classList.remove('selecionada'); });
+    }
+
     function editarServico(sv) {
         document.getElementById('tituloModalSv').textContent = 'Editar serviço';
         document.getElementById('svId').value        = sv.IDServico;
@@ -348,23 +426,16 @@ require_once __DIR__ . '/../geral/header.php';
         document.getElementById('svOrdem').value     = sv.Ordem;
         document.getElementById('svAtivo').checked   = sv.Ativo == 1;
         document.getElementById('svFotoAtual').value = sv.FotoUrl || '';
-
-        var prev = document.getElementById('svFotoPreview');
-        if (sv.FotoUrl) {
-            prev.innerHTML = '<img src="' + sv.FotoUrl + '" class="mt-2 rounded" style="max-height:100px;max-width:100%;object-fit:cover;">';
-        } else {
-            prev.innerHTML = '';
-        }
+        setFotoPreview(sv.FotoUrl || '');
     }
 
     // Preview ao selecionar arquivo
-    document.querySelector('input[name="foto"]')?.addEventListener('change', function () {
-        var prev = document.getElementById('svFotoPreview');
+    document.getElementById('svFotoFile')?.addEventListener('change', function () {
         if (this.files && this.files[0]) {
+            document.getElementById('svFotoAtual').value = '';
+            document.querySelectorAll('.picker-img-btn').forEach(function(b){ b.classList.remove('selecionada'); });
             var reader = new FileReader();
-            reader.onload = function (e) {
-                prev.innerHTML = '<img src="' + e.target.result + '" class="mt-2 rounded" style="max-height:100px;max-width:100%;object-fit:cover;">';
-            };
+            reader.onload = function (e) { setFotoPreview(e.target.result); };
             reader.readAsDataURL(this.files[0]);
         }
     });
@@ -375,7 +446,38 @@ require_once __DIR__ . '/../geral/header.php';
         document.getElementById('svId').value           = '';
         document.getElementById('svFotoAtual').value    = '';
         document.getElementById('svFotoPreview').innerHTML = '';
+        document.getElementById('svGaleriaPicker').style.display = 'none';
+        document.getElementById('svGaleriaFiltro').value = '';
+        document.querySelectorAll('.picker-img-btn').forEach(function(b){ b.classList.remove('selecionada'); });
+        filtrarPickerGaleria('');
     });
+
+    // ── Picker da galeria ─────────────────────────────────────────────────────
+    function togglePickerGaleria() {
+        var p = document.getElementById('svGaleriaPicker');
+        p.style.display = p.style.display === 'none' ? 'block' : 'none';
+        if (p.style.display === 'block') {
+            document.getElementById('svGaleriaFiltro').focus();
+        }
+    }
+
+    function selecionarFotoGaleria(btn) {
+        var url = btn.dataset.url;
+        document.getElementById('svFotoAtual').value = url;
+        document.getElementById('svFotoFile').value  = '';
+        setFotoPreview(url);
+        document.querySelectorAll('.picker-img-btn').forEach(function(b){ b.classList.remove('selecionada'); });
+        btn.classList.add('selecionada');
+        document.getElementById('svGaleriaPicker').style.display = 'none';
+    }
+
+    function filtrarPickerGaleria(q) {
+        q = q.toLowerCase().trim();
+        document.querySelectorAll('.picker-img-btn').forEach(function(btn) {
+            var busca = btn.dataset.busca || '';
+            btn.style.display = (!q || busca.includes(q)) ? '' : 'none';
+        });
+    }
 
     // ── Manutenção ───────────────────────────────────────────────────────────
     function editarSub(ss, nomeServico) {
