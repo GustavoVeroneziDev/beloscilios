@@ -53,6 +53,7 @@ $base          = '/beloscilios';
                 ['href' => BASE . '/painel/agenda.php',        'icon' => 'bi-calendar3',    'label' => 'Agenda'],
                 ['href' => BASE . '/painel/clientes.php',      'icon' => 'bi-people',       'label' => 'Clientes'],
                 ['href' => BASE . '/painel/servicos.php',      'icon' => 'bi-brush',        'label' => 'Serviços'],
+                ['href' => BASE . '/painel/galeria.php',       'icon' => 'bi-images',       'label' => 'Galeria'],
                 ['href' => BASE . '/painel/relatorio.php',     'icon' => 'bi-bar-chart',    'label' => 'Financeiro'],
                 ['href' => BASE . '/painel/configuracoes.php', 'icon' => 'bi-gear',         'label' => 'Configurações'],
             ];
