@@ -9,6 +9,10 @@
         &nbsp;·&nbsp; Todos os direitos reservados
         &nbsp;·&nbsp; <span style="opacity:.4;font-size:.8em;" title="<?= APP_BUILD_DATE ?>">build <?= APP_VERSAO ?></span>
     </div>
+    <div class="container-lg text-center mt-2" style="font-size:.72rem;opacity:.45;">
+        Desenvolvido por <a href="https://gustavoveronezi.com" target="_blank" rel="noopener"
+            style="color:#3b82f6;text-decoration:none;font-weight:500;">GVTech</a>
+    </div>
 </footer>
 <?php endif ?>
 
