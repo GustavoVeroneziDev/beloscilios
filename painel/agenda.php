@@ -38,6 +38,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $servicos = $pdo->query('SELECT IDServico, Nome, DuracaoMinutos, Preco FROM Servicos WHERE Ativo = 1 ORDER BY Ordem')->fetchAll();
 
+// Inicializa variáveis condicionais para evitar warnings de análise estática
+$semanaOffset  = 0;
+$inicioPeriodo = $fimPeriodo = 0;
+$porDia        = [];
+$mesSel        = $mesPrev = $mesNext = $mesNome = '';
+$porDiaCal     = $semanasCal = $calJson = [];
+
 // ── VISÃO LISTA (semanal) ─────────────────────────────────────
 if ($vista !== 'calendario') {
     $semanaOffset  = (int)($_GET['semana'] ?? 0);
@@ -81,8 +88,6 @@ if ($vista === 'calendario') {
     $mesTs       = strtotime($mesSel . '-01');
     $mesPrev     = date('Y-m', strtotime('-1 month', $mesTs));
     $mesNext     = date('Y-m', strtotime('+1 month', $mesTs));
-    $mesNome     = strftime('%B de %Y', $mesTs);
-    // Fallback para strftime sem locale
     $mesesPT     = [
         '',
         'Janeiro',
