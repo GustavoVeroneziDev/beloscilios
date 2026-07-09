@@ -130,6 +130,11 @@ require_once __DIR__ . '/../geral/header.php';
                             title="Copiar URL">
                         <i class="bi bi-link-45deg"></i>
                     </button>
+                    <button class="btn btn-sm btn-light py-1 px-2"
+                            onclick="abrirEditar('<?= h($img['IDImagem']) ?>','<?= h(addslashes($img['TituloExibicao'] ?? '')) ?>','<?= h($img['Categoria']) ?>')"
+                            title="Editar">
+                        <i class="bi bi-pencil"></i>
+                    </button>
                     <button class="btn btn-sm btn-danger py-1 px-2"
                             onclick="confirmarDelete('<?= h($img['IDImagem']) ?>','<?= h(addslashes($img['TituloExibicao'] ?? $img['NomeArquivo'])) ?>')"
                             title="Deletar">
@@ -139,7 +144,7 @@ require_once __DIR__ . '/../geral/header.php';
             </div>
             <div class="px-2 pt-2 pb-2">
                 <?php if ($img['TituloExibicao']): ?>
-                <div class="small fw-semibold text-truncate mb-1" title="<?= h($img['TituloExibicao']) ?>">
+                <div class="small fw-semibold text-truncate mb-1 gal-titulo" title="<?= h($img['TituloExibicao']) ?>">
                     <?= h($img['TituloExibicao']) ?>
                 </div>
                 <?php endif ?>
@@ -219,6 +224,42 @@ require_once __DIR__ . '/../geral/header.php';
                 </button>
                 <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" data-bs-dismiss="modal">
                     Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════
+     Modal: Editar Imagem
+════════════════════════════════════ -->
+<div class="modal fade" id="modalEditarImg" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:400px">
+        <div class="modal-content border-0" style="border-radius:16px">
+            <div class="modal-header border-0 pb-1">
+                <h5 class="modal-title fw-bold"><i class="bi bi-pencil me-2 text-accent"></i>Editar imagem</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pt-1">
+                <input type="hidden" id="editImgId">
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold mb-1">Título <span class="text-secondary fw-normal">(opcional)</span></label>
+                    <input type="text" id="editImgTitulo" class="form-control" placeholder="Ex: Volume Russo — resultado final" maxlength="255">
+                </div>
+                <div>
+                    <label class="form-label small fw-semibold mb-1">Categoria</label>
+                    <select id="editImgCat" class="form-select">
+                        <?php foreach ($categorias as $cat): ?>
+                        <option value="<?= h($cat['IDCategoria']) ?>"><?= h($cat['Nome']) ?></option>
+                        <?php endforeach ?>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-accent" id="btnSalvarEditar">
+                    <i class="bi bi-check-lg me-1"></i>Salvar
                 </button>
             </div>
         </div>
@@ -513,6 +554,52 @@ require_once __DIR__ . '/../geral/header.php';
             .then(function() { bcToast('URL copiada!', 'success'); })
             .catch(function() { bcToast('Não foi possível copiar.', 'warning'); });
     };
+
+    // ── Editar imagem ─────────────────────────────────────────────
+    window.abrirEditar = function(id, titulo, cat) {
+        document.getElementById('editImgId').value      = id;
+        document.getElementById('editImgTitulo').value  = titulo;
+        document.getElementById('editImgCat').value     = cat;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditarImg')).show();
+    };
+
+    document.getElementById('btnSalvarEditar').addEventListener('click', function() {
+        var id    = document.getElementById('editImgId').value;
+        var titulo = document.getElementById('editImgTitulo').value.trim();
+        var cat   = document.getElementById('editImgCat').value;
+        var fd = new FormData();
+        fd.append('csrf_token', CSRF);
+        fd.append('id', id);
+        fd.append('titulo', titulo);
+        fd.append('categoria', cat);
+        fetch(BASE + '/painel/editar_imagem.php', { method: 'POST', body: fd })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.ok) { bcToast(data.msg, 'danger'); return; }
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditarImg')).hide();
+                bcToast('Imagem atualizada.', 'success');
+                // Atualiza card sem reload
+                var card = document.getElementById('gcard-' + id);
+                if (card) {
+                    var tituloEl = card.querySelector('.gal-titulo');
+                    if (titulo) {
+                        if (tituloEl) { tituloEl.textContent = titulo; }
+                        else {
+                            var info = card.querySelector('.px-2.pt-2');
+                            var d = document.createElement('div');
+                            d.className = 'small fw-semibold text-truncate mb-1 gal-titulo';
+                            d.title = titulo; d.textContent = titulo;
+                            info.insertBefore(d, info.firstChild);
+                        }
+                    } else if (tituloEl) {
+                        tituloEl.remove();
+                    }
+                    var badge = card.querySelector('.gal-cat-badge');
+                    if (badge) badge.textContent = data.catNome;
+                }
+            })
+            .catch(function() { bcToast('Falha de conexão.', 'danger'); });
+    });
 
     // ── Deletar imagem ────────────────────────────────────────────
     window.confirmarDelete = function(id, nome) {
