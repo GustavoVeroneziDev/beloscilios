@@ -98,48 +98,51 @@ $areaAtual    = 'painel';
 require_once __DIR__ . '/../geral/header.php';
 ?>
 
-<!-- Filtros -->
-<div class="d-flex flex-wrap align-items-center gap-2 mb-4">
-    <h4 class="fw-bold mb-0 me-2">Financeiro</h4>
-    <form method="GET" class="d-flex gap-2">
-        <select name="mes" class="form-select form-select-sm">
+<!-- Cabeçalho + filtros -->
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <h4 class="fw-bold mb-0">Financeiro</h4>
+        <p class="text-secondary small mb-0"><?= $meses[$mesSel] ?>/<?= $anoSel ?></p>
+    </div>
+    <form method="GET" class="d-flex gap-2 align-items-center">
+        <select name="mes" class="form-select form-select-sm" style="width:130px;">
             <?php for ($m = 1; $m <= 12; $m++): ?>
-                <option value="<?= $m ?>" <?= $m === $mesSel ? 'selected' : '' ?>>
-                    <?= $meses[$m] ?>
-                </option>
+                <option value="<?= $m ?>" <?= $m === $mesSel ? 'selected' : '' ?>><?= $meses[$m] ?></option>
             <?php endfor ?>
         </select>
         <select name="ano" class="form-select form-select-sm" style="width:90px;">
-            <?php for ($a = $anoAtual - 2; $a <= $anoAtual; $a++): ?>
+            <?php for ($a = $anoAtual - 2; $a <= $anoAtual + 1; $a++): ?>
                 <option value="<?= $a ?>" <?= $a === $anoSel ? 'selected' : '' ?>><?= $a ?></option>
             <?php endfor ?>
         </select>
-        <button class="btn btn-accent btn-sm">Filtrar</button>
+        <button class="btn btn-accent btn-sm px-3">
+            <i class="bi bi-funnel me-1"></i>Filtrar
+        </button>
     </form>
-    <span class="text-secondary small">
-        <?= $meses[$mesSel] ?>/<?= $anoSel ?>
-    </span>
 </div>
 
 <!-- Stat cards -->
 <div class="row g-3 mb-4">
     <?php
     $cards = [
-        ['bi-cash-stack',    'var(--accent)', 'rgba(176,125,98,.15)', 'Total recebido',   formatarMoeda((float)($resumo['Recebido'] ?? 0))],
-        ['bi-hourglass',     '#D4963A',       'rgba(212,150,58,.15)', 'A receber',         formatarMoeda((float)($resumo['APagar'] ?? 0))],
-        ['bi-check2-circle', '#6B9E7A',       'rgba(107,158,122,.15)', 'Concluídos',       (int)($resumo['Concluidos'] ?? 0) . ' ag.'],
-        ['bi-x-circle',      '#C0604A',       'rgba(192,96,74,.15)',  'Cancelamentos',     (int)($resumo['Cancelados'] ?? 0) . ' ag.'],
+        ['bi-cash-stack',    '#B07D62', 'rgba(176,125,98,.15)',  'Total recebido',  formatarMoeda((float)($resumo['Recebido']   ?? 0)), 'no mês'],
+        ['bi-hourglass',     '#D4963A', 'rgba(212,150,58,.15)',  'A receber',        formatarMoeda((float)($resumo['APagar']    ?? 0)), 'pendente'],
+        ['bi-check2-circle', '#6B9E7A', 'rgba(107,158,122,.15)', 'Concluídos',      (int)($resumo['Concluidos']  ?? 0),                'agendamentos'],
+        ['bi-x-circle',      '#C0604A', 'rgba(192,96,74,.15)',   'Cancelamentos',   (int)($resumo['Cancelados']  ?? 0),                'agendamentos'],
     ];
-    foreach ($cards as [$icon, $color, $bg, $label, $valor]):
+    foreach ($cards as [$icon, $color, $bg, $label, $valor, $sub]):
     ?>
         <div class="col-6 col-xl-3">
-            <div class="card stat-card">
-                <div class="stat-icon" style="background:<?= $bg ?>;color:<?= $color ?>">
-                    <i class="bi <?= $icon ?>"></i>
+            <div class="card stat-card h-100">
+                <div class="stat-card-top">
+                    <span class="stat-card-label"><?= $label ?></span>
+                    <div class="stat-icon" style="background:<?= $bg ?>;color:<?= $color ?>">
+                        <i class="bi <?= $icon ?>"></i>
+                    </div>
                 </div>
                 <div>
-                    <div class="fw-bold fs-5 lh-1"><?= $valor ?></div>
-                    <div class="text-secondary small"><?= $label ?></div>
+                    <div class="stat-card-valor"><?= is_numeric($valor) ? number_format((float)$valor) : $valor ?></div>
+                    <div class="stat-card-sub"><?= $sub ?></div>
                 </div>
             </div>
         </div>
