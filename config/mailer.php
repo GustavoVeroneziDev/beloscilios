@@ -155,8 +155,8 @@ HTML;
 function enviarEmailVerificacao(string $email, string $nome, string $token): bool
 {
     $base = defined('BASE') ? BASE : '';
-    $host = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http')
-          . '://' . ($_SERVER['HTTP_HOST'] ?? 'beloscilios.com');
+    $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'beloscilios.com');
     $link = $host . $base . '/usuario/verificar_email.php?token=' . urlencode($token);
 
     $n = htmlspecialchars($nome, ENT_QUOTES, 'UTF-8');

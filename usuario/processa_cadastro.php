@@ -67,11 +67,16 @@ try {
         ':expira' => $expira,
     ]);
 
-    // Envia e-mail de verificação (não bloqueia o cadastro se falhar)
-    enviarEmailVerificacao($email, $nome, $tokenV);
 } catch (PDOException $e) {
     error_log('[Cadastro] ' . $e->getMessage());
     redirecionarComMensagem(BASE . '/usuario/cadastro.php', 'Erro ao criar conta. Tente novamente.', 'danger');
+}
+
+// Envia e-mail de verificação — fora do try do PDO para não bloquear cadastro se falhar
+try {
+    enviarEmailVerificacao($email, $nome, $tokenV);
+} catch (\Throwable $e) {
+    error_log('[Cadastro][Email] ' . $e->getMessage());
 }
 
 // Login automático após cadastro
