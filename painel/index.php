@@ -105,7 +105,7 @@ $_dataPtBr   = $_diasSemana[date('l')] . ', ' . date('d') . ' de ' . $_meses[dat
     foreach ($stats as [$icon, $color, $bg, $label, $valor, $sub]):
     ?>
         <div class="col-6 col-xl-3">
-            <div class="card stat-card">
+            <div class="card stat-card h-100">
                 <div class="stat-card-top">
                     <span class="stat-card-label"><?= $label ?></span>
                     <div class="stat-icon" style="background:<?= $bg ?>;color:<?= $color ?>">
