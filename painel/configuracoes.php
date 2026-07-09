@@ -27,6 +27,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'msg_confirmacao',
             'msg_lembrete',
             'msg_followup',
+            'msg_cancelamento',
+            'msg_cobranca',
+            'telefone_designer',
         ];
         try {
             foreach ($campos as $c) {
@@ -136,7 +139,10 @@ try {
         'dias_agenda_futura',
         'msg_confirmacao',
         'msg_lembrete',
-        'msg_followup'
+        'msg_followup',
+        'msg_cancelamento',
+        'msg_cobranca',
+        'telefone_designer',
     ];
     $cfg = [];
     foreach ($cfgKeys as $k) {
@@ -205,11 +211,21 @@ require_once __DIR__ . '/../geral/header.php';
                             maxlength="100">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Telefone de contato</label>
+                        <label class="form-label">Telefone de contato (estúdio)</label>
                         <input type="tel" name="telefone_estudio" class="form-control"
                             value="<?= h(formatarTelefoneExibicao($cfg['telefone_estudio'] ?? '')) ?>"
                             placeholder="(11) 99999-9999"
                             data-mask="tel" maxlength="15">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">WhatsApp pessoal da designer
+                            <span class="text-secondary small fw-normal">(notificações do webhook)</span>
+                        </label>
+                        <input type="tel" name="telefone_designer" class="form-control"
+                            value="<?= h(formatarTelefoneExibicao($cfg['telefone_designer'] ?? '')) ?>"
+                            placeholder="(11) 99999-9999"
+                            data-mask="tel" maxlength="15">
+                        <div class="form-text">Recebe alertas de respostas incertas e cancelamentos via IA.</div>
                     </div>
                     <div class="col-12">
                         <label class="form-label">Endereço</label>
@@ -414,9 +430,11 @@ require_once __DIR__ . '/../geral/header.php';
                 </p>
                 <?php
                 $msgs = [
-                    ['msg_confirmacao', 'Confirmação de agendamento',         'Enviada assim que o agendamento é criado.'],
-                    ['msg_lembrete',    'Lembrete (24h antes)',                'Enviada pelo cron 24h antes do horário.'],
-                    ['msg_followup',    'Follow-up pós-procedimento',          'Enviada depois que o agendamento é concluído.'],
+                    ['msg_confirmacao',  'Confirmação de agendamento',    'Enviada assim que o agendamento é criado. Quando a cliente responder, a IA classifica automaticamente.'],
+                    ['msg_lembrete',     'Lembrete (24h antes)',           'Enviada pelo cron 24h antes do horário.'],
+                    ['msg_cancelamento', 'Cancelamento (via IA)',          'Enviada automaticamente quando a IA detecta que a cliente cancelou ao responder a confirmação.'],
+                    ['msg_followup',     'Follow-up pós-procedimento',     'Enviada depois que o agendamento é concluído.'],
+                    ['msg_cobranca',     'Cobrança (pagamento pendente)',  'Enviada manualmente ou pelo cron para agendamentos com pagamento pendente.'],
                 ];
                 foreach ($msgs as [$key, $label, $info]):
                 ?>
@@ -427,6 +445,26 @@ require_once __DIR__ . '/../geral/header.php';
                     </div>
                 <?php endforeach ?>
                 <button class="btn btn-accent"><i class="bi bi-save me-1"></i> Salvar mensagens</button>
+
+                <!-- Card de instruções do webhook -->
+                <div class="mt-4 p-3 rounded" style="background:rgba(90,24,154,.05);border:1px solid var(--card-border-color);">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <i class="bi bi-robot text-accent"></i>
+                        <span class="fw-semibold small">Webhook de respostas (IA com Gemini)</span>
+                    </div>
+                    <p class="small text-secondary mb-2">
+                        Configure na Evolution API o seguinte webhook para que as respostas das clientes sejam processadas automaticamente:
+                    </p>
+                    <code class="small d-block p-2 rounded" style="background:rgba(0,0,0,.05);word-break:break-all;">
+                        https://beloscilios.com/webhook_whatsapp.php
+                    </code>
+                    <ul class="small text-secondary mt-2 mb-0 ps-3">
+                        <li>Evento: <strong>messages.upsert</strong></li>
+                        <li>A IA classifica a resposta como <em>confirmado</em>, <em>cancelado</em> ou <em>incerto</em></li>
+                        <li>Respostas incertas são encaminhadas para o WhatsApp pessoal da designer (configure acima)</li>
+                        <li>Se a chave Gemini não estiver configurada, usa classificação por palavras-chave</li>
+                    </ul>
+                </div>
             </form>
         </div>
     </div>
