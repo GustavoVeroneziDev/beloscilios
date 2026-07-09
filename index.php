@@ -11,14 +11,9 @@ if (!empty($_SESSION['usuario_id']) && ($_SESSION['nivel_acesso'] ?? '') === 'de
 }
 
 try {
-    $servicos    = $pdo->query(
-        'SELECT Nome, Descricao, Preco, DuracaoMinutos, FotoUrl FROM Servicos WHERE Ativo=1 ORDER BY Ordem LIMIT 6'
-    )->fetchAll();
-    $telefoneWa  = getConfig($pdo, 'telefone_estudio', '');
-    $endereco    = getConfig($pdo, 'endereco_estudio', '');
+    $telefoneWa = getConfig($pdo, 'telefone_estudio', '');
 } catch (PDOException) {
-    $servicos = [];
-    $telefoneWa = $endereco = '';
+    $telefoneWa = '';
 }
 
 $waLink = $telefoneWa
@@ -235,24 +230,26 @@ require_once __DIR__ . '/geral/header.php';
     to   { opacity:.92; transform:none; }
 }
 
+.lp-hero-eyebrow-wrap {
+    text-align: center;
+    padding: 2rem 1rem 0;
+}
 .lp-hero-eyebrow {
     display: inline-flex;
     align-items: center;
     gap: .6rem;
-    font-size: .7rem;
+    font-size: .72rem;
     font-weight: 700;
     letter-spacing: .18em;
     text-transform: uppercase;
-    color: #b38cff;
-    margin-bottom: 1.5rem;
-    animation: fadeSlideDown .9s .15s cubic-bezier(.22,1,.36,1) both;
+    color: var(--accent);
 }
 .lp-hero-eyebrow::before,
 .lp-hero-eyebrow::after {
     content: '';
     display: block;
     width: 28px; height: 1px;
-    background: #b38cff;
+    background: var(--accent);
     opacity: .45;
 }
 
@@ -341,7 +338,7 @@ require_once __DIR__ . '/geral/header.php';
     50%     { transform: translateX(-50%) translateY(9px); opacity:.8; }
 }
 
-/* ── SERVIÇOS ─────────────────────────────────── */
+/* ── SEÇÕES GERAIS ────────────────────────────── */
 .lp-section {
     padding: 5rem 0;
 }
@@ -362,90 +359,6 @@ require_once __DIR__ . '/geral/header.php';
     text-wrap: balance;
 }
 .lp-h2 em { font-style: normal; color: var(--accent); }
-
-.lp-svc-grid {
-    display: grid;
-    gap: 1.25rem;
-    margin-top: 2.5rem;
-}
-@media (min-width: 640px) {
-    .lp-svc-grid { grid-template-columns: 1fr 1fr; }
-}
-@media (min-width: 992px) {
-    .lp-svc-grid {
-        grid-template-columns: 1.45fr 1fr 1fr;
-        grid-template-rows: auto auto;
-    }
-    .lp-svc-feat { grid-row: span 2; }
-}
-
-.lp-svc-card {
-    border: 1px solid var(--card-border-color);
-    border-radius: 18px;
-    padding: 1.75rem;
-    background: var(--bg-card);
-    box-shadow: var(--shadow-card);
-    display: flex; flex-direction: column;
-    transition: transform .22s, box-shadow .22s;
-    position: relative; overflow: hidden;
-}
-.lp-svc-card::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, rgba(90,24,154,.04), transparent 55%);
-    pointer-events: none;
-}
-.lp-svc-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 12px 36px rgba(90,24,154,.13);
-}
-
-.lp-svc-ico {
-    width: 46px; height: 46px;
-    border-radius: 12px;
-    background: var(--accent-light);
-    display: flex; align-items: center; justify-content: center;
-    margin-bottom: 1.25rem;
-    flex-shrink: 0;
-}
-.lp-svc-ico img { width: 22px; height: 22px; object-fit: contain; }
-
-.lp-svc-name {
-    font-size: 1.1rem;
-    font-weight: 800;
-    color: var(--text-main);
-    margin-bottom: .45rem;
-    letter-spacing: -.01em;
-}
-.lp-svc-feat .lp-svc-name { font-size: 1.55rem; }
-
-.lp-svc-desc {
-    font-size: .88rem;
-    color: var(--text-secondary);
-    line-height: 1.65;
-    flex-grow: 1;
-    margin-bottom: 1.25rem;
-}
-.lp-svc-feat .lp-svc-desc { font-size: .95rem; }
-
-.lp-svc-foot {
-    display: flex; align-items: center; justify-content: space-between;
-    padding-top: 1rem;
-    border-top: 1px solid var(--card-border-color);
-    margin-top: auto;
-}
-.lp-svc-price {
-    font-size: 1.2rem;
-    font-weight: 800;
-    color: var(--accent);
-}
-.lp-svc-feat .lp-svc-price { font-size: 1.6rem; }
-.lp-svc-dur {
-    font-size: .78rem;
-    color: var(--text-secondary);
-    display: flex; align-items: center; gap: .3rem;
-}
 
 /* ── GALERIA ──────────────────────────────────── */
 .lp-gallery-wrap {
@@ -670,14 +583,10 @@ require_once __DIR__ . '/geral/header.php';
     </div>
     <!-- Grid -->
     <div class="lp-hero-wrap">
-        <!-- Topo: logo + eyebrow centralizados -->
+        <!-- Topo: só o logo centralizado -->
         <div class="lp-hero-top">
             <img src="<?= BASE ?>/geral/img/NomeCompleto.png"
                  alt="Belos Cílios" class="lp-hero-logo">
-
-            <div class="lp-hero-eyebrow">
-                Extensão de Cílios &nbsp;·&nbsp; Design de Sobrancelhas
-            </div>
         </div>
 
         <!-- Colunas: texto esquerda + foto direita -->
@@ -693,11 +602,8 @@ require_once __DIR__ . '/geral/header.php';
                 </p>
 
                 <div class="lp-hero-ctas">
-                    <a href="<?= BASE ?>/usuario/cadastro.php" class="lp-btn-primary">
+                    <a href="<?= BASE ?>/agendamento/index.php" class="lp-btn-primary">
                         <i class="bi bi-calendar-heart"></i> Agendar agora
-                    </a>
-                    <a href="#servicos" class="lp-btn-ghost">
-                        <i class="bi bi-grid-3x3-gap"></i> Ver serviços
                     </a>
                 </div>
             </div>
@@ -716,49 +622,11 @@ require_once __DIR__ . '/geral/header.php';
     </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════
-     SERVIÇOS
-══════════════════════════════════════════════════ -->
-<section class="lp-section" id="servicos">
-    <div data-r="L">
-        <div class="lp-label">O que fazemos</div>
-        <h2 class="lp-h2">Cada detalhe,<br><em>com intenção.</em></h2>
+<div class="lp-hero-eyebrow-wrap">
+    <div class="lp-hero-eyebrow">
+        Extensão de Cílios &nbsp;·&nbsp; Design de Sobrancelhas
     </div>
-
-    <?php if (!empty($servicos)): ?>
-    <div class="lp-svc-grid" data-stagger>
-        <?php foreach ($servicos as $i => $s): ?>
-        <div class="lp-svc-card <?= $i === 0 ? 'lp-svc-feat' : '' ?>">
-            <div class="lp-svc-ico">
-                <img src="<?= BASE ?>/geral/img/mascara.png" alt="">
-            </div>
-            <div class="lp-svc-name"><?= h($s['Nome']) ?></div>
-            <?php if (!empty($s['Descricao'])): ?>
-            <div class="lp-svc-desc"><?= h($s['Descricao']) ?></div>
-            <?php endif ?>
-            <div class="lp-svc-foot">
-                <span class="lp-svc-price"><?= formatarMoeda((float)$s['Preco']) ?></span>
-                <span class="lp-svc-dur">
-                    <i class="bi bi-clock"></i>
-                    <?= (int)$s['DuracaoMinutos'] ?> min
-                </span>
-            </div>
-        </div>
-        <?php endforeach ?>
-    </div>
-    <?php else: ?>
-    <div class="text-center py-5 text-secondary" data-r>
-        <i class="bi bi-brush fs-1 d-block mb-2 opacity-25"></i>
-        <p class="mb-3">Em breve nossos serviços aparecerão aqui.</p>
-    </div>
-    <?php endif ?>
-
-    <div class="text-center mt-4" data-r>
-        <a href="<?= BASE ?>/agendamento/index.php" class="btn btn-accent px-5">
-            Escolher horário <i class="bi bi-arrow-right ms-1"></i>
-        </a>
-    </div>
-</section>
+</div>
 
 <!-- ═══════════════════════════════════════════════
      GALERIA DE TRABALHOS
