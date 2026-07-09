@@ -85,29 +85,36 @@ $areaAtual    = 'painel';
 require_once __DIR__ . '/../geral/header.php';
 ?>
 
+<?php
+$_diasSemana = ['Sunday'=>'Domingo','Monday'=>'Segunda-feira','Tuesday'=>'Terça-feira','Wednesday'=>'Quarta-feira','Thursday'=>'Quinta-feira','Friday'=>'Sexta-feira','Saturday'=>'Sábado'];
+$_meses      = ['January'=>'janeiro','February'=>'fevereiro','March'=>'março','April'=>'abril','May'=>'maio','June'=>'junho','July'=>'julho','August'=>'agosto','September'=>'setembro','October'=>'outubro','November'=>'novembro','December'=>'dezembro'];
+$_dataPtBr   = $_diasSemana[date('l')] . ', ' . date('d') . ' de ' . $_meses[date('F')] . ' de ' . date('Y');
+?>
 <h4 class="fw-bold mb-1">Dashboard</h4>
-<p class="text-secondary small mb-4"><?= date('l, d \d\e F \d\e Y') ?></p>
+<p class="text-secondary small mb-4"><?= $_dataPtBr ?></p>
 
 <!-- Stat cards -->
 <div class="row g-3 mb-4">
     <?php
     $stats = [
-        ['bi-calendar-check', '#B07D62', 'rgba(176,125,98,.15)',  'Hoje',            $totalHoje,                      'agendamentos'],
-        ['bi-calendar-week',  '#6B9E7A', 'rgba(107,158,122,.15)', 'Esta semana',      $totalSemana,                   'agendamentos'],
-        ['bi-people',         '#5B8FD4', 'rgba(91,143,212,.15)',  'Clientes ativos',  $totalClientes,                 'cadastradas'],
-        ['bi-cash-stack',     '#D4963A', 'rgba(212,150,58,.15)',  'Receita do mês',   formatarMoeda($totalReceitaMes), ''],
+        ['bi-calendar-check', '#B07D62', 'rgba(176,125,98,.15)',  'Hoje',           $totalHoje,                      'agendamentos'],
+        ['bi-calendar-week',  '#6B9E7A', 'rgba(107,158,122,.15)', 'Esta semana',    $totalSemana,                    'agendamentos'],
+        ['bi-people',         '#5B8FD4', 'rgba(91,143,212,.15)',  'Clientes ativos', $totalClientes,                 'cadastradas'],
+        ['bi-cash-stack',     '#D4963A', 'rgba(212,150,58,.15)',  'Receita do mês',  formatarMoeda($totalReceitaMes), ''],
     ];
     foreach ($stats as [$icon, $color, $bg, $label, $valor, $sub]):
     ?>
         <div class="col-6 col-xl-3">
             <div class="card stat-card">
-                <div class="stat-icon" style="background:<?= $bg ?>;color:<?= $color ?>">
-                    <i class="bi <?= $icon ?>"></i>
+                <div class="stat-card-top">
+                    <span class="stat-card-label"><?= $label ?></span>
+                    <div class="stat-icon" style="background:<?= $bg ?>;color:<?= $color ?>">
+                        <i class="bi <?= $icon ?>"></i>
+                    </div>
                 </div>
                 <div>
-                    <div class="fw-bold fs-4 lh-1"><?= is_numeric($valor) ? number_format((float)$valor) : $valor ?></div>
-                    <div class="text-secondary small"><?= $label ?></div>
-                    <?php if ($sub): ?><div class="text-secondary" style="font-size:.72rem;"><?= $sub ?></div><?php endif ?>
+                    <div class="stat-card-valor"><?= is_numeric($valor) ? number_format((float)$valor) : $valor ?></div>
+                    <?php if ($sub): ?><div class="stat-card-sub"><?= $sub ?></div><?php endif ?>
                 </div>
             </div>
         </div>
