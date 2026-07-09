@@ -744,8 +744,15 @@ require_once __DIR__ . '/geral/header.php';
         });
     }, { threshold: 0.12 });
 
-    document.querySelectorAll('[data-r], [data-stagger]').forEach(function (el) {
-        io.observe(el);
+    // Duplo rAF + delay garante que o browser pintou opacity:0 antes de observar
+    requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+            setTimeout(function () {
+                document.querySelectorAll('[data-r], [data-stagger]').forEach(function (el) {
+                    io.observe(el);
+                });
+            }, 120);
+        });
     });
 
     // Scroll suave nos links âncora
