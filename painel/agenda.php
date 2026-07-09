@@ -59,6 +59,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $servicos = $pdo->query('SELECT IDServico, Nome, DuracaoMinutos, Preco FROM Servicos WHERE Ativo = 1 ORDER BY Ordem')->fetchAll();
 
+// Horários de atendimento por dia da semana (0=Dom..6=Sáb) para limitar o datetime-local do modal de bloqueio
+$horariosAtend = [];
+try {
+    $rowsHor = $pdo->query('SELECT DiaSemana, HoraInicio, HoraFim FROM HorariosAtendimento WHERE Ativo = 1')->fetchAll();
+    foreach ($rowsHor as $rh) {
+        $horariosAtend[(int)$rh['DiaSemana']] = [
+            'ini' => substr($rh['HoraInicio'], 0, 5),
+            'fim' => substr($rh['HoraFim'],    0, 5),
+        ];
+    }
+} catch (PDOException $e) { error_log('[Agenda] horariosAtend: ' . $e->getMessage()); }
+
 // Inicializa variáveis condicionais para evitar warnings de análise estática
 $semanaOffset  = 0;
 $inicioPeriodo = $fimPeriodo = 0;
@@ -833,16 +845,77 @@ $csrfToken = gerarTokenCSRF();
 </div>
 
 <script>
-// Pré-preenche data de início do bloqueio quando um dia está selecionado no calendário
-document.getElementById('modalBloqueio')?.addEventListener('show.bs.modal', function () {
-    const dia = document.querySelector('.bc-cal-day.bc-selecionado')?.dataset.data;
-    if (dia) {
+(function () {
+    // Horários de atendimento por dia da semana vindos do servidor
+    const horariosAtend = <?= json_encode($horariosAtend, JSON_THROW_ON_ERROR) ?>;
+    const FALLBACK_INI = '09:00', FALLBACK_FIM = '18:00';
+
+    function dowDe(dateStr) {
+        // Usa meio-dia para evitar problemas de DST
+        return new Date(dateStr + 'T12:00').getDay();
+    }
+
+    function horarioDoDia(dateStr) {
+        return horariosAtend[dowDe(dateStr)] || { ini: FALLBACK_INI, fim: FALLBACK_FIM };
+    }
+
+    function aplicarLimites() {
         const ini = document.getElementById('bloqIni');
         const fim = document.getElementById('bloqFim');
-        if (ini && !ini.value) ini.value = dia + 'T08:00';
-        if (fim && !fim.value) fim.value = dia + 'T18:00';
+        if (!ini || !fim) return;
+
+        const dIni = ini.value ? ini.value.split('T')[0] : null;
+        const dFim = fim.value ? fim.value.split('T')[0] : null;
+
+        if (dIni) {
+            const h = horarioDoDia(dIni);
+            ini.min = dIni + 'T' + h.ini;
+            ini.max = dIni + 'T' + h.fim;
+        }
+        if (dFim) {
+            const h = horarioDoDia(dFim);
+            fim.min = (dFim === dIni && ini.value) ? ini.value : dFim + 'T' + h.ini;
+            fim.max = dFim + 'T' + h.fim;
+        }
+        // Garante fim >= ini
+        if (ini.value && fim.value && fim.value < ini.value) {
+            fim.value = ini.value;
+        }
     }
-});
+
+    document.getElementById('modalBloqueio')?.addEventListener('show.bs.modal', function () {
+        const dia = document.querySelector('.bc-cal-day.bc-selecionado')?.dataset.data;
+        const ini = document.getElementById('bloqIni');
+        const fim = document.getElementById('bloqFim');
+        if (!ini || !fim) return;
+        if (dia && !ini.value) {
+            const h = horarioDoDia(dia);
+            ini.value = dia + 'T' + h.ini;
+            fim.value = dia + 'T' + h.fim;
+        }
+        aplicarLimites();
+    });
+
+    // Limpa os campos ao fechar para que a próxima abertura refaça os defaults
+    document.getElementById('modalBloqueio')?.addEventListener('hidden.bs.modal', function () {
+        const ini = document.getElementById('bloqIni');
+        const fim = document.getElementById('bloqFim');
+        if (ini) { ini.value = ''; ini.min = ''; ini.max = ''; }
+        if (fim) { fim.value = ''; fim.min = ''; fim.max = ''; }
+    });
+
+    document.getElementById('bloqIni')?.addEventListener('change', function () {
+        aplicarLimites();
+        const fim = document.getElementById('bloqFim');
+        if (fim && (!fim.value || fim.value < this.value)) {
+            const dIni = this.value.split('T')[0];
+            fim.value = dIni + 'T' + horarioDoDia(dIni).fim;
+            aplicarLimites();
+        }
+    });
+
+    document.getElementById('bloqFim')?.addEventListener('change', aplicarLimites);
+})();
 </script>
 
 <?php require_once __DIR__ . '/../geral/footer.php' ?>
