@@ -246,7 +246,7 @@ require_once __DIR__ . '/../geral/header.php';
                 <input type="hidden" id="editImgId">
 
                 <!-- Área do Cropper -->
-                <div id="editCropWrap" style="max-height:380px;background:#0d0020;border-radius:10px;overflow:hidden;">
+                <div id="editCropWrap" style="height:clamp(300px,58vh,580px);background:#0d0020;border-radius:10px;overflow:hidden;">
                     <img id="editImgCropper" style="max-width:100%;display:block;">
                 </div>
 
@@ -616,21 +616,20 @@ require_once __DIR__ . '/../geral/header.php';
         document.getElementById('editImgId').value     = id;
         document.getElementById('editImgTitulo').value = titulo;
         document.getElementById('editImgCat').value    = cat;
-
-        var img = document.getElementById('editImgCropper');
-        img.src = BASE + '/geral/img/galeria/' + nomeArquivo;
-
-        img.onload = function() {
-            if (editCropperIns) { editCropperIns.destroy(); editCropperIns = null; }
-            editCropperIns = new Cropper(img, {
-                viewMode: 1, autoCropArea: 0.88, responsive: true,
-                background: false, movable: true, zoomable: true, rotatable: true, scalable: true,
-            });
-            window.editCropperIns = editCropperIns;
-        };
-
+        document.getElementById('editImgCropper').src  = BASE + '/geral/img/galeria/' + nomeArquivo;
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditarImg')).show();
     };
+
+    // Inicia Cropper após modal estar completamente visível (tamanhos calculados)
+    document.getElementById('modalEditarImg').addEventListener('shown.bs.modal', function() {
+        var img = document.getElementById('editImgCropper');
+        if (editCropperIns) { editCropperIns.destroy(); editCropperIns = null; }
+        editCropperIns = new Cropper(img, {
+            viewMode: 1, autoCropArea: 0.9, responsive: true,
+            background: false, movable: true, zoomable: true, rotatable: true, scalable: true,
+        });
+        window.editCropperIns = editCropperIns;
+    });
 
     window.setEditAspect = function(r) { if (editCropperIns) editCropperIns.setAspectRatio(r); };
 
