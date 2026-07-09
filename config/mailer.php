@@ -183,6 +183,40 @@ HTML;
     return enviarEmail($email, 'Verifique seu e-mail — Belos Cílios', emailHtml('Verificar e-mail', $corpo));
 }
 
+function enviarEmailResetSenha(string $email, string $nome, string $idToken, string $tokenPlain): bool
+{
+    $base  = defined('BASE') ? BASE : '';
+    $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host  = $proto . '://' . ($_SERVER['HTTP_HOST'] ?? 'beloscilios.com');
+    $link  = $host . $base . '/usuario/redefinir_senha.php?id=' . urlencode($idToken) . '&t=' . urlencode($tokenPlain);
+
+    $n = htmlspecialchars($nome,  ENT_QUOTES, 'UTF-8');
+    $l = htmlspecialchars($link,  ENT_QUOTES, 'UTF-8');
+
+    $corpo = <<<HTML
+<h2 style="color:#5a189a;margin:0 0 16px;">Redefinir senha</h2>
+<p>Ol&aacute;, <strong>{$n}</strong>!</p>
+<p>Recebemos uma solicitação para redefinir a senha da sua conta. Clique no botão abaixo:</p>
+<p style="text-align:center;margin:28px 0;">
+  <a href="{$l}"
+     style="background:#5a189a;color:#fff;padding:13px 30px;border-radius:8px;
+            text-decoration:none;font-weight:600;font-size:15px;display:inline-block;">
+    Redefinir minha senha
+  </a>
+</p>
+<p style="font-size:13px;color:#888;">
+  Ou copie este link no navegador:<br>
+  <a href="{$l}" style="color:#5a189a;font-size:12px;word-break:break-all;">{$l}</a>
+</p>
+<p style="font-size:12px;color:#aaa;">
+  Este link expira em <strong>1 hora</strong>.<br>
+  Se voc&ecirc; n&atilde;o solicitou a redefinição, ignore este e-mail — sua senha continua a mesma.
+</p>
+HTML;
+
+    return enviarEmail($email, 'Redefinir senha — Belos Cílios', emailHtml('Redefinir senha', $corpo));
+}
+
 function enviarEmailConfirmacaoAgendamento(
     string $email,
     string $nome,

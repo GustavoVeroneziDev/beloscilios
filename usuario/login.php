@@ -54,7 +54,7 @@ require_once __DIR__ . '/../geral/header.php';
                             Lembrar-me por 30 dias
                         </label>
                     </div>
-                    <a href="#" class="small">Esqueci a senha</a>
+                    <a href="<?= BASE ?>/usuario/esqueci_senha.php" class="small">Esqueci a senha</a>
                 </div>
 
                 <div class="d-grid mt-3">
