@@ -1,6 +1,10 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) session_start();
 require_once __DIR__ . '/../config/conexao.php';
+// mailer.php pode não estar carregado se o conexao.php em produção for antigo
+if (!function_exists('enviarEmail')) {
+    require_once __DIR__ . '/../config/mailer.php';
+}
 exigirLogin('designer');
 
 $resultado  = null;
@@ -15,6 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && validarTokenCSRF($_POST['csrf_token
     } else {
         // Diagnóstico antes de enviar
         $detalhes[] = 'PHP: ' . phpversion();
+        $detalhes[] = 'enviarEmail() carregada: ' . (function_exists('enviarEmail') ? 'Sim' : 'Não — mailer.php não foi incluído pelo conexao.php do servidor');
         $detalhes[] = 'SMTP_HOST definido: ' . (defined('SMTP_HOST') && SMTP_HOST ? 'Sim (' . SMTP_HOST . ')' : 'Não — usando mail() nativo');
 
         if (defined('SMTP_HOST') && SMTP_HOST) {
@@ -91,6 +96,10 @@ require_once __DIR__ . '/../geral/header.php';
                 <dt class="text-secondary mt-2">SMTP_FROM</dt>
                 <dd class="fw-semibold"><?= defined('SMTP_FROM') ? h(SMTP_FROM) : '(não definido)' ?></dd>
                 <?php endif ?>
+                <dt class="text-secondary mt-2">enviarEmail() disponível</dt>
+                <dd class="fw-semibold <?= function_exists('enviarEmail') ? 'text-success' : 'text-danger' ?>">
+                    <?= function_exists('enviarEmail') ? 'Sim' : 'Não — conexao.php do servidor não carrega mailer.php' ?>
+                </dd>
                 <dt class="text-secondary mt-2">Função mail() disponível</dt>
                 <dd class="fw-semibold <?= function_exists('mail') ? 'text-success' : 'text-danger' ?>">
                     <?= function_exists('mail') ? 'Sim' : 'Não' ?>
@@ -114,25 +123,27 @@ require_once __DIR__ . '/../geral/header.php';
 
     <div class="col-12">
         <div class="card p-4">
-            <h6 class="fw-semibold mb-3">Como configurar o SMTP no HostGator</h6>
+            <h6 class="fw-semibold mb-3">Como configurar o SMTP (HostGator + TITAN)</h6>
             <ol class="small text-secondary mb-0 lh-lg">
-                <li>Acesse o <strong>cPanel do HostGator</strong> → <em>E-mail</em> → <em>Contas de E-mail</em></li>
-                <li>Crie (ou anote) uma conta como <strong>noreply@beloscilios.com</strong></li>
-                <li>Edite o arquivo <code>config/smtp_keys.php</code> no servidor (via Gerenciador de Arquivos do cPanel ou FTP) com o conteúdo abaixo:</li>
+                <li>Você já tem a conta <strong>noreply@beloscilios.com</strong> criada no TITAN.</li>
+                <li>No webmail do TITAN, clique em <strong>Configurações → Conectar aplicativos</strong> para ver o hostname SMTP exato.</li>
+                <li>Edite <code>config/smtp_keys.php</code> no servidor via <strong>cPanel → Gerenciador de Arquivos</strong>:</li>
             </ol>
             <pre class="mt-3 p-3 rounded small" style="background:rgba(90,24,154,.06);border:1px solid var(--card-border-color);overflow-x:auto;">&lt;?php
-define('SMTP_HOST',      'mail.beloscilios.com'); // ou o hostname do servidor
-define('SMTP_PORT',      465);
-define('SMTP_SECURE',    'ssl');
+// TITAN Email (HostGator) — ajuste o HOST conforme "Conectar aplicativos" no webmail
+define('SMTP_HOST',      'smtp.titan.email');   // ou mail.beloscilios.com
+define('SMTP_PORT',      587);                  // 587 (STARTTLS) ou 465 (SSL)
+define('SMTP_SECURE',    'tls');                // 'tls' para porta 587, 'ssl' para 465
 define('SMTP_USER',      'noreply@beloscilios.com');
-define('SMTP_PASS',      'SUA_SENHA_AQUI');
+define('SMTP_PASS',      'SENHA_DO_NOREPLY_AQUI');
 define('SMTP_FROM',      'noreply@beloscilios.com');
 define('SMTP_FROM_NAME', 'Belos Cílios');</pre>
-            <p class="text-secondary small mt-2 mb-0">
-                <i class="bi bi-info-circle me-1"></i>
-                O hostname pode ser encontrado em cPanel → <em>Contas de E-mail</em> → <em>Conectar Dispositivos</em>.
-                Geralmente é <code>mail.seudominio.com</code> ou o hostname do servidor HostGator.
-            </p>
+            <div class="alert alert-warning small mt-3 mb-0 py-2">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                <strong>Atenção:</strong> o arquivo <code>smtp_keys.php</code> precisa ser editado diretamente no servidor — ele é ignorado pelo deploy automático para proteger as credenciais.
+                Edite também o <code>conexao.php</code> do servidor e confirme que a linha
+                <code>require_once __DIR__ . '/mailer.php';</code> está presente logo no início.
+            </div>
         </div>
     </div>
 </div>
