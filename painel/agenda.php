@@ -341,9 +341,9 @@ $csrfToken = gerarTokenCSRF();
         <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#modalBloqueio" title="Bloquear horário">
             <i class="bi bi-slash-circle me-1"></i> Bloquear
         </button>
-        <button class="btn btn-accent btn-sm" data-bs-toggle="modal" data-bs-target="#modalNovoAg">
+        <a href="<?= BASE ?>/painel/novo_agendamento.php" class="btn btn-accent btn-sm">
             <i class="bi bi-plus-lg me-1"></i> Novo
-        </button>
+        </a>
     </div>
 </div>
 
@@ -576,7 +576,7 @@ $csrfToken = gerarTokenCSRF();
 
             // Link novo agendamento com data pré-preenchida
             document.getElementById('btnNovoDiaLink').href =
-                BASE_URL + '/painel/agenda.php?vista=calendario&mes=' + MES_SEL + '&acao=novo&data=' + data;
+                BASE_URL + '/painel/novo_agendamento.php?data=' + data;
 
             // Conteúdo
             const cont = document.getElementById('conteudoDia');
@@ -794,11 +794,7 @@ $csrfToken = gerarTokenCSRF();
         const params = new URLSearchParams(location.search);
         if (params.get('acao') === 'novo') {
             const dataParam = params.get('data');
-            if (dataParam) {
-                const inp = document.getElementById('inputDataHora');
-                if (inp) inp.value = dataParam + 'T09:00';
-            }
-            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalNovoAg')).show();
+            location.href = BASE_URL + '/painel/novo_agendamento.php' + (dataParam ? '?data=' + dataParam : '');
         }
     });
 </script>
