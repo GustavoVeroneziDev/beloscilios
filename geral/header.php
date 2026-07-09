@@ -9,6 +9,11 @@ require_once __DIR__ . '/../config/versao.php';
 $paginaTitulo  = $paginaTitulo  ?? 'Belos Cílios';
 $areaAtual     = $areaAtual     ?? '';
 $ehPainel      = $areaAtual === 'painel';
+
+// Auto-login por cookie lembrar-me em páginas públicas (protegidas já tratam em exigirLogin)
+if (!estaLogado() && !empty($_COOKIE['bc_lembrar']) && isset($pdo)) {
+    tentarLoginLembrado($pdo);
+}
 $_nomeSession  = $_SESSION['usuario_nome'] ?? '';
 $nivelAcesso   = $_SESSION['nivel_acesso'] ?? '';
 $base          = '/beloscilios';

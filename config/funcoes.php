@@ -96,11 +96,118 @@ function estaLogado(): bool
 function exigirLogin(string $nivel = ''): void
 {
     if (!estaLogado()) {
+        global $pdo;
+        if (isset($pdo)) tentarLoginLembrado($pdo);
+    }
+    if (!estaLogado()) {
         redirecionarComMensagem(BASE . '/usuario/login.php', 'Faça login para continuar.', 'warning');
     }
     if ($nivel && ($_SESSION['nivel_acesso'] ?? '') !== $nivel) {
         redirecionarComMensagem(BASE . '/index.php', 'Acesso não permitido.', 'danger');
     }
+}
+
+function criarTokenLembrarMe(PDO $pdo, string $idUsuario, int $dias = 30): void
+{
+    // Remove tokens expirados do usuário antes de criar um novo
+    try {
+        $pdo->prepare('DELETE FROM TokensLembrarMe WHERE FKUsuario = :id AND Expira < NOW()')
+            ->execute([':id' => $idUsuario]);
+    } catch (PDOException) {}
+
+    $idToken    = gerarUuid();
+    $tokenPlain = bin2hex(random_bytes(32));
+    $tokenHash  = hash('sha256', $tokenPlain);
+    $expira     = date('Y-m-d H:i:s', strtotime("+{$dias} days"));
+
+    try {
+        $pdo->prepare(
+            'INSERT INTO TokensLembrarMe (IDToken, FKUsuario, TokenHash, Expira)
+             VALUES (:id, :fku, :hash, :expira)'
+        )->execute([':id' => $idToken, ':fku' => $idUsuario, ':hash' => $tokenHash, ':expira' => $expira]);
+    } catch (PDOException $e) {
+        error_log('[LembrarMe] Erro ao salvar token: ' . $e->getMessage());
+        return;
+    }
+
+    $path = (defined('BASE') && BASE !== '') ? BASE . '/' : '/';
+    setcookie('bc_lembrar', $idToken . ':' . $tokenPlain, [
+        'expires'  => strtotime("+{$dias} days"),
+        'path'     => $path,
+        'secure'   => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+}
+
+function tentarLoginLembrado(PDO $pdo): void
+{
+    if (estaLogado() || empty($_COOKIE['bc_lembrar'])) return;
+
+    $partes = explode(':', $_COOKIE['bc_lembrar'], 2);
+    if (count($partes) !== 2) {
+        _limparCookieLembrarMe();
+        return;
+    }
+    [$idToken, $tokenPlain] = $partes;
+
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT t.IDToken, t.FKUsuario, t.TokenHash,
+                    u.Nome, u.NivelAcesso, u.EmailVerificado, u.Ativo
+             FROM TokensLembrarMe t
+             JOIN Usuarios u ON u.IDUsuario = t.FKUsuario
+             WHERE t.IDToken = :id AND t.Expira > NOW()
+             LIMIT 1'
+        );
+        $stmt->execute([':id' => $idToken]);
+        $row = $stmt->fetch();
+    } catch (PDOException $e) {
+        error_log('[LembrarMe] ' . $e->getMessage());
+        return;
+    }
+
+    if (!$row || !$row['Ativo']) {
+        _limparCookieLembrarMe();
+        return;
+    }
+
+    if (!hash_equals($row['TokenHash'], hash('sha256', $tokenPlain))) {
+        // Hash inválido — possível roubo de cookie; invalida todos os tokens do usuário
+        try {
+            $pdo->prepare('DELETE FROM TokensLembrarMe WHERE FKUsuario = :id')
+                ->execute([':id' => $row['FKUsuario']]);
+        } catch (PDOException) {}
+        _limparCookieLembrarMe();
+        error_log('[LembrarMe] Token inválido para usuário ' . $row['FKUsuario'] . ' — todos os tokens apagados.');
+        return;
+    }
+
+    // Token válido: apaga o atual e emite um novo (rotação)
+    try {
+        $pdo->prepare('DELETE FROM TokensLembrarMe WHERE IDToken = :id')
+            ->execute([':id' => $idToken]);
+    } catch (PDOException) {}
+
+    session_regenerate_id(true);
+    $_SESSION['usuario_id']       = $row['FKUsuario'];
+    $_SESSION['usuario_nome']     = $row['Nome'];
+    $_SESSION['nivel_acesso']     = $row['NivelAcesso'];
+    $_SESSION['email_verificado'] = (bool) $row['EmailVerificado'];
+
+    criarTokenLembrarMe($pdo, $row['FKUsuario']);
+}
+
+function _limparCookieLembrarMe(): void
+{
+    $path = (defined('BASE') && BASE !== '') ? BASE . '/' : '/';
+    setcookie('bc_lembrar', '', [
+        'expires'  => time() - 3600,
+        'path'     => $path,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+    unset($_COOKIE['bc_lembrar']);
 }
 
 function h(mixed $str): string

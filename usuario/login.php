@@ -36,10 +36,7 @@ require_once __DIR__ . '/../geral/header.php';
                 </div>
 
                 <div class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <label class="form-label fw-medium mb-0" for="senha">Senha</label>
-                        <a href="#" class="small">Esqueci a senha</a>
-                    </div>
+                    <label class="form-label fw-medium mb-1" for="senha">Senha</label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-lock"></i></span>
                         <input type="password" id="senha" name="senha" class="form-control"
@@ -50,7 +47,17 @@ require_once __DIR__ . '/../geral/header.php';
                     </div>
                 </div>
 
-                <div class="d-grid mt-4">
+                <div class="d-flex justify-content-between align-items-center mt-3 mb-1">
+                    <div class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" name="lembrar_me" id="lembrarMe" value="1">
+                        <label class="form-check-label small text-secondary" for="lembrarMe">
+                            Lembrar-me por 30 dias
+                        </label>
+                    </div>
+                    <a href="#" class="small">Esqueci a senha</a>
+                </div>
+
+                <div class="d-grid mt-3">
                     <button type="submit" class="btn btn-accent btn-lg">
                         <i class="bi bi-box-arrow-in-right me-2"></i> Entrar
                     </button>

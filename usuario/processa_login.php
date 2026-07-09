@@ -70,6 +70,10 @@ $_SESSION['usuario_nome']     = $usuario['Nome'];
 $_SESSION['nivel_acesso']     = $usuario['NivelAcesso'];
 $_SESSION['email_verificado'] = (bool) $usuario['EmailVerificado'];
 
+if (!empty($_POST['lembrar_me'])) {
+    criarTokenLembrarMe($pdo, $usuario['IDUsuario']);
+}
+
 if ($usuario['NivelAcesso'] === 'designer') {
     header('Location: ' . BASE . '/painel/index.php');
 } else {
