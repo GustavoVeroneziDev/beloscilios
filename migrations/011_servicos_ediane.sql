@@ -2,7 +2,11 @@
 -- Substitui os serviços placeholder pelos serviços reais da Ediane Lash Designer.
 -- Durações estimadas: completo 120min (Fio a Fio 90min), manut. 15d 60min, manut. 20/21d 75min.
 
+-- IMPORTANTE: execute este arquivo inteiro de uma vez (cole tudo na aba SQL do phpMyAdmin e clique Executar).
+-- O SET FOREIGN_KEY_CHECKS = 0 desativa validação de FK apenas para esta sessão,
+-- permitindo substituir os serviços sem apagar Agendamentos existentes.
 SET FOREIGN_KEY_CHECKS = 0;
+DELETE FROM ReservasTemporarias;
 DELETE FROM SubServicos;
 DELETE FROM Servicos;
 SET FOREIGN_KEY_CHECKS = 1;
