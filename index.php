@@ -157,9 +157,7 @@ require_once __DIR__ . '/geral/header.php';
 }
 
 .lp-hero-logo {
-    height: 60px; width: auto;
-    filter: brightness(0) invert(1);
-    opacity: .92;
+    height: 140px; width: auto;
     margin-bottom: 2.25rem;
     display: block; margin-left: auto; margin-right: auto;
     animation: fadeSlideDown .9s cubic-bezier(.22,1,.36,1) both;
