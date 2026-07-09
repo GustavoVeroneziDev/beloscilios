@@ -210,50 +210,49 @@ $csrfToken = gerarTokenCSRF();
 ?>
 
 <!-- ── Cabeçalho com toggle de visão ─────────────────────────── -->
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
-    <h4 class="fw-bold mb-0"><i class="bi bi-calendar3 me-2 text-accent"></i>Agenda</h4>
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <h4 class="fw-bold mb-0 d-flex align-items-center gap-2">
+        <i class="bi bi-calendar-week fs-4" style="color:var(--accent);"></i>
+        Agenda
+    </h4>
 
     <div class="d-flex align-items-center gap-2 flex-wrap">
-        <!-- Toggle Lista / Calendário -->
-        <div class="btn-group bc-vista-toggle" role="group" aria-label="Visão da agenda">
+        <!-- Switch Lista / Calendário (só ícones) -->
+        <div class="bc-view-switch" role="group" aria-label="Visão da agenda">
             <a href="?vista=lista<?= $vista === 'lista' ? '&semana=' . ($semanaOffset ?? 0) : '' ?>"
-                class="btn btn-sm <?= $vista !== 'calendario' ? 'btn-accent' : 'btn-outline-secondary' ?>">
-                <i class="bi bi-list-ul me-1"></i>Lista
+               class="bc-view-btn <?= $vista !== 'calendario' ? 'ativo' : '' ?>" title="Lista">
+                <i class="bi bi-list-ul"></i>
             </a>
             <a href="?vista=calendario&mes=<?= $vista === 'calendario' ? h($mesSel) : date('Y-m') ?>"
-                class="btn btn-sm <?= $vista === 'calendario' ? 'btn-accent' : 'btn-outline-secondary' ?>">
-                <i class="bi bi-grid-3x3 me-1"></i>Calendário
+               class="bc-view-btn <?= $vista === 'calendario' ? 'ativo' : '' ?>" title="Calendário">
+                <i class="bi bi-grid-3x3-gap"></i>
             </a>
         </div>
 
-        <?php if ($vista !== 'calendario'): ?>
-            <!-- Navegação semanal -->
-            <a href="?vista=lista&semana=<?= ($semanaOffset ?? 0) - 1 ?>" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-chevron-left"></i>
-            </a>
-            <span class="btn btn-outline-secondary btn-sm disabled" style="min-width:120px;text-align:center;">
-                <?= date('d/m', $inicioPeriodo) ?> – <?= date('d/m', $fimPeriodo) ?>
-            </span>
-            <a href="?vista=lista&semana=<?= ($semanaOffset ?? 0) + 1 ?>" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-chevron-right"></i>
-            </a>
-            <?php if (($semanaOffset ?? 0) !== 0): ?>
-                <a href="?vista=lista&semana=0" class="btn btn-outline-accent btn-sm">Hoje</a>
+        <!-- Navegação de período agrupada -->
+        <div class="bc-nav-periodo">
+            <?php if ($vista !== 'calendario'): ?>
+                <a href="?vista=lista&semana=<?= ($semanaOffset ?? 0) - 1 ?>" class="bc-nav-btn" title="Semana anterior">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+                <span class="bc-nav-label"><?= date('d/m', $inicioPeriodo) ?> – <?= date('d/m', $fimPeriodo) ?></span>
+                <a href="?vista=lista&semana=<?= ($semanaOffset ?? 0) + 1 ?>" class="bc-nav-btn" title="Próxima semana">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            <?php else: ?>
+                <a href="?vista=calendario&mes=<?= h($mesPrev) ?>" class="bc-nav-btn" title="Mês anterior">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+                <span class="bc-nav-label"><?= h($mesNome) ?></span>
+                <a href="?vista=calendario&mes=<?= h($mesNext) ?>" class="bc-nav-btn" title="Próximo mês">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
             <?php endif ?>
-        <?php else: ?>
-            <!-- Navegação mensal -->
-            <a href="?vista=calendario&mes=<?= h($mesPrev) ?>" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-chevron-left"></i>
-            </a>
-            <span class="btn btn-outline-secondary btn-sm disabled" style="min-width:150px;text-align:center;">
-                <?= h($mesNome) ?>
-            </span>
-            <a href="?vista=calendario&mes=<?= h($mesNext) ?>" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-chevron-right"></i>
-            </a>
-            <?php if ($mesSel !== date('Y-m')): ?>
-                <a href="?vista=calendario&mes=<?= date('Y-m') ?>" class="btn btn-outline-accent btn-sm">Hoje</a>
-            <?php endif ?>
+        </div>
+
+        <?php if (($vista !== 'calendario' && ($semanaOffset ?? 0) !== 0) || ($vista === 'calendario' && $mesSel !== date('Y-m'))): ?>
+            <a href="?vista=<?= $vista ?>&<?= $vista === 'calendario' ? 'mes=' . date('Y-m') : 'semana=0' ?>"
+               class="btn btn-outline-accent btn-sm">Hoje</a>
         <?php endif ?>
 
         <button class="btn btn-accent btn-sm" data-bs-toggle="modal" data-bs-target="#modalNovoAg">
