@@ -83,4 +83,5 @@ try {
         ->execute([':id' => $row['FKUsuario']]);
 } catch (PDOException) {}
 
-redirecionarComMensagem(BASE . '/usuario/login.php', 'Senha redefinida com sucesso! Faça login com a nova senha.', 'success');
+header('Location: ' . BASE . '/usuario/login.php');
+exit;
