@@ -131,7 +131,7 @@ require_once __DIR__ . '/../geral/header.php';
                         <i class="bi bi-link-45deg"></i>
                     </button>
                     <button class="btn btn-sm btn-light py-1 px-2"
-                            onclick="abrirEditar('<?= h($img['IDImagem']) ?>','<?= h(addslashes($img['TituloExibicao'] ?? '')) ?>','<?= h($img['Categoria']) ?>')"
+                            onclick="abrirEditar('<?= h($img['IDImagem']) ?>','<?= h(addslashes($img['TituloExibicao'] ?? '')) ?>','<?= h($img['Categoria']) ?>','<?= h($img['NomeArquivo']) ?>')"
                             title="Editar">
                         <i class="bi bi-pencil"></i>
                     </button>
@@ -234,32 +234,84 @@ require_once __DIR__ . '/../geral/header.php';
 <!-- ══════════════════════════════════
      Modal: Editar Imagem
 ════════════════════════════════════ -->
-<div class="modal fade" id="modalEditarImg" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered" style="max-width:400px">
+<div class="modal fade" id="modalEditarImg" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0" style="border-radius:16px">
             <div class="modal-header border-0 pb-1">
                 <h5 class="modal-title fw-bold"><i class="bi bi-pencil me-2 text-accent"></i>Editar imagem</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" id="btnFecharEditar"></button>
             </div>
-            <div class="modal-body pt-1">
+
+            <div class="modal-body pt-2">
                 <input type="hidden" id="editImgId">
-                <div class="mb-3">
-                    <label class="form-label small fw-semibold mb-1">Título <span class="text-secondary fw-normal">(opcional)</span></label>
-                    <input type="text" id="editImgTitulo" class="form-control" placeholder="Ex: Volume Russo — resultado final" maxlength="255">
+
+                <!-- Área do Cropper -->
+                <div id="editCropWrap" style="max-height:380px;background:#0d0020;border-radius:10px;overflow:hidden;">
+                    <img id="editImgCropper" style="max-width:100%;display:block;">
                 </div>
-                <div>
-                    <label class="form-label small fw-semibold mb-1">Categoria</label>
-                    <select id="editImgCat" class="form-select">
-                        <?php foreach ($categorias as $cat): ?>
-                        <option value="<?= h($cat['IDCategoria']) ?>"><?= h($cat['Nome']) ?></option>
-                        <?php endforeach ?>
-                    </select>
+
+                <!-- Controles de recorte -->
+                <div class="mt-3 d-flex align-items-center gap-2 flex-wrap">
+                    <span class="text-secondary small fw-semibold me-1">Proporção:</span>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-secondary" onclick="setEditAspect(NaN)">Livre</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setEditAspect(1)">1:1</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setEditAspect(4/3)">4:3</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setEditAspect(16/9)">16:9</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setEditAspect(3/4)">3:4</button>
+                    </div>
+                    <div class="btn-group btn-group-sm ms-auto" role="group">
+                        <button type="button" class="btn btn-outline-secondary"
+                                onclick="editCropperIns&&editCropperIns.rotate(-90)" title="Girar esquerda">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary"
+                                onclick="editCropperIns&&editCropperIns.rotate(90)" title="Girar direita">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary"
+                                onclick="editCropperIns&&editCropperIns.reset()" title="Resetar">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                </div>
+                <p class="text-secondary" style="font-size:.72rem;margin-top:.4rem;">
+                    Arraste para mover · Scroll para zoom · Ajuste as alças para recortar
+                </p>
+
+                <!-- Título e categoria -->
+                <div class="row g-2 mt-1">
+                    <div class="col-sm-7">
+                        <label class="form-label small fw-semibold mb-1">Título <span class="text-secondary fw-normal">(opcional)</span></label>
+                        <input type="text" id="editImgTitulo" class="form-control form-control-sm"
+                               placeholder="Ex: Volume Russo — resultado final" maxlength="255">
+                    </div>
+                    <div class="col-sm-5">
+                        <label class="form-label small fw-semibold mb-1">Categoria</label>
+                        <select id="editImgCat" class="form-select form-select-sm">
+                            <?php foreach ($categorias as $cat): ?>
+                            <option value="<?= h($cat['IDCategoria']) ?>"><?= h($cat['Nome']) ?></option>
+                            <?php endforeach ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="editUploadProg" style="display:none" class="mt-3">
+                    <div class="progress" style="height:5px">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated"
+                             style="width:100%;background:var(--accent)"></div>
+                    </div>
+                    <p class="text-secondary small mt-1 mb-0">Salvando…</p>
                 </div>
             </div>
-            <div class="modal-footer border-0 pt-0">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-accent" id="btnSalvarEditar">
-                    <i class="bi bi-check-lg me-1"></i>Salvar
+
+            <div class="modal-footer border-0 pt-1 gap-2">
+                <button type="button" class="btn btn-outline-secondary" id="btnCancelarEditar">Cancelar</button>
+                <button type="button" class="btn btn-outline-accent" id="btnSalvarMeta">
+                    <i class="bi bi-check-lg me-1"></i>Salvar sem recortar
+                </button>
+                <button type="button" class="btn btn-accent" id="btnSalvarCrop">
+                    <i class="bi bi-crop me-1"></i>Salvar recortada
                 </button>
             </div>
         </div>
@@ -556,49 +608,124 @@ require_once __DIR__ . '/../geral/header.php';
     };
 
     // ── Editar imagem ─────────────────────────────────────────────
-    window.abrirEditar = function(id, titulo, cat) {
-        document.getElementById('editImgId').value      = id;
-        document.getElementById('editImgTitulo').value  = titulo;
-        document.getElementById('editImgCat').value     = cat;
+    var editCropperIns = null;
+    var editEnviando   = false;
+    window.editCropperIns = null;
+
+    window.abrirEditar = function(id, titulo, cat, nomeArquivo) {
+        document.getElementById('editImgId').value     = id;
+        document.getElementById('editImgTitulo').value = titulo;
+        document.getElementById('editImgCat').value    = cat;
+
+        var img = document.getElementById('editImgCropper');
+        img.src = BASE + '/geral/img/galeria/' + nomeArquivo;
+
+        img.onload = function() {
+            if (editCropperIns) { editCropperIns.destroy(); editCropperIns = null; }
+            editCropperIns = new Cropper(img, {
+                viewMode: 1, autoCropArea: 0.88, responsive: true,
+                background: false, movable: true, zoomable: true, rotatable: true, scalable: true,
+            });
+            window.editCropperIns = editCropperIns;
+        };
+
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditarImg')).show();
     };
 
-    document.getElementById('btnSalvarEditar').addEventListener('click', function() {
-        var id    = document.getElementById('editImgId').value;
+    window.setEditAspect = function(r) { if (editCropperIns) editCropperIns.setAspectRatio(r); };
+
+    function resetEditar() {
+        if (editCropperIns) { editCropperIns.destroy(); editCropperIns = null; window.editCropperIns = null; }
+        editEnviando = false;
+        document.getElementById('editImgCropper').src      = '';
+        document.getElementById('editImgId').value         = '';
+        document.getElementById('editImgTitulo').value     = '';
+        document.getElementById('editUploadProg').style.display = 'none';
+        document.getElementById('btnSalvarMeta').disabled  = false;
+        document.getElementById('btnSalvarCrop').disabled  = false;
+    }
+
+    function fecharEditar() {
+        if (editEnviando) return;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditarImg')).hide();
+    }
+    document.getElementById('btnFecharEditar').addEventListener('click',   fecharEditar);
+    document.getElementById('btnCancelarEditar').addEventListener('click', fecharEditar);
+    document.getElementById('modalEditarImg').addEventListener('hidden.bs.modal', resetEditar);
+
+    function aplicarEdicaoNoCard(id, titulo, catNome, novaUrl) {
+        var card = document.getElementById('gcard-' + id);
+        if (!card) return;
+        var tituloEl = card.querySelector('.gal-titulo');
+        if (titulo) {
+            if (tituloEl) { tituloEl.textContent = titulo; tituloEl.title = titulo; }
+            else {
+                var info = card.querySelector('.px-2.pt-2');
+                var d = document.createElement('div');
+                d.className = 'small fw-semibold text-truncate mb-1 gal-titulo';
+                d.title = titulo; d.textContent = titulo;
+                info.insertBefore(d, info.firstChild);
+            }
+        } else if (tituloEl) { tituloEl.remove(); }
+        var badge = card.querySelector('.gal-cat-badge');
+        if (badge && catNome) badge.textContent = catNome;
+        if (novaUrl) {
+            var thumb = card.querySelector('.gal-thumb img');
+            if (thumb) thumb.src = novaUrl + '?v=' + Date.now();
+        }
+    }
+
+    function enviarEdicao(blob, nomeBlob) {
+        editEnviando = true;
+        document.getElementById('editUploadProg').style.display = 'block';
+        document.getElementById('btnSalvarMeta').disabled = true;
+        document.getElementById('btnSalvarCrop').disabled = true;
+
+        var id     = document.getElementById('editImgId').value;
         var titulo = document.getElementById('editImgTitulo').value.trim();
-        var cat   = document.getElementById('editImgCat').value;
+        var cat    = document.getElementById('editImgCat').value;
         var fd = new FormData();
         fd.append('csrf_token', CSRF);
         fd.append('id', id);
         fd.append('titulo', titulo);
         fd.append('categoria', cat);
+        if (blob) fd.append('imagem', blob, nomeBlob);
+
         fetch(BASE + '/painel/editar_imagem.php', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (!data.ok) { bcToast(data.msg, 'danger'); return; }
-                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditarImg')).hide();
-                bcToast('Imagem atualizada.', 'success');
-                // Atualiza card sem reload
-                var card = document.getElementById('gcard-' + id);
-                if (card) {
-                    var tituloEl = card.querySelector('.gal-titulo');
-                    if (titulo) {
-                        if (tituloEl) { tituloEl.textContent = titulo; }
-                        else {
-                            var info = card.querySelector('.px-2.pt-2');
-                            var d = document.createElement('div');
-                            d.className = 'small fw-semibold text-truncate mb-1 gal-titulo';
-                            d.title = titulo; d.textContent = titulo;
-                            info.insertBefore(d, info.firstChild);
-                        }
-                    } else if (tituloEl) {
-                        tituloEl.remove();
-                    }
-                    var badge = card.querySelector('.gal-cat-badge');
-                    if (badge) badge.textContent = data.catNome;
+                editEnviando = false;
+                if (!data.ok) {
+                    bcToast(data.msg, 'danger');
+                    document.getElementById('editUploadProg').style.display = 'none';
+                    document.getElementById('btnSalvarMeta').disabled = false;
+                    document.getElementById('btnSalvarCrop').disabled = false;
+                    return;
                 }
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditarImg')).hide();
+                aplicarEdicaoNoCard(id, titulo, data.catNome, data.url || null);
+                bcToast('Imagem atualizada.', 'success');
             })
-            .catch(function() { bcToast('Falha de conexão.', 'danger'); });
+            .catch(function() {
+                editEnviando = false;
+                bcToast('Falha de conexão.', 'danger');
+                document.getElementById('editUploadProg').style.display = 'none';
+                document.getElementById('btnSalvarMeta').disabled = false;
+                document.getElementById('btnSalvarCrop').disabled = false;
+            });
+    }
+
+    document.getElementById('btnSalvarMeta').addEventListener('click', function() {
+        enviarEdicao(null, null);
+    });
+
+    document.getElementById('btnSalvarCrop').addEventListener('click', function() {
+        if (!editCropperIns || editEnviando) return;
+        var canvas = editCropperIns.getCroppedCanvas({
+            maxWidth: 9999, maxHeight: 9999,
+            fillColor: '#fff', imageSmoothingEnabled: true, imageSmoothingQuality: 'high',
+        });
+        canvas.toBlob(function(blob) { enviarEdicao(blob, 'edit.jpg'); }, 'image/jpeg', 0.95);
     });
 
     // ── Deletar imagem ────────────────────────────────────────────
