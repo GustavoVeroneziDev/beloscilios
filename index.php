@@ -397,7 +397,7 @@ require_once __DIR__ . '/geral/header.php';
 .lp-ph img {
     width: 100%; height: 100%;
     object-fit: cover;
-    object-position: top center;
+    object-position: center center;
     display: block;
 }
 
@@ -647,10 +647,21 @@ require_once __DIR__ . '/geral/header.php';
 
     <div class="lp-gallery-wrap">
         <div class="lp-gallery">
-            <?php foreach ($fotosGaleria as $foto): ?>
+            <?php
+            $posicoes = [
+                'Wispy'      => 'center 70%',
+                'Perfil'     => 'center top',
+                'Perfil 2'   => 'center top',
+                'Ambiente'   => 'center center',
+                'Fox Marrom' => 'center 55%',
+            ];
+            foreach ($fotosGaleria as $foto):
+                $pos = $posicoes[$foto['TituloExibicao']] ?? 'center center';
+            ?>
             <div class="lp-ph">
                 <img src="<?= BASE ?>/geral/img/galeria/<?= h($foto['NomeArquivo']) ?>"
                      alt="<?= h($foto['TituloExibicao'] ?? 'Resultado') ?>"
+                     style="object-position:<?= $pos ?>"
                      loading="lazy">
                 <?php if (!empty($foto['TituloExibicao'])): ?>
                 <div class="lp-ph-tag"><?= h($foto['TituloExibicao']) ?></div>
