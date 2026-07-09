@@ -199,10 +199,7 @@ require_once __DIR__ . '/geral/header.php';
     object-position: bottom center;
     align-self: flex-end;
     max-height: 92vh;
-    /* fade suave nos lados */
-    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%);
-    mask-image:         linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%);
-    animation: fadeSlideRight .9s .4s cubic-bezier(.22,1,.36,1) both;
+    animation: fadeSlideRight .9s cubic-bezier(.22,1,.36,1) forwards;
 }
 @keyframes fadeSlideRight {
     from { opacity:0; transform: translateX(40px); }
