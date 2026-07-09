@@ -91,6 +91,20 @@ try {
         exit;
     }
 
+    // Verifica bloqueios de horário
+    $checkBloq = $pdo->prepare(
+        'SELECT COUNT(*) FROM BloqueiosAgenda
+         WHERE DataInicio < :fim AND DataFim > :ini'
+    );
+    $checkBloq->execute([
+        ':ini' => $inicio->format('Y-m-d H:i:s'),
+        ':fim' => $fimSlot->format('Y-m-d H:i:s'),
+    ]);
+    if ((int)$checkBloq->fetchColumn() > 0) {
+        echo json_encode(['ok' => false, 'msg' => 'Este horário não está disponível para agendamento.']);
+        exit;
+    }
+
     // Remove reserva anterior desta sessão
     $pdo->prepare('DELETE FROM ReservasTemporarias WHERE TokenSessao = :s')
         ->execute([':s' => $sessao]);

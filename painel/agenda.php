@@ -7,7 +7,7 @@ exigirLogin('designer');
 
 $vista = $_GET['vista'] ?? 'lista';
 
-// ── Ação POST (confirmar / cancelar / concluir) ───────────────
+// ── Ação POST ─────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!validarTokenCSRF($_POST['csrf_token'] ?? '')) {
         redirecionarComMensagem(BASE . '/painel/agenda.php', 'Token inválido.', 'danger');
@@ -15,24 +15,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $acao = $_POST['acao'] ?? '';
     $id   = $_POST['id']   ?? '';
 
+    // Confirmar / cancelar / concluir agendamento
     $statusMap = ['confirmar' => 'confirmado', 'cancelar' => 'cancelado', 'concluir' => 'concluido'];
     if (isset($statusMap[$acao]) && $id) {
         try {
             $pdo->prepare('UPDATE Agendamentos SET StatusAgendamento = :status WHERE IDAgendamento = :id')
                 ->execute([':status' => $statusMap[$acao], ':id' => $id]);
-
-            // Redireciona preservando vista/mês/semana ativos
-            $params = array_filter([
-                'vista'  => $_GET['vista']  ?? null,
-                'mes'    => $_GET['mes']    ?? null,
-                'semana' => $_GET['semana'] ?? null,
-            ]);
+            $params = array_filter(['vista' => $_GET['vista'] ?? null, 'mes' => $_GET['mes'] ?? null, 'semana' => $_GET['semana'] ?? null]);
             $qs = $params ? '?' . http_build_query($params) : '';
             redirecionarComMensagem(BASE . '/painel/agenda.php' . $qs, 'Status atualizado.', 'success');
         } catch (PDOException $e) {
             error_log('[Agenda] ' . $e->getMessage());
             redirecionarComMensagem(BASE . '/painel/agenda.php', 'Erro ao atualizar.', 'danger');
         }
+    }
+
+    // Adicionar bloqueio de horário
+    if ($acao === 'bloquear') {
+        $ini    = trim($_POST['bloq_ini'] ?? '');
+        $fim    = trim($_POST['bloq_fim'] ?? '');
+        $motivo = trim($_POST['bloq_motivo'] ?? '');
+        if ($ini && $fim && $fim > $ini) {
+            try {
+                $pdo->prepare('INSERT INTO BloqueiosAgenda (IDBloqueio,DataInicio,DataFim,Motivo) VALUES (:id,:ini,:fim,:mot)')
+                    ->execute([':id' => gerarUuid(), ':ini' => $ini, ':fim' => $fim, ':mot' => $motivo ?: null]);
+            } catch (PDOException $e) { error_log('[Bloqueio] ' . $e->getMessage()); }
+        }
+        $params = array_filter(['vista' => $_GET['vista'] ?? null, 'mes' => $_GET['mes'] ?? null, 'semana' => $_GET['semana'] ?? null]);
+        header('Location: ' . BASE . '/painel/agenda.php' . ($params ? '?' . http_build_query($params) : ''));
+        exit;
+    }
+
+    // Remover bloqueio
+    if ($acao === 'rem_bloqueio' && $id) {
+        try {
+            $pdo->prepare('DELETE FROM BloqueiosAgenda WHERE IDBloqueio = :id')->execute([':id' => $id]);
+        } catch (PDOException $e) { error_log('[Bloqueio] ' . $e->getMessage()); }
+        $params = array_filter(['vista' => $_GET['vista'] ?? null, 'mes' => $_GET['mes'] ?? null, 'semana' => $_GET['semana'] ?? null]);
+        header('Location: ' . BASE . '/painel/agenda.php' . ($params ? '?' . http_build_query($params) : ''));
+        exit;
     }
 }
 
@@ -42,8 +63,10 @@ $servicos = $pdo->query('SELECT IDServico, Nome, DuracaoMinutos, Preco FROM Serv
 $semanaOffset  = 0;
 $inicioPeriodo = $fimPeriodo = 0;
 $porDia        = [];
+$bloqueiosDia  = [];
 $mesSel        = $mesPrev = $mesNext = $mesNome = '';
 $porDiaCal     = $semanasCal = $calJson = [];
+$bloqueiosCal  = [];
 
 // ── VISÃO LISTA (semanal) ─────────────────────────────────────
 if ($vista !== 'calendario') {
@@ -78,6 +101,28 @@ if ($vista !== 'calendario') {
         $dia = date('Y-m-d', strtotime($ag['DataHoraAgendamento']));
         $porDia[$dia][] = $ag;
     }
+
+    // Bloqueios que tocam a semana
+    try {
+        $bStmt = $pdo->prepare(
+            'SELECT IDBloqueio, DataInicio, DataFim, Motivo FROM BloqueiosAgenda
+             WHERE DataFim > :ini AND DataInicio < :fim ORDER BY DataInicio ASC'
+        );
+        $bStmt->execute([':ini' => $iniSQL . ' 00:00:00', ':fim' => $fimSQL . ' 23:59:59']);
+        foreach ($bStmt->fetchAll() as $b) {
+            // Distribui o bloqueio em cada dia que ele cobre dentro da semana
+            $bIniTs = strtotime($b['DataInicio']);
+            $bFimTs = strtotime($b['DataFim']);
+            for ($d = $inicioPeriodo; $d <= $fimPeriodo; $d += 86400) {
+                $dStr  = date('Y-m-d', $d);
+                $dIni  = strtotime($dStr . ' 00:00:00');
+                $dFim  = strtotime($dStr . ' 23:59:59');
+                if ($bIniTs < $dFim && $bFimTs > $dIni) {
+                    $bloqueiosDia[$dStr][] = $b;
+                }
+            }
+        }
+    } catch (PDOException) {}
 }
 
 // ── VISÃO CALENDÁRIO (mensal) ─────────────────────────────────
@@ -150,6 +195,27 @@ if ($vista === 'calendario') {
         while (count($semana) < 7) $semana[] = null;
         $semanasCal[] = $semana;
     }
+
+    // Bloqueios do mês para o calendário
+    try {
+        $bCalStmt = $pdo->prepare(
+            'SELECT IDBloqueio, DataInicio, DataFim, Motivo FROM BloqueiosAgenda
+             WHERE DataFim > :ini AND DataInicio < :fim ORDER BY DataInicio ASC'
+        );
+        $bCalStmt->execute([':ini' => $primeiroDia . ' 00:00:00', ':fim' => $ultimoDia . ' 23:59:59']);
+        foreach ($bCalStmt->fetchAll() as $b) {
+            $bIniTs = strtotime($b['DataInicio']);
+            $bFimTs = strtotime($b['DataFim']);
+            for ($d = strtotime($primeiroDia); $d <= strtotime($ultimoDia); $d += 86400) {
+                $dStr = date('Y-m-d', $d);
+                $dFim = strtotime($dStr . ' 23:59:59');
+                $dIni = strtotime($dStr . ' 00:00:00');
+                if ($bIniTs < $dFim && $bFimTs > $dIni) {
+                    $bloqueiosCal[$dStr][] = ['id' => $b['IDBloqueio'], 'ini' => date('H:i', $bIniTs), 'fim' => date('H:i', $bFimTs), 'motivo' => $b['Motivo'] ?? ''];
+                }
+            }
+        }
+    } catch (PDOException) {}
 
     // JSON para o JS (detalhe do dia clicado)
     $calJson = [];
@@ -260,6 +326,9 @@ $csrfToken = gerarTokenCSRF();
                class="btn btn-outline-accent btn-sm">Hoje</a>
         <?php endif ?>
 
+        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#modalBloqueio" title="Bloquear horário">
+            <i class="bi bi-slash-circle me-1"></i> Bloquear
+        </button>
         <button class="btn btn-accent btn-sm" data-bs-toggle="modal" data-bs-target="#modalNovoAg">
             <i class="bi bi-plus-lg me-1"></i> Novo
         </button>
@@ -275,8 +344,10 @@ $csrfToken = gerarTokenCSRF();
     for ($d = 0; $d < 7; $d++):
         $ts    = strtotime("+{$d} days", $inicioPeriodo);
         $key   = date('Y-m-d', $ts);
-        $ags   = $porDia[$key] ?? [];
-        $eHoje = $key === date('Y-m-d');
+        $ags      = $porDia[$key] ?? [];
+        $bloqs    = $bloqueiosDia[$key] ?? [];
+        $eHoje    = $key === date('Y-m-d');
+        $temItens = !empty($ags) || !empty($bloqs);
     ?>
         <div class="card mb-3 <?= $eHoje ? 'border-accent' : '' ?>">
             <div class="card-header d-flex align-items-center gap-2 px-4 py-2"
@@ -284,12 +355,37 @@ $csrfToken = gerarTokenCSRF();
                 <span class="fw-semibold <?= $eHoje ? 'text-accent' : '' ?>"><?= $diasSemana[$d] ?></span>
                 <span class="text-secondary small"><?= date('d/m', $ts) ?></span>
                 <?php if ($eHoje): ?><span class="badge ms-1" style="background:var(--accent);">Hoje</span><?php endif ?>
+                <?php if (!empty($bloqs)): ?>
+                    <span class="badge ms-1 bg-danger bg-opacity-75"><i class="bi bi-slash-circle me-1"></i><?= count($bloqs) ?> bloqueio<?= count($bloqs) > 1 ? 's' : '' ?></span>
+                <?php endif ?>
                 <span class="ms-auto badge bg-secondary"><?= count($ags) ?> ag.</span>
             </div>
-            <?php if (empty($ags)): ?>
+            <?php if (!$temItens): ?>
                 <div class="text-center py-3 text-secondary small">Sem agendamentos</div>
             <?php else: ?>
                 <ul class="list-group list-group-flush">
+                    <?php foreach ($bloqs as $b): ?>
+                        <li class="list-group-item px-3 px-md-4 py-2" style="background:rgba(220,53,69,.06);">
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="fw-bold text-danger" style="min-width:40px;">
+                                    <?= date('H:i', strtotime($b['DataInicio'])) ?>
+                                </span>
+                                <div class="flex-grow-1">
+                                    <span class="fw-medium text-danger"><i class="bi bi-slash-circle me-1"></i>Indisponível</span>
+                                    <?php if ($b['Motivo']): ?>
+                                        <span class="text-secondary small ms-1">— <?= h($b['Motivo']) ?></span>
+                                    <?php endif ?>
+                                    <span class="text-secondary small d-block">até <?= date('H:i', strtotime($b['DataFim'])) ?></span>
+                                </div>
+                                <form method="POST" class="d-inline" data-confirm="Remover este bloqueio?" data-confirm-label="Remover">
+                                    <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+                                    <input type="hidden" name="acao" value="rem_bloqueio">
+                                    <input type="hidden" name="id" value="<?= h($b['IDBloqueio']) ?>">
+                                    <button class="btn btn-sm btn-outline-danger" title="Remover bloqueio"><i class="bi bi-x-lg"></i></button>
+                                </form>
+                            </div>
+                        </li>
+                    <?php endforeach ?>
                     <?php foreach ($ags as $ag): ?>
                         <li class="list-group-item px-3 px-md-4 py-2">
                             <div class="d-flex align-items-center gap-2 gap-md-3 flex-wrap">
@@ -354,8 +450,9 @@ $csrfToken = gerarTokenCSRF();
                     <?php else:
                         $key       = sprintf('%s-%02d', $mesSel, $dia);
                         $agsNoDia  = $porDiaCal[$key] ?? [];
+                        $bloqNoDia = $bloqueiosCal[$key] ?? [];
                         $eHojeDia  = ($key === $hoje);
-                        $classes   = 'bc-cal-day' . ($eHojeDia ? ' bc-hoje' : '') . (empty($agsNoDia) ? ' bc-sem-ag' : '');
+                        $classes   = 'bc-cal-day' . ($eHojeDia ? ' bc-hoje' : '') . (empty($agsNoDia) && empty($bloqNoDia) ? ' bc-sem-ag' : '');
                     ?>
                         <div class="<?= $classes ?>"
                             data-data="<?= $key ?>"
@@ -365,15 +462,16 @@ $csrfToken = gerarTokenCSRF();
                             onclick="mostrarDia('<?= $key ?>', <?= $dia ?>)"
                             onkeydown="if(event.key==='Enter')mostrarDia('<?= $key ?>', <?= $dia ?>)">
                             <div class="bc-cal-num"><?= $dia ?></div>
+                            <?php if (!empty($bloqNoDia)): ?>
+                                <span class="bc-cal-dot" style="background:#ef4444;" title="Horário bloqueado"></span>
+                            <?php endif ?>
                             <?php if (!empty($agsNoDia)): ?>
                                 <div class="bc-cal-dots">
-                                    <?php foreach (array_slice($agsNoDia, 0, 5) as $ag): ?>
+                                    <?php foreach (array_slice($agsNoDia, 0, 4) as $ag): ?>
                                         <span class="bc-cal-dot <?= h($ag['StatusAgendamento']) ?>"></span>
                                     <?php endforeach ?>
                                 </div>
-                                <?php if (count($agsNoDia) > 0): ?>
-                                    <span class="bc-cal-count"><?= count($agsNoDia) ?></span>
-                                <?php endif ?>
+                                <span class="bc-cal-count"><?= count($agsNoDia) ?></span>
                             <?php endif ?>
                         </div>
             <?php
@@ -428,9 +526,10 @@ $csrfToken = gerarTokenCSRF();
     </div>
 
     <script>
-        const dadosCal = <?= json_encode($calJson, JSON_UNESCAPED_UNICODE) ?>;
-        const BASE_URL = '<?= BASE ?>';
-        const MES_SEL = '<?= h($mesSel) ?>';
+        const dadosCal    = <?= json_encode($calJson,      JSON_UNESCAPED_UNICODE) ?>;
+        const bloqueiosCal = <?= json_encode($bloqueiosCal, JSON_UNESCAPED_UNICODE) ?>;
+        const BASE_URL    = '<?= BASE ?>';
+        const MES_SEL     = '<?= h($mesSel) ?>';
 
         const statusLabel = {
             pendente: '<span class="badge bg-warning text-dark">Pendente</span>',
@@ -454,7 +553,8 @@ $csrfToken = gerarTokenCSRF();
             if (cel) cel.classList.add('bc-selecionado');
 
             diaAberto = data;
-            const ags = dadosCal[data] || [];
+            const ags   = dadosCal[data]    || [];
+            const bloqs = bloqueiosCal[data] || [];
 
             // Título
             const partes = data.split('-');
@@ -468,11 +568,29 @@ $csrfToken = gerarTokenCSRF();
 
             // Conteúdo
             const cont = document.getElementById('conteudoDia');
-            if (ags.length === 0) {
+            if (ags.length === 0 && bloqs.length === 0) {
                 cont.innerHTML = '<p class="text-center text-secondary py-4 mb-0">Nenhum agendamento neste dia.</p>';
             } else {
                 const ul = document.createElement('ul');
                 ul.className = 'list-group list-group-flush';
+
+                // Bloqueios primeiro
+                bloqs.forEach(b => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item px-4 py-2';
+                    li.style.background = 'rgba(220,53,69,.06)';
+                    li.innerHTML =
+                        '<div class="d-flex align-items-center gap-2 flex-wrap">' +
+                        '<span class="fw-bold text-danger" style="min-width:40px;">' + escHtml(b.ini) + '</span>' +
+                        '<div class="flex-grow-1">' +
+                        '<span class="fw-medium text-danger"><i class="bi bi-slash-circle me-1"></i>Indisponível</span>' +
+                        (b.motivo ? '<span class="text-secondary small ms-1">— ' + escHtml(b.motivo) + '</span>' : '') +
+                        '<span class="text-secondary small d-block">até ' + escHtml(b.fim) + '</span>' +
+                        '</div>' +
+                        '</div>';
+                    ul.appendChild(li);
+                });
+
                 ags.forEach(ag => {
                     const li = document.createElement('li');
                     li.className = 'list-group-item px-4 py-2';
@@ -659,8 +777,8 @@ $csrfToken = gerarTokenCSRF();
         document.getElementById('resultadosBusca').innerHTML = '';
     }
 
-    // Abre modal e pré-preenche data quando ?acao=novo&data=YYYY-MM-DD
-    (function() {
+    // Abre modal após Bootstrap carregar (Bootstrap está no footer)
+    window.addEventListener('load', function () {
         const params = new URLSearchParams(location.search);
         if (params.get('acao') === 'novo') {
             const dataParam = params.get('data');
@@ -668,9 +786,63 @@ $csrfToken = gerarTokenCSRF();
                 const inp = document.getElementById('inputDataHora');
                 if (inp) inp.value = dataParam + 'T09:00';
             }
-            new bootstrap.Modal(document.getElementById('modalNovoAg')).show();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalNovoAg')).show();
         }
-    })();
+    });
+</script>
+
+<!-- Modal: Bloquear horário -->
+<div class="modal fade" id="modalBloqueio" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form action="<?= BASE ?>/painel/agenda.php?vista=<?= h($vista) ?><?= $vista === 'calendario' ? '&mes=' . h($mesSel) : '&semana=' . $semanaOffset ?>" method="POST">
+                <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+                <input type="hidden" name="acao" value="bloquear">
+                <div class="modal-header border-0 pb-0 px-4 pt-4">
+                    <h6 class="modal-title fw-semibold">
+                        <i class="bi bi-slash-circle me-2 text-danger"></i>Bloquear horário
+                    </h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body px-4 pt-3">
+                    <p class="text-secondary small mb-3">Os horários dentro deste período ficarão indisponíveis para agendamento.</p>
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label fw-medium">Início</label>
+                            <input type="datetime-local" name="bloq_ini" id="bloqIni" class="form-control" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-medium">Fim</label>
+                            <input type="datetime-local" name="bloq_fim" id="bloqFim" class="form-control" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-medium">Motivo <span class="text-secondary fw-normal">(opcional)</span></label>
+                            <input type="text" name="bloq_motivo" class="form-control" placeholder="Ex: consulta médica, viagem...">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0 pb-4 px-4">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-slash-circle me-1"></i>Bloquear
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Pré-preenche data de início do bloqueio quando um dia está selecionado no calendário
+document.getElementById('modalBloqueio')?.addEventListener('show.bs.modal', function () {
+    const dia = document.querySelector('.bc-cal-day.bc-selecionado')?.dataset.data;
+    if (dia) {
+        const ini = document.getElementById('bloqIni');
+        const fim = document.getElementById('bloqFim');
+        if (ini && !ini.value) ini.value = dia + 'T08:00';
+        if (fim && !fim.value) fim.value = dia + 'T18:00';
+    }
+});
 </script>
 
 <?php require_once __DIR__ . '/../geral/footer.php' ?>
