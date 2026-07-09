@@ -313,17 +313,29 @@ require_once __DIR__ . '/../geral/header.php';
                                 <!-- Grid de imagens -->
                                 <div id="svGaleriaGrid"
                                      style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:10px;max-height:280px;overflow-y:auto;">
-                                    <?php foreach ($imagensGaleria as $gi): ?>
+                                    <?php foreach ($imagensGaleria as $gi):
+                                        $label = $gi['TituloExibicao'] ?: $gi['CategoriaNome'] ?: $gi['NomeArquivo'];
+                                    ?>
                                     <button type="button"
                                             class="picker-img-btn"
                                             data-url="<?= BASE ?>/geral/img/galeria/<?= h($gi['NomeArquivo']) ?>"
                                             data-busca="<?= h(strtolower(($gi['TituloExibicao'] ?? '') . ' ' . ($gi['CategoriaNome'] ?? ''))) ?>"
                                             onclick="selecionarFotoGaleria(this)"
-                                            style="border:2px solid transparent;border-radius:8px;padding:0;overflow:hidden;cursor:pointer;background:none;aspect-ratio:1;">
+                                            style="border:2px solid transparent;border-radius:8px;padding:0;overflow:hidden;cursor:pointer;background:none;aspect-ratio:1;position:relative;">
                                         <img src="<?= BASE ?>/geral/img/galeria/<?= h($gi['NomeArquivo']) ?>"
-                                             alt="<?= h($gi['TituloExibicao'] ?? '') ?>"
+                                             alt="<?= h($label) ?>"
                                              loading="lazy"
                                              style="width:100%;height:100%;object-fit:cover;display:block;">
+                                        <span style="position:absolute;top:0;left:0;right:0;
+                                                     background:linear-gradient(to bottom,rgba(16,0,43,.72) 0%,transparent 100%);
+                                                     color:#fff;font-size:.6rem;font-weight:600;
+                                                     padding:4px 5px 10px;
+                                                     line-height:1.2;text-align:left;
+                                                     overflow:hidden;display:-webkit-box;
+                                                     -webkit-line-clamp:2;-webkit-box-orient:vertical;
+                                                     pointer-events:none;">
+                                            <?= h($label) ?>
+                                        </span>
                                     </button>
                                     <?php endforeach ?>
                                     <?php if (empty($imagensGaleria)): ?>
