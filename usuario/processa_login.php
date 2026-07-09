@@ -54,6 +54,13 @@ if (!$usuario['Ativo']) {
     redirecionarComMensagem(BASE . '/usuario/login.php', 'Conta desativada. Entre em contato.', 'warning');
 }
 
+if (!$usuario['EmailVerificado']) {
+    $_SESSION['pendente_email'] = $usuario['Email'];
+    $_SESSION['pendente_nome']  = $usuario['Nome'];
+    header('Location: ' . BASE . '/usuario/aguardando_verificacao.php?motivo=login');
+    exit;
+}
+
 // Login bem-sucedido
 session_regenerate_id(true);
 unset($_SESSION['login_tentativas'], $_SESSION['login_ultima']);

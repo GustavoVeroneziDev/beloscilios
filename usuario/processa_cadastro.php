@@ -79,15 +79,9 @@ try {
     error_log('[Cadastro][Email] ' . $e->getMessage());
 }
 
-// Login automático após cadastro
-session_regenerate_id(true);
-$_SESSION['usuario_id']      = $id;
-$_SESSION['usuario_nome']    = $nome;
-$_SESSION['nivel_acesso']    = 'cliente';
-$_SESSION['email_verificado'] = false;
+// Guarda na sessão para a página de aguardo (sem fazer login ainda)
+$_SESSION['pendente_email'] = $email;
+$_SESSION['pendente_nome']  = $nome;
 
-redirecionarComMensagem(
-    BASE . '/agendamento/index.php',
-    'Conta criada! Enviamos um link de verificação para ' . h($email) . '.',
-    'success'
-);
+header('Location: ' . BASE . '/usuario/aguardando_verificacao.php');
+exit;

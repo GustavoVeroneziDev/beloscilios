@@ -32,16 +32,23 @@ try {
          WHERE IDUsuario = :id'
     )->execute([':id' => $usuario['IDUsuario']]);
 
-    // Atualiza sessão se for o próprio usuário logado
-    if (estaLogado() && $_SESSION['usuario_id'] === $usuario['IDUsuario']) {
-        $_SESSION['email_verificado'] = true;
-    }
+    // Busca nível de acesso para montar a sessão
+    $row = $pdo->prepare('SELECT NivelAcesso FROM Usuarios WHERE IDUsuario = :id LIMIT 1');
+    $row->execute([':id' => $usuario['IDUsuario']]);
+    $nivel = $row->fetchColumn() ?: 'cliente';
 
-    redirecionarComMensagem(
-        BASE . '/agendamento/index.php',
-        'E-mail verificado com sucesso! Seus lembretes estão ativados.',
-        'success'
-    );
+    // Auto-login: conta verificada, entra direto
+    session_regenerate_id(true);
+    $_SESSION['usuario_id']       = $usuario['IDUsuario'];
+    $_SESSION['usuario_nome']     = $usuario['Nome'];
+    $_SESSION['nivel_acesso']     = $nivel;
+    $_SESSION['email_verificado'] = true;
+    unset($_SESSION['pendente_email'], $_SESSION['pendente_nome']);
+
+    if ($nivel === 'designer') {
+        redirecionarComMensagem(BASE . '/painel/index.php', 'E-mail verificado! Seja bem-vinda.', 'success');
+    }
+    redirecionarComMensagem(BASE . '/agendamento/index.php', 'E-mail verificado! Agora você pode agendar.', 'success');
 } catch (PDOException $e) {
     error_log('[VerificarEmail] ' . $e->getMessage());
     redirecionarComMensagem(BASE . '/index.php', 'Erro ao verificar. Tente novamente.', 'danger');
