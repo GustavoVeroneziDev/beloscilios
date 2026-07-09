@@ -56,6 +56,7 @@ $base          = '/beloscilios';
                 ['href' => BASE . '/painel/galeria.php',       'icon' => 'bi-images',       'label' => 'Galeria'],
                 ['href' => BASE . '/painel/relatorio.php',     'icon' => 'bi-bar-chart',    'label' => 'Financeiro'],
                 ['href' => BASE . '/painel/configuracoes.php', 'icon' => 'bi-gear',         'label' => 'Configurações'],
+                ['href' => BASE . '/painel/testar_email.php',  'icon' => 'bi-envelope-check', 'label' => 'Diagnóstico E-mail'],
             ];
             ?>
             <ul class="sidebar-nav">

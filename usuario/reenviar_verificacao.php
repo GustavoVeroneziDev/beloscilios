@@ -42,13 +42,11 @@ try {
         redirecionarComMensagem(BASE . '/agendamento/index.php', 'E-mail já verificado!', 'info');
     }
 
-    // Rate limit: não reenvia se enviou há menos de 5 minutos
-    if ($usuario['TokenVerificacaoExpira'] && strtotime($usuario['TokenVerificacaoExpira']) > strtotime('+23 hours 55 minutes')) {
-        redirecionarComMensagem(
-            BASE . '/usuario/aguardando_verificacao.php',
-            'Aguarde alguns minutos antes de solicitar outro link.',
-            'warning'
-        );
+    // Rate limit: 30 segundos (sincronizado com o countdown da UI)
+    $ultimoEnvio = (int)($_SESSION['pendente_email_enviado_em'] ?? 0);
+    if ($ultimoEnvio && (time() - $ultimoEnvio) < 30) {
+        header('Location: ' . BASE . '/usuario/aguardando_verificacao.php');
+        exit;
     }
 
     $token  = bin2hex(random_bytes(32));
@@ -59,11 +57,15 @@ try {
     )->execute([':t' => $token, ':e' => $expira, ':id' => $uid]);
 
     // Mantém a sessão pendente atualizada
-    $_SESSION['pendente_email'] = $usuario['Email'];
-    $_SESSION['pendente_nome']  = $usuario['Nome'];
+    $_SESSION['pendente_email']          = $usuario['Email'];
+    $_SESSION['pendente_nome']           = $usuario['Nome'];
+    $_SESSION['pendente_email_enviado_em'] = time();
 
     try {
-        enviarEmailVerificacao($usuario['Email'], $usuario['Nome'], $token);
+        $emailOk = enviarEmailVerificacao($usuario['Email'], $usuario['Nome'], $token);
+        if (!$emailOk) {
+            error_log('[ReenviarVerif][Email] enviarEmail() retornou false para ' . $usuario['Email']);
+        }
     } catch (\Throwable $e) {
         error_log('[ReenviarVerif][Email] ' . $e->getMessage());
     }

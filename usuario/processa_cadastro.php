@@ -74,14 +74,18 @@ try {
 
 // Envia e-mail de verificação — fora do try do PDO para não bloquear cadastro se falhar
 try {
-    enviarEmailVerificacao($email, $nome, $tokenV);
+    $emailOk = enviarEmailVerificacao($email, $nome, $tokenV);
+    if (!$emailOk) {
+        error_log('[Cadastro][Email] enviarEmail() retornou false para ' . $email);
+    }
 } catch (\Throwable $e) {
     error_log('[Cadastro][Email] ' . $e->getMessage());
 }
 
 // Guarda na sessão para a página de aguardo (sem fazer login ainda)
-$_SESSION['pendente_email'] = $email;
-$_SESSION['pendente_nome']  = $nome;
+$_SESSION['pendente_email']          = $email;
+$_SESSION['pendente_nome']           = $nome;
+$_SESSION['pendente_email_enviado_em'] = time();
 
 header('Location: ' . BASE . '/usuario/aguardando_verificacao.php');
 exit;

@@ -28,6 +28,9 @@ if (!empty($_SESSION['pendente_email'])) {
 
 $motivoBloqueio = isset($_GET['motivo']) && $_GET['motivo'] === 'login';
 
+$ultimoEnvio    = (int)($_SESSION['pendente_email_enviado_em'] ?? 0);
+$cooldownSegs   = max(0, 30 - (time() - $ultimoEnvio));
+
 $paginaTitulo = 'Verifique seu e-mail';
 $areaAtual    = 'publico';
 require_once __DIR__ . '/../geral/header.php';
@@ -149,9 +152,18 @@ require_once __DIR__ . '/../geral/header.php';
 
         <!-- Ações -->
         <div class="d-grid gap-2">
-            <a href="<?= BASE ?>/usuario/reenviar_verificacao.php" class="btn btn-accent">
+            <a href="<?= BASE ?>/usuario/reenviar_verificacao.php"
+               class="btn btn-accent"
+               id="btnReenviar"
+               <?= $cooldownSegs > 0 ? 'aria-disabled="true" style="pointer-events:none;opacity:.55;"' : '' ?>>
                 <i class="bi bi-arrow-repeat me-2"></i>Reenviar e-mail de verificação
             </a>
+
+            <p id="cooldownMsg" class="mb-0 text-secondary small"
+               style="<?= $cooldownSegs > 0 ? '' : 'display:none' ?>">
+                Reenviar código em: <strong id="cooldownTimer"></strong>
+            </p>
+
             <a href="<?= BASE ?>/usuario/login.php" class="btn btn-outline-secondary">
                 <i class="bi bi-box-arrow-in-right me-2"></i>Já verifiquei — ir para o login
             </a>
@@ -163,5 +175,33 @@ require_once __DIR__ . '/../geral/header.php';
 
     </div>
 </div>
+
+<script>
+(function () {
+    var restante = <?= (int)$cooldownSegs ?>;
+    if (restante <= 0) return;
+
+    var btn    = document.getElementById('btnReenviar');
+    var msg    = document.getElementById('cooldownMsg');
+    var timer  = document.getElementById('cooldownTimer');
+
+    function fmt(s) { return '0:' + (s < 10 ? '0' : '') + s; }
+
+    timer.textContent = fmt(restante);
+
+    var iv = setInterval(function () {
+        restante--;
+        if (restante <= 0) {
+            clearInterval(iv);
+            btn.removeAttribute('aria-disabled');
+            btn.style.pointerEvents = '';
+            btn.style.opacity       = '';
+            msg.style.display = 'none';
+        } else {
+            timer.textContent = fmt(restante);
+        }
+    }, 1000);
+}());
+</script>
 
 <?php require_once __DIR__ . '/../geral/footer.php' ?>
