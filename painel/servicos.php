@@ -28,9 +28,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirecionarComMensagem(BASE . '/painel/servicos.php', 'Formato de imagem inválido.', 'warning');
         }
         $fname = gerarUuid() . '.' . $ext;
-        $dest  = __DIR__ . '/../uploads/' . $fname;
+        $dir   = __DIR__ . '/../geral/img/servicos/';
+        if (!is_dir($dir)) mkdir($dir, 0755, true);
+        $dest  = $dir . $fname;
         if (move_uploaded_file($_FILES['foto']['tmp_name'], $dest)) {
-            $fotoUrl = BASE . '/uploads/' . $fname;
+            $fotoUrl = BASE . '/geral/img/servicos/' . $fname;
         }
     }
 
@@ -186,7 +188,15 @@ require_once __DIR__ . '/../geral/header.php';
                                     <div class="d-flex justify-content-between align-items-center py-1
                                 border-bottom" style="border-color:var(--card-border-color)!important">
                                         <span class="small"><?= h($ss['Nome']) ?></span>
-                                        <span class="small text-accent fw-medium"><?= formatarMoeda((float)$ss['Preco']) ?></span>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="small text-accent fw-medium"><?= formatarMoeda((float)$ss['Preco']) ?></span>
+                                            <button class="btn btn-link p-0 text-secondary"
+                                                    style="font-size:.8rem;line-height:1;"
+                                                    data-bs-toggle="modal" data-bs-target="#modalSubServico"
+                                                    onclick="editarSub(<?= htmlspecialchars(json_encode($ss), ENT_QUOTES) ?>, '<?= h($sv['Nome']) ?>')">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                 <?php endforeach ?>
                             </div>
@@ -290,8 +300,9 @@ require_once __DIR__ . '/../geral/header.php';
                 <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
                 <input type="hidden" name="acao" value="sub_salvar">
                 <input type="hidden" name="fk_servico" id="subFkServico">
+                <input type="hidden" name="sub_id" id="subId">
                 <div class="modal-header">
-                    <h5 class="modal-title fw-semibold">
+                    <h5 class="modal-title fw-semibold" id="subModalTitulo">
                         Manutenção — <span id="subServicoNome"></span>
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -299,20 +310,20 @@ require_once __DIR__ . '/../geral/header.php';
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Nome da manutenção *</label>
-                        <input type="text" name="sub_nome" class="form-control" required maxlength="100">
+                        <input type="text" name="sub_nome" id="subNome" class="form-control" required maxlength="100">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Descrição</label>
-                        <textarea name="sub_desc" class="form-control" rows="2" maxlength="500"></textarea>
+                        <textarea name="sub_desc" id="subDesc" class="form-control" rows="2" maxlength="500"></textarea>
                     </div>
                     <div class="row g-2">
                         <div class="col-6">
                             <label class="form-label">Preço (R$)</label>
-                            <input type="number" name="sub_preco" class="form-control" step="0.01" min="0" max="99999.99">
+                            <input type="number" name="sub_preco" id="subPreco" class="form-control" step="0.01" min="0" max="99999.99">
                         </div>
                         <div class="col-6">
                             <label class="form-label">Duração (min)</label>
-                            <input type="number" name="sub_dur" class="form-control" value="60" min="15" max="480" step="15">
+                            <input type="number" name="sub_dur" id="subDur" class="form-control" value="60" min="15" max="480" step="15">
                         </div>
                     </div>
                 </div>
@@ -326,27 +337,63 @@ require_once __DIR__ . '/../geral/header.php';
 </div>
 
 <script>
+    // ── Serviço ──────────────────────────────────────────────────────────────
     function editarServico(sv) {
         document.getElementById('tituloModalSv').textContent = 'Editar serviço';
-        document.getElementById('svId').value = sv.IDServico;
-        document.getElementById('svNome').value = sv.Nome;
-        document.getElementById('svDesc').value = sv.Descricao || '';
-        document.getElementById('svPreco').value = sv.Preco;
-        document.getElementById('svDur').value = sv.DuracaoMinutos;
-        document.getElementById('svOrdem').value = sv.Ordem;
-        document.getElementById('svAtivo').checked = sv.Ativo == 1;
+        document.getElementById('svId').value        = sv.IDServico;
+        document.getElementById('svNome').value      = sv.Nome;
+        document.getElementById('svDesc').value      = sv.Descricao || '';
+        document.getElementById('svPreco').value     = sv.Preco;
+        document.getElementById('svDur').value       = sv.DuracaoMinutos;
+        document.getElementById('svOrdem').value     = sv.Ordem;
+        document.getElementById('svAtivo').checked   = sv.Ativo == 1;
         document.getElementById('svFotoAtual').value = sv.FotoUrl || '';
+
+        var prev = document.getElementById('svFotoPreview');
         if (sv.FotoUrl) {
-            document.getElementById('svFotoPreview').innerHTML =
-                `<img src="${sv.FotoUrl}" class="mt-2 rounded" style="max-height:100px;">`;
+            prev.innerHTML = '<img src="' + sv.FotoUrl + '" class="mt-2 rounded" style="max-height:100px;max-width:100%;object-fit:cover;">';
+        } else {
+            prev.innerHTML = '';
         }
     }
 
-    document.getElementById('modalServico')?.addEventListener('hidden.bs.modal', function() {
+    // Preview ao selecionar arquivo
+    document.querySelector('input[name="foto"]')?.addEventListener('change', function () {
+        var prev = document.getElementById('svFotoPreview');
+        if (this.files && this.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                prev.innerHTML = '<img src="' + e.target.result + '" class="mt-2 rounded" style="max-height:100px;max-width:100%;object-fit:cover;">';
+            };
+            reader.readAsDataURL(this.files[0]);
+        }
+    });
+
+    document.getElementById('modalServico')?.addEventListener('hidden.bs.modal', function () {
         document.getElementById('tituloModalSv').textContent = 'Novo serviço';
         this.querySelector('form').reset();
-        document.getElementById('svId').value = '';
+        document.getElementById('svId').value           = '';
+        document.getElementById('svFotoAtual').value    = '';
         document.getElementById('svFotoPreview').innerHTML = '';
+    });
+
+    // ── Manutenção ───────────────────────────────────────────────────────────
+    function editarSub(ss, nomeServico) {
+        document.getElementById('subModalTitulo').childNodes[0].textContent = 'Editar manutenção — ';
+        document.getElementById('subServicoNome').textContent = nomeServico;
+        document.getElementById('subId').value       = ss.IDSubServico;
+        document.getElementById('subFkServico').value = ss.FKServico;
+        document.getElementById('subNome').value     = ss.Nome;
+        document.getElementById('subDesc').value     = ss.Descricao || '';
+        document.getElementById('subPreco').value    = ss.Preco;
+        document.getElementById('subDur').value      = ss.DuracaoMinutos;
+    }
+
+    document.getElementById('modalSubServico')?.addEventListener('hidden.bs.modal', function () {
+        this.querySelector('form').reset();
+        document.getElementById('subId').value = '';
+        document.getElementById('subModalTitulo').childNodes[0].textContent = 'Manutenção — ';
+        document.getElementById('subDur').value = '60';
     });
 </script>
 
