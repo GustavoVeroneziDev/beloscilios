@@ -74,7 +74,6 @@ require_once __DIR__ . '/geral/header.php';
     background: #0d0020;
     display: flex;
     align-items: stretch;
-    justify-content: center;
     overflow: hidden;
     margin-top: -1.5rem;
     position: relative;
@@ -148,36 +147,54 @@ require_once __DIR__ . '/geral/header.php';
     50%     { opacity:.7; transform:scale(2.5); }
 }
 
-/* Grid dois‑colunas do hero */
+/* Wrapper principal do hero */
 .lp-hero-wrap {
     position: relative; z-index: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    width: 100%;
+    max-width: 1240px;
+    padding: 4.5rem 2rem 0;
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+/* Topo: logo + eyebrow — centralizado, full‑width */
+.lp-hero-top {
+    text-align: center;
+    width: 100%;
+    padding-bottom: 1.5rem;
+}
+
+/* Parte inferior: duas colunas */
+.lp-hero-bottom {
     display: grid;
     grid-template-columns: 1fr;
     width: 100%;
-    max-width: 1240px;
-    padding: 5rem 1.5rem 10% 1.5rem;
-    align-items: flex-end;
+    flex: 1;
+    gap: 0;
 }
 @media (min-width: 768px) {
-    .lp-hero-wrap {
+    .lp-hero-bottom {
         grid-template-columns: 1fr 1fr;
-        padding: 0 2.5rem;
-        gap: 0;
+        align-items: end;
     }
 }
 
 /* Coluna de texto */
 .lp-hero-text {
     text-align: center;
-    padding-bottom: 2rem;
+    padding: 0 0 3rem;
 }
 @media (min-width: 768px) {
     .lp-hero-text {
         text-align: left;
-        padding-bottom: 10%;
+        padding-bottom: 8%;
+        align-self: end;
     }
-    .lp-hero-eyebrow { justify-content: flex-start; }
-    .lp-hero-ctas    { justify-content: flex-start; }
+    .lp-hero-ctas { justify-content: flex-start; }
 }
 
 /* Coluna da foto */
@@ -187,7 +204,7 @@ require_once __DIR__ . '/geral/header.php';
     justify-content: center;
 }
 @media (min-width: 768px) {
-    .lp-hero-foto { display: flex; min-height: 100vh; }
+    .lp-hero-foto { display: flex; align-self: end; }
 }
 
 .lp-hero-principal {
@@ -207,9 +224,9 @@ require_once __DIR__ . '/geral/header.php';
 }
 
 .lp-hero-logo {
-    height: 140px; width: auto;
-    margin-bottom: 2.25rem;
-    display: block; margin-left: auto; margin-right: auto;
+    height: clamp(140px, 18vw, 200px); width: auto;
+    margin-bottom: 1.25rem;
+    display: inline-block;
     animation: fadeSlideDown .9s cubic-bezier(.22,1,.36,1) both;
 }
 @keyframes fadeSlideDown {
@@ -652,38 +669,43 @@ require_once __DIR__ . '/geral/header.php';
     </div>
     <!-- Grid -->
     <div class="lp-hero-wrap">
-        <!-- Texto -->
-        <div class="lp-hero-text">
+        <!-- Topo: logo + eyebrow centralizados -->
+        <div class="lp-hero-top">
             <img src="<?= BASE ?>/geral/img/NomeCompleto.png"
                  alt="Belos Cílios" class="lp-hero-logo">
 
             <div class="lp-hero-eyebrow">
                 Extensão de Cílios &nbsp;·&nbsp; Design de Sobrancelhas
             </div>
-
-            <h1 class="lp-hero-h1">
-                Beleza que<br>
-                <em>fala por você.</em>
-            </h1>
-
-            <p class="lp-hero-p">
-                Arte, técnica e cuidado para realçar o melhor em cada olhar.
-            </p>
-
-            <div class="lp-hero-ctas">
-                <a href="<?= BASE ?>/usuario/cadastro.php" class="lp-btn-primary">
-                    <i class="bi bi-calendar-heart"></i> Agendar agora
-                </a>
-                <a href="#servicos" class="lp-btn-ghost">
-                    <i class="bi bi-grid-3x3-gap"></i> Ver serviços
-                </a>
-            </div>
         </div>
 
-        <!-- Foto da designer -->
-        <div class="lp-hero-foto" aria-hidden="true">
-            <img src="<?= BASE ?>/geral/img/Principal.png"
-                 alt="" class="lp-hero-principal">
+        <!-- Colunas: texto esquerda + foto direita -->
+        <div class="lp-hero-bottom">
+            <div class="lp-hero-text">
+                <h1 class="lp-hero-h1">
+                    Beleza que<br>
+                    <em>fala por você.</em>
+                </h1>
+
+                <p class="lp-hero-p">
+                    Arte, técnica e cuidado para realçar o melhor em cada olhar.
+                </p>
+
+                <div class="lp-hero-ctas">
+                    <a href="<?= BASE ?>/usuario/cadastro.php" class="lp-btn-primary">
+                        <i class="bi bi-calendar-heart"></i> Agendar agora
+                    </a>
+                    <a href="#servicos" class="lp-btn-ghost">
+                        <i class="bi bi-grid-3x3-gap"></i> Ver serviços
+                    </a>
+                </div>
+            </div>
+
+            <!-- Foto da designer -->
+            <div class="lp-hero-foto" aria-hidden="true">
+                <img src="<?= BASE ?>/geral/img/Principal.png"
+                     alt="" class="lp-hero-principal">
+            </div>
         </div>
     </div>
 
