@@ -148,95 +148,209 @@ $areaAtual    = 'painel';
 require_once __DIR__ . '/../geral/header.php';
 ?>
 
-<div class="d-flex align-items-center justify-content-between mb-4">
+<style>
+.bc-tabs {
+    display: flex;
+    gap: .25rem;
+    border-bottom: 2px solid var(--card-border-color);
+    margin-bottom: 1.5rem;
+}
+.bc-tab {
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    padding: .55rem 1.1rem;
+    font-size: .875rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    transition: color .15s, border-color .15s;
+    border-radius: 0;
+}
+.bc-tab:hover  { color: var(--text-main); }
+.bc-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.bc-tab .bc-badge {
+    background: var(--bg-hover);
+    color: var(--text-muted);
+    font-size: .65rem;
+    font-weight: 700;
+    padding: .1rem .45rem;
+    border-radius: 20px;
+    min-width: 1.4rem;
+    text-align: center;
+}
+.bc-tab.active .bc-badge {
+    background: rgba(90,24,154,.15);
+    color: var(--accent);
+}
+</style>
+
+<!-- Cabeçalho -->
+<div class="d-flex align-items-center justify-content-between mb-3">
     <h4 class="fw-bold mb-0">Serviços</h4>
-    <button class="btn btn-accent btn-sm" data-bs-toggle="modal" data-bs-target="#modalServico">
-        <i class="bi bi-plus-lg me-1"></i> Novo serviço
+    <div>
+        <button id="btnAcaoServico" class="btn btn-accent btn-sm"
+                data-bs-toggle="modal" data-bs-target="#modalServico">
+            <i class="bi bi-plus-lg me-1"></i>Novo serviço
+        </button>
+        <button id="btnAcaoManutencao" class="btn btn-accent btn-sm" style="display:none"
+                data-bs-toggle="modal" data-bs-target="#modalSubServico">
+            <i class="bi bi-plus-lg me-1"></i>Nova manutenção
+        </button>
+    </div>
+</div>
+
+<!-- Nav tabs -->
+<div class="bc-tabs">
+    <button class="bc-tab active" data-tab="servicos">
+        <i class="bi bi-grid-3x3-gap-fill"></i>
+        Serviços
+        <span class="bc-badge"><?= count($servicos) ?></span>
+    </button>
+    <button class="bc-tab" data-tab="manutencoes">
+        <i class="bi bi-wrench-adjustable"></i>
+        Manutenções
+        <span class="bc-badge"><?= count($subServicos) ?></span>
     </button>
 </div>
 
-<?php if (empty($servicos)): ?>
-    <div class="text-center py-5 text-secondary card">
-        <img src="<?= BASE ?>/geral/img/mascara.png" alt="" class="d-block mb-2 mx-auto opacity-25" style="width:3rem;height:3rem;object-fit:contain;">
-        <p>Nenhum serviço cadastrado.</p>
-        <div><button class="btn btn-accent btn-sm" data-bs-toggle="modal" data-bs-target="#modalServico">
-                Criar primeiro serviço
-            </button></div>
-    </div>
-<?php else: ?>
-    <div class="row g-3">
-        <?php foreach ($servicos as $sv): ?>
-            <div class="col-sm-6 col-lg-4">
-                <div class="card h-100 <?= !$sv['Ativo'] ? 'opacity-50' : '' ?>">
-                    <?php if ($sv['FotoUrl']): ?>
-                        <img src="<?= h($sv['FotoUrl']) ?>" class="card-img-top"
-                            style="height:160px;object-fit:cover;border-radius:14px 14px 0 0;">
-                    <?php endif ?>
-                    <div class="card-body pb-2">
-                        <div class="d-flex justify-content-between align-items-start mb-1">
-                            <h6 class="fw-bold mb-0"><?= h($sv['Nome']) ?></h6>
-                            <?php if (!$sv['Ativo']): ?>
-                                <span class="badge bg-secondary">Inativo</span>
+<!-- ── Tab: Serviços ──────────────────────────────────────────── -->
+<div id="tab-servicos">
+    <?php if (empty($servicos)): ?>
+        <div class="text-center py-5 text-secondary card">
+            <img src="<?= BASE ?>/geral/img/mascara.png" alt="" class="d-block mb-2 mx-auto opacity-25" style="width:3rem;height:3rem;object-fit:contain;">
+            <p>Nenhum serviço cadastrado.</p>
+            <div>
+                <button class="btn btn-accent btn-sm" data-bs-toggle="modal" data-bs-target="#modalServico">
+                    Criar primeiro serviço
+                </button>
+            </div>
+        </div>
+    <?php else: ?>
+        <div class="row g-3">
+            <?php foreach ($servicos as $sv): ?>
+                <div class="col-sm-6 col-lg-4">
+                    <div class="card h-100 <?= !$sv['Ativo'] ? 'opacity-50' : '' ?>">
+                        <?php if ($sv['FotoUrl']): ?>
+                            <img src="<?= h($sv['FotoUrl']) ?>" class="card-img-top"
+                                style="height:160px;object-fit:cover;border-radius:14px 14px 0 0;">
+                        <?php endif ?>
+                        <div class="card-body pb-2">
+                            <div class="d-flex justify-content-between align-items-start mb-1">
+                                <h6 class="fw-bold mb-0"><?= h($sv['Nome']) ?></h6>
+                                <?php if (!$sv['Ativo']): ?>
+                                    <span class="badge bg-secondary">Inativo</span>
+                                <?php endif ?>
+                            </div>
+                            <p class="small text-secondary mb-2"><?= h($sv['Descricao'] ?? '') ?></p>
+                            <div class="d-flex gap-3 mb-2">
+                                <span class="fw-bold text-accent"><?= formatarMoeda((float)$sv['Preco']) ?></span>
+                                <span class="small text-secondary">
+                                    <i class="bi bi-clock me-1"></i><?= $sv['DuracaoMinutos'] ?>min
+                                </span>
+                            </div>
+                            <?php $qtdSub = count($subPorServico[$sv['IDServico']] ?? []); ?>
+                            <?php if ($qtdSub): ?>
+                                <span class="badge" style="background:rgba(90,24,154,.12);color:var(--accent);font-weight:600;">
+                                    <?= $qtdSub ?> manutenç<?= $qtdSub == 1 ? 'ão' : 'ões' ?>
+                                </span>
                             <?php endif ?>
                         </div>
-                        <p class="small text-secondary mb-2"><?= h($sv['Descricao'] ?? '') ?></p>
-                        <div class="d-flex gap-3 mb-2">
-                            <span class="fw-bold text-accent"><?= formatarMoeda((float)$sv['Preco']) ?></span>
-                            <span class="small text-secondary">
-                                <i class="bi bi-clock me-1"></i><?= $sv['DuracaoMinutos'] ?>min
-                            </span>
+                        <div class="card-footer bg-transparent d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-accent flex-grow-1"
+                                data-bs-toggle="modal" data-bs-target="#modalServico"
+                                onclick="editarServico(<?= htmlspecialchars(json_encode($sv), ENT_QUOTES) ?>)">
+                                <i class="bi bi-pencil me-1"></i>Editar
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary"
+                                data-bs-toggle="modal" data-bs-target="#modalSubServico"
+                                onclick="document.getElementById('subFkServico').value='<?= h($sv['IDServico']) ?>';
+                                         document.getElementById('subServicoNome').textContent='<?= h($sv['Nome']) ?>'">
+                                <i class="bi bi-plus"></i> Manutenção
+                            </button>
+                            <?php if ($sv['Ativo']): ?>
+                                <form method="POST"
+                                    data-confirm="Desativar este serviço?"
+                                    data-confirm-label="Desativar">
+                                    <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
+                                    <input type="hidden" name="acao" value="excluir">
+                                    <input type="hidden" name="id" value="<?= h($sv['IDServico']) ?>">
+                                    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                                </form>
+                            <?php endif ?>
                         </div>
-
-                        <!-- Sub-serviços (manutenções) -->
-                        <?php if (!empty($subPorServico[$sv['IDServico']])): ?>
-                            <div class="mb-2">
-                                <div class="small text-secondary fw-medium mb-1">Manutenções:</div>
-                                <?php foreach ($subPorServico[$sv['IDServico']] as $ss): ?>
-                                    <div class="d-flex justify-content-between align-items-center py-1
-                                border-bottom" style="border-color:var(--card-border-color)!important">
-                                        <span class="small"><?= h($ss['Nome']) ?></span>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span class="small text-accent fw-medium"><?= formatarMoeda((float)$ss['Preco']) ?></span>
-                                            <button class="btn btn-link p-0 text-secondary"
-                                                    style="font-size:.8rem;line-height:1;"
-                                                    data-bs-toggle="modal" data-bs-target="#modalSubServico"
-                                                    onclick="editarSub(<?= htmlspecialchars(json_encode($ss), ENT_QUOTES) ?>, '<?= h($sv['Nome']) ?>')">
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                <?php endforeach ?>
-                            </div>
-                        <?php endif ?>
-                    </div>
-                    <div class="card-footer bg-transparent d-flex gap-2">
-                        <button class="btn btn-sm btn-outline-accent flex-grow-1"
-                            data-bs-toggle="modal" data-bs-target="#modalServico"
-                            onclick="editarServico(<?= htmlspecialchars(json_encode($sv), ENT_QUOTES) ?>)">
-                            <i class="bi bi-pencil me-1"></i>Editar
-                        </button>
-                        <button class="btn btn-sm btn-outline-secondary"
-                            data-bs-toggle="modal" data-bs-target="#modalSubServico"
-                            onclick="document.getElementById('subFkServico').value='<?= h($sv['IDServico']) ?>';
-                                 document.getElementById('subServicoNome').textContent='<?= h($sv['Nome']) ?>'">
-                            <i class="bi bi-plus"></i> Manutenção
-                        </button>
-                        <?php if ($sv['Ativo']): ?>
-                            <form method="POST"
-                                data-confirm="Desativar este serviço?"
-                                data-confirm-label="Desativar">
-                                <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
-                                <input type="hidden" name="acao" value="excluir">
-                                <input type="hidden" name="id" value="<?= h($sv['IDServico']) ?>">
-                                <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
-                            </form>
-                        <?php endif ?>
                     </div>
                 </div>
+            <?php endforeach ?>
+        </div>
+    <?php endif ?>
+</div>
+
+<!-- ── Tab: Manutenções ──────────────────────────────────────── -->
+<div id="tab-manutencoes" style="display:none">
+    <?php if (empty($subServicos)): ?>
+        <div class="text-center py-5 text-secondary card">
+            <i class="bi bi-wrench-adjustable" style="font-size:2.5rem;opacity:.2"></i>
+            <p class="mt-3 mb-0">Nenhuma manutenção cadastrada.</p>
+        </div>
+    <?php else: ?>
+        <div class="d-flex flex-column gap-3">
+            <?php foreach ($servicos as $sv):
+                if (empty($subPorServico[$sv['IDServico']])) continue;
+            ?>
+            <div class="card">
+                <div class="card-header px-4 py-3 d-flex align-items-center justify-content-between">
+                    <span class="fw-semibold">
+                        <?php if ($sv['FotoUrl']): ?>
+                            <img src="<?= h($sv['FotoUrl']) ?>" alt=""
+                                 style="width:28px;height:28px;object-fit:cover;border-radius:6px;margin-right:.5rem;vertical-align:middle;">
+                        <?php endif ?>
+                        <?= h($sv['Nome']) ?>
+                    </span>
+                    <button class="btn btn-sm btn-outline-accent"
+                            data-bs-toggle="modal" data-bs-target="#modalSubServico"
+                            onclick="document.getElementById('subFkServico').value='<?= h($sv['IDServico']) ?>';
+                                     document.getElementById('subServicoNome').textContent='<?= h($sv['Nome']) ?>'">
+                        <i class="bi bi-plus me-1"></i>Adicionar
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-hover align-middle mb-0" style="font-size:.875rem;">
+                        <thead style="background:var(--bg-hover);">
+                            <tr>
+                                <th class="px-4 py-2">Nome</th>
+                                <th>Duração</th>
+                                <th>Preço</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($subPorServico[$sv['IDServico']] as $ss): ?>
+                            <tr>
+                                <td class="px-4"><?= h($ss['Nome']) ?></td>
+                                <td class="text-secondary"><?= $ss['DuracaoMinutos'] ?>min</td>
+                                <td class="fw-semibold text-accent"><?= formatarMoeda((float)$ss['Preco']) ?></td>
+                                <td class="text-end pe-3">
+                                    <button class="btn btn-sm btn-outline-secondary py-0 px-2"
+                                            data-bs-toggle="modal" data-bs-target="#modalSubServico"
+                                            onclick="editarSub(<?= htmlspecialchars(json_encode($ss), ENT_QUOTES) ?>, '<?= h($sv['Nome']) ?>')">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <?php endforeach ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        <?php endforeach ?>
-    </div>
-<?php endif ?>
+            <?php endforeach ?>
+        </div>
+    <?php endif ?>
+</div>
 
 <!-- Modal: Serviço -->
 <div class="modal fade" id="modalServico" tabindex="-1">
@@ -508,6 +622,20 @@ require_once __DIR__ . '/../geral/header.php';
         document.getElementById('subId').value = '';
         document.getElementById('subModalTitulo').childNodes[0].textContent = 'Manutenção — ';
         document.getElementById('subDur').value = '60';
+    });
+
+    // ── Tabs ─────────────────────────────────────────────────────────────────
+    var panels = { servicos: document.getElementById('tab-servicos'), manutencoes: document.getElementById('tab-manutencoes') };
+    var btns   = { servicos: document.getElementById('btnAcaoServico'), manutencoes: document.getElementById('btnAcaoManutencao') };
+
+    document.querySelectorAll('.bc-tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            var id = this.dataset.tab;
+            document.querySelectorAll('.bc-tab').forEach(function(t){ t.classList.remove('active'); });
+            this.classList.add('active');
+            Object.keys(panels).forEach(function(k){ panels[k].style.display = k === id ? '' : 'none'; });
+            Object.keys(btns).forEach(function(k){ btns[k].style.display = k === id ? '' : 'none'; });
+        });
     });
 </script>
 
