@@ -423,25 +423,49 @@ require_once __DIR__ . '/../geral/header.php';
             <form method="POST" class="card-body p-4">
                 <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
                 <input type="hidden" name="acao" value="config">
-                <p class="text-secondary small mb-3">
-                    <i class="bi bi-info-circle me-1"></i>
-                    Variáveis disponíveis: <code>{nome}</code>, <code>{data}</code>,
-                    <code>{hora}</code>, <code>{servico}</code>
-                </p>
                 <?php
+                $varBase  = '<code>{nome}</code>, <code>{data}</code>, <code>{hora}</code>, <code>{servico}</code>';
                 $msgs = [
-                    ['msg_confirmacao',  'Confirmação de agendamento',    'Enviada assim que o agendamento é criado. Quando a cliente responder, a IA classifica automaticamente.'],
-                    ['msg_lembrete',     'Lembrete (24h antes)',           'Enviada pelo cron 24h antes do horário.'],
-                    ['msg_cancelamento', 'Cancelamento (via IA)',          'Enviada automaticamente quando a IA detecta que a cliente cancelou ao responder a confirmação.'],
-                    ['msg_followup',     'Follow-up pós-procedimento',     'Enviada depois que o agendamento é concluído.'],
-                    ['msg_cobranca',     'Cobrança (pagamento pendente)',  'Enviada manualmente ou pelo cron para agendamentos com pagamento pendente.'],
+                    [
+                        'key'  => 'msg_confirmacao',
+                        'label'=> 'Confirmação de agendamento',
+                        'info' => 'Enviada assim que o agendamento é criado. Quando a cliente responder, a IA classifica automaticamente.',
+                        'vars' => $varBase,
+                    ],
+                    [
+                        'key'  => 'msg_lembrete',
+                        'label'=> 'Lembrete (24h antes)',
+                        'info' => 'Enviada pelo cron 24h antes do horário.',
+                        'vars' => $varBase,
+                    ],
+                    [
+                        'key'  => 'msg_cancelamento',
+                        'label'=> 'Cancelamento (via IA)',
+                        'info' => 'Enviada à cliente quando a IA detecta cancelamento. O motivo é a mensagem original dela.',
+                        'vars' => $varBase . ', <code>{mensagem_cliente}</code> — o que a cliente escreveu',
+                    ],
+                    [
+                        'key'  => 'msg_followup',
+                        'label'=> 'Follow-up pós-procedimento',
+                        'info' => 'Enviada depois que o agendamento é concluído.',
+                        'vars' => $varBase,
+                    ],
+                    [
+                        'key'  => 'msg_cobranca',
+                        'label'=> 'Cobrança (pagamento pendente)',
+                        'info' => 'Para agendamentos com pagamento pendente.',
+                        'vars' => $varBase . ', <code>{valor}</code> — valor cobrado (ex: 150,00)',
+                    ],
                 ];
-                foreach ($msgs as [$key, $label, $info]):
+                foreach ($msgs as $m):
                 ?>
                     <div class="mb-4">
-                        <label class="form-label fw-medium"><?= $label ?></label>
-                        <div class="small text-secondary mb-1"><?= $info ?></div>
-                        <textarea name="<?= $key ?>" class="form-control" rows="4"><?= h($cfg[$key] ?? '') ?></textarea>
+                        <label class="form-label fw-medium"><?= $m['label'] ?></label>
+                        <div class="small text-secondary mb-1"><?= $m['info'] ?></div>
+                        <div class="small mb-2" style="color:var(--accent,#5a189a);">
+                            <i class="bi bi-braces me-1"></i><?= $m['vars'] ?>
+                        </div>
+                        <textarea name="<?= $m['key'] ?>" class="form-control" rows="5"><?= h($cfg[$m['key']] ?? '') ?></textarea>
                     </div>
                 <?php endforeach ?>
                 <button class="btn btn-accent"><i class="bi bi-save me-1"></i> Salvar mensagens</button>

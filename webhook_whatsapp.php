@@ -126,8 +126,8 @@ switch ($intencao) {
         $tplCancelamento = getConfig($pdo, 'msg_cancelamento', '');
         if ($tplCancelamento) {
             $msgCancel = str_replace(
-                ['{nome}', '{data}', '{hora}', '{servico}'],
-                [$ag['NomeCliente'], $dataAg, $horaAg, $ag['NomeServico']],
+                ['{nome}', '{data}', '{hora}', '{servico}', '{mensagem_cliente}'],
+                [$ag['NomeCliente'], $dataAg, $horaAg, $ag['NomeServico'], $msgText],
                 $tplCancelamento
             );
             enviarWhatsApp($numero, $msgCancel);
@@ -202,7 +202,7 @@ function _classificarRespostaWA(string $mensagem, array $ag): string
     ]);
     $resp = curl_exec($ch);
     $err  = curl_error($ch);
-    curl_close($ch);
+    unset($ch);
 
     if (!$resp || $err) {
         error_log('[Webhook WA] Gemini: ' . $err);
