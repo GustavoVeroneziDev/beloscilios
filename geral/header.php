@@ -142,8 +142,8 @@ $base          = '/beloscilios';
                         </div>
                     <?php else: ?>
                         <div class="d-flex gap-2">
-                            <a href="<?= BASE ?>/usuario/login.php" class="btn btn-sm btn-outline-accent">Entrar</a>
-                            <a href="<?= BASE ?>/usuario/cadastro.php" class="btn btn-sm btn-accent">Cadastrar</a>
+                            <a href="<?= BASE ?>/usuario/login.php" class="btn btn-sm btn-outline-accent"><i class="bi bi-box-arrow-in-right me-1"></i>Entrar</a>
+                            <a href="<?= BASE ?>/usuario/cadastro.php" class="btn btn-sm btn-accent"><i class="bi bi-person-plus me-1"></i>Cadastrar</a>
                         </div>
                     <?php endif ?>
                 </div>
