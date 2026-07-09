@@ -85,7 +85,7 @@ try {
 // Gerar slots disponíveis
 $slots = [];
 if ($horario) {
-    $passo    = ($duracao + $intervalo);  // duração do serviço + intervalo
+    $passo    = $intervalo;  // avança de intervalo_minutos em intervalo_minutos
     $inicioTs = strtotime("{$dataSel} {$horario['HoraInicio']}");
     $fimTs    = strtotime("{$dataSel} {$horario['HoraFim']}");
     $agora    = time() + ($antecMinH * 3600);
