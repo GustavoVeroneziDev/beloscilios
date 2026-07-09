@@ -17,20 +17,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($intervaloMin < 1) {
             redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Intervalo entre atendimentos deve ser pelo menos 1 minuto.', 'warning');
         }
-        $campos = [
-            'nome_estudio',
-            'telefone_estudio',
-            'endereco_estudio',
-            'intervalo_minutos',
-            'antecedencia_minima_h',
-            'dias_agenda_futura',
-            'msg_confirmacao',
-            'msg_lembrete',
-            'msg_followup',
-            'msg_cancelamento',
-            'msg_cobranca',
-            'telefone_designer',
-        ];
+        $campos = ['nome_estudio', 'telefone_estudio', 'endereco_estudio',
+                   'intervalo_minutos', 'antecedencia_minima_h', 'dias_agenda_futura', 'telefone_designer'];
         try {
             foreach ($campos as $c) {
                 if (isset($_POST[$c])) {
@@ -41,6 +29,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } catch (PDOException $e) {
             error_log('[Config] ' . $e->getMessage());
             redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Erro ao salvar.', 'danger');
+        }
+    }
+
+    if ($acao === 'mensagens') {
+        $campos = ['msg_confirmacao', 'msg_lembrete', 'msg_cancelamento', 'msg_followup', 'msg_cobranca'];
+        try {
+            foreach ($campos as $c) {
+                if (isset($_POST[$c])) {
+                    setConfig($pdo, $c, trim($_POST[$c]));
+                }
+            }
+            redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=mensagens', 'Mensagens salvas!', 'success');
+        } catch (PDOException $e) {
+            error_log('[Config] ' . $e->getMessage());
+            redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=mensagens', 'Erro ao salvar.', 'danger');
         }
     }
 
@@ -422,7 +425,7 @@ require_once __DIR__ . '/../geral/header.php';
         <div class="card">
             <form method="POST" class="card-body p-4">
                 <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
-                <input type="hidden" name="acao" value="config">
+                <input type="hidden" name="acao" value="mensagens">
                 <?php
                 $varBase  = '<code>{nome}</code>, <code>{data}</code>, <code>{hora}</code>, <code>{servico}</code>';
                 $msgs = [
@@ -610,5 +613,17 @@ require_once __DIR__ . '/../geral/header.php';
         <?php endif ?>
     </div>
 </div>
+
+<script>
+(function () {
+    var tab = new URLSearchParams(location.search).get('tab');
+    if (!tab) return;
+    var map = { geral: '#tabGeral', horarios: '#tabHorarios', mensagens: '#tabMensagens', bloqueios: '#tabBloqueios' };
+    var target = map[tab];
+    if (!target) return;
+    var btn = document.querySelector('[data-bs-target="' + target + '"]');
+    if (btn) bootstrap.Tab.getOrCreateInstance(btn).show();
+}());
+</script>
 
 <?php require_once __DIR__ . '/../geral/footer.php' ?>
