@@ -15,8 +15,8 @@ try {
     $fotosGaleria = $pdo->query(
         'SELECT NomeArquivo, TituloExibicao
          FROM Imagens
-         ORDER BY (TituloExibicao LIKE \'%wispy%\') DESC, MomentoRegistro DESC
-         LIMIT 6'
+         WHERE TituloExibicao IN (\'Wispy\',\'Perfil\',\'Perfil 2\',\'Ambiente\',\'Fox Marrom\')
+         ORDER BY FIELD(TituloExibicao,\'Wispy\',\'Perfil\',\'Perfil 2\',\'Ambiente\',\'Fox Marrom\')'
     )->fetchAll();
 } catch (PDOException) {
     $telefoneWa   = '';
