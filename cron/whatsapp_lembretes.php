@@ -20,7 +20,7 @@ $fim25h = date('Y-m-d H:i:s', strtotime('+25 hours'));
 
 try {
     $stmt = $pdo->prepare(
-        'SELECT a.IDAgendamento, a.DataHoraAgendamento,
+        'SELECT a.IDAgendamento, a.FKCliente AS IDCliente, a.DataHoraAgendamento,
                 u.Nome AS NomeCliente, u.Telefone,
                 s.Nome AS NomeServico
          FROM Agendamentos a
@@ -66,9 +66,39 @@ foreach ($agendamentos as $ag) {
         $ok ? 'enviado' : 'erro', $ag['IDAgendamento']);
 
     if ($ok) {
+        $telefoneNorm = sanitizarTelefone($ag['Telefone']) ?? $ag['Telefone'];
+
+        // Marca agendamento como aguardando confirmação via IA
         $pdo->prepare(
-            'UPDATE Agendamentos SET NotificacaoLembreteEnviada=1 WHERE IDAgendamento=:id'
+            'UPDATE Agendamentos
+             SET NotificacaoLembreteEnviada = 1, AguardandoConfirmacaoIA = 1
+             WHERE IDAgendamento = :id'
         )->execute([':id' => $ag['IDAgendamento']]);
+
+        // Encerra conversas anteriores deste telefone e cria nova aguardando confirmação
+        $pdo->prepare(
+            "UPDATE ConversasIA
+             SET Estado = 'expirado'
+             WHERE Telefone = :tel AND Estado NOT IN ('resolvido','expirado')"
+        )->execute([':tel' => $telefoneNorm]);
+
+        $historico = json_encode([
+            ['role' => 'assistant', 'text' => $msg, 'ts' => date('c')],
+        ], JSON_UNESCAPED_UNICODE);
+
+        $pdo->prepare(
+            "INSERT INTO ConversasIA
+                 (IDConversa, Telefone, FKCliente, FKAgendamento,
+                  Estado, Historico, UltimaMensagemEm)
+             VALUES (:id, :tel, :fkc, :fka, 'aguardando_confirmacao', :h, NOW())"
+        )->execute([
+            ':id'  => gerarUuid(),
+            ':tel' => $telefoneNorm,
+            ':fkc' => $ag['IDCliente'],
+            ':fka' => $ag['IDAgendamento'],
+            ':h'   => $historico,
+        ]);
+
         $enviados++;
         echo "[OK] Lembrete → {$ag['NomeCliente']} ({$data} {$hora})" . PHP_EOL;
     } else {
