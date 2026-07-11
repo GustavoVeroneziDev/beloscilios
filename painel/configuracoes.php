@@ -105,19 +105,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($acao === 'add_tipo') {
         $nome = trim($_POST['tipo_nome'] ?? '');
         $cor  = trim($_POST['tipo_cor']  ?? '#6c757d');
-        $bloq = !empty($_POST['tipo_bloqueia']) ? 1 : 0;
-        $ini  = $bloq ? null : (trim($_POST['tipo_ini'] ?? '') ?: null);
-        $fim  = $bloq ? null : (trim($_POST['tipo_fim'] ?? '') ?: null);
+        $bloq      = !empty($_POST['tipo_bloqueia']) ? 1 : 0;
+        $ini       = $bloq ? null : (trim($_POST['tipo_ini'] ?? '') ?: null);
+        $fim       = $bloq ? null : (trim($_POST['tipo_fim'] ?? '') ?: null);
+        $temAlm    = !$bloq && !empty($_POST['tipo_almoco_ativo']);
+        $almocoIni = $temAlm ? (trim($_POST['tipo_almoco_ini'] ?? '') ?: null) : null;
+        $almocoFim = $temAlm ? (trim($_POST['tipo_almoco_fim'] ?? '') ?: null) : null;
         if (!$nome) {
             redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=tipos', 'Informe o nome do tipo.', 'warning');
         }
         if (!preg_match('/^#[0-9a-fA-F]{6}$/', $cor)) $cor = '#6c757d';
         try {
             $pdo->prepare(
-                'INSERT INTO TiposDia (IDTipo, Nome, Cor, BloqueiaTotal, HoraInicio, HoraFim)
-                 VALUES (:id, :nome, :cor, :bloq, :ini, :fim)'
+                'INSERT INTO TiposDia (IDTipo, Nome, Cor, BloqueiaTotal, HoraInicio, HoraFim, AlmocoInicio, AlmocoFim)
+                 VALUES (:id, :nome, :cor, :bloq, :ini, :fim, :alni, :alfm)'
             )->execute([':id' => gerarUuid(), ':nome' => $nome, ':cor' => $cor,
-                        ':bloq' => $bloq, ':ini' => $ini, ':fim' => $fim]);
+                        ':bloq' => $bloq, ':ini' => $ini, ':fim' => $fim,
+                        ':alni' => $almocoIni, ':alfm' => $almocoFim]);
             redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=tipos', 'Tipo adicionado!', 'success');
         } catch (PDOException $e) {
             error_log('[TipoDia] ' . $e->getMessage());
@@ -709,6 +713,23 @@ require_once __DIR__ . '/../geral/header.php';
                         <input type="time" name="tipo_fim" id="tipoFim" class="form-control" value="18:00">
                     </div>
                 </div>
+                <div class="row g-3 mt-0" id="boxAlmocoTipo">
+                    <div class="col-12">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="tipo_almoco_ativo"
+                                   id="chkAlmocoTipo" onchange="toggleAlmocoTipo(this.checked)">
+                            <label class="form-check-label" for="chkAlmocoTipo">Tem intervalo de almoço</label>
+                        </div>
+                    </div>
+                    <div class="col-md-2" id="boxAlmocoIni" style="display:none">
+                        <label class="form-label">Almoço início</label>
+                        <input type="time" name="tipo_almoco_ini" id="tipoAlmocoIni" class="form-control" value="12:00">
+                    </div>
+                    <div class="col-md-2" id="boxAlmocoFim" style="display:none">
+                        <label class="form-label">Almoço fim</label>
+                        <input type="time" name="tipo_almoco_fim" id="tipoAlmocoFim" class="form-control" value="13:00">
+                    </div>
+                </div>
                 <div class="form-text mt-2 mb-3">
                     Quando não bloqueia o dia, defina a janela reduzida de atendimento (ex: 13h–18h para manhã ocupada).
                 </div>
@@ -733,6 +754,9 @@ require_once __DIR__ . '/../geral/header.php';
                                 Dia inteiro bloqueado
                             <?php elseif ($tp['HoraInicio']): ?>
                                 Das <?= substr($tp['HoraInicio'], 0, 5) ?> às <?= substr($tp['HoraFim'], 0, 5) ?>
+                                <?php if (!empty($tp['AlmocoInicio']) && !empty($tp['AlmocoFim'])): ?>
+                                    · Almoço <?= substr($tp['AlmocoInicio'], 0, 5) ?>–<?= substr($tp['AlmocoFim'], 0, 5) ?>
+                                <?php endif ?>
                             <?php endif ?>
                         </span>
                     </div>
@@ -761,6 +785,17 @@ require_once __DIR__ . '/../geral/header.php';
             document.getElementById('boxTipoFim').style.display = bloqTotal ? 'none' : '';
             document.getElementById('tipoIni').required = !bloqTotal;
             document.getElementById('tipoFim').required = !bloqTotal;
+            document.getElementById('boxAlmocoTipo').style.display = bloqTotal ? 'none' : '';
+            if (bloqTotal) {
+                document.getElementById('chkAlmocoTipo').checked = false;
+                toggleAlmocoTipo(false);
+            }
+        }
+        function toggleAlmocoTipo(ativo) {
+            document.getElementById('boxAlmocoIni').style.display = ativo ? '' : 'none';
+            document.getElementById('boxAlmocoFim').style.display = ativo ? '' : 'none';
+            document.getElementById('tipoAlmocoIni').required = ativo;
+            document.getElementById('tipoAlmocoFim').required = ativo;
         }
         </script>
     </div>

@@ -41,7 +41,8 @@ if ($dataSel < $dataMin) {
 $diaEspecial = null;
 try {
     $deStmt = $pdo->prepare(
-        'SELECT td.Nome, td.Cor, td.BloqueiaTotal, td.HoraInicio, td.HoraFim
+        'SELECT td.Nome, td.Cor, td.BloqueiaTotal, td.HoraInicio, td.HoraFim,
+                td.AlmocoInicio, td.AlmocoFim
          FROM DiasEspeciais de
          JOIN TiposDia td ON td.IDTipo = de.FKTipo
          WHERE de.Data = :data LIMIT 1'
@@ -100,11 +101,11 @@ if ($diaEspecial) {
     if ($diaEspecial['BloqueiaTotal']) {
         $horario = null; // dia completamente fechado
     } elseif ($horario) {
-        // Reduz a janela de atendimento; ignora almoço (janela já é menor)
+        // Reduz a janela de atendimento com almoço do tipo especial
         $horario['HoraInicio']   = $diaEspecial['HoraInicio'];
         $horario['HoraFim']      = $diaEspecial['HoraFim'];
-        $horario['AlmocoInicio'] = null;
-        $horario['AlmocoFim']    = null;
+        $horario['AlmocoInicio'] = $diaEspecial['AlmocoInicio'];
+        $horario['AlmocoFim']    = $diaEspecial['AlmocoFim'];
     }
 }
 
