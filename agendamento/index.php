@@ -59,6 +59,7 @@ require_once __DIR__ . '/../geral/header.php';
             $subs[] = compact('subId','subNome','subPreco','subDur');
         }
     }
+    $temSubs = !empty($subs);
     ?>
     <div class="col-sm-6 col-lg-4">
         <div class="card h-100 servico-card" style="cursor:pointer;transition:transform .15s,box-shadow .15s;"
@@ -66,7 +67,8 @@ require_once __DIR__ . '/../geral/header.php';
              data-id="<?= h($sv['IDServico']) ?>"
              data-nome="<?= h($sv['Nome']) ?>"
              data-preco="<?= h($sv['Preco']) ?>"
-             data-duracao="<?= h($sv['DuracaoMinutos']) ?>">
+             data-duracao="<?= h($sv['DuracaoMinutos']) ?>"
+             data-subs="<?= h(json_encode(array_values($subs))) ?>">
             <?php if ($sv['FotoUrl']): ?>
             <img src="<?= h($sv['FotoUrl']) ?>" class="card-img-top"
                  style="height:150px;object-fit:cover;border-radius:14px 14px 0 0;">
@@ -80,118 +82,202 @@ require_once __DIR__ . '/../geral/header.php';
                         <i class="bi bi-clock me-1"></i><?= $sv['DuracaoMinutos'] ?>min
                     </span>
                 </div>
-
-                <!-- Sub-serviços -->
-                <?php if (!empty($subs)): ?>
-                <hr class="my-2" style="border-color:var(--card-border-color);">
-                <div class="small text-secondary fw-medium mb-1">Ou escolha uma manutenção:</div>
-                <?php foreach ($subs as $ss): ?>
-                <button type="button" class="btn btn-outline-accent btn-sm w-100 mb-1 sub-btn"
-                        onclick="event.stopPropagation(); selecionarSubServico(
-                            '<?= h($ss['subId']) ?>',
-                            '<?= h($ss['subNome']) ?>',
-                            '<?= h($ss['subPreco']) ?>',
-                            '<?= h($ss['subDur']) ?>',
-                            '<?= h($sv['IDServico']) ?>'
-                        )">
-                    <?= h($ss['subNome']) ?> — <?= formatarMoeda((float)$ss['subPreco']) ?>
-                </button>
-                <?php endforeach ?>
+                <?php if ($temSubs): ?>
+                <div class="mt-2">
+                    <span class="badge rounded-pill fw-normal"
+                          style="background:rgba(90,24,154,.08);color:var(--roxo-600,#7b2fbe);font-size:.72rem;border:1px solid rgba(90,24,154,.15);">
+                        <i class="bi bi-scissors me-1"></i>Manutenção disponível
+                    </span>
+                </div>
                 <?php endif ?>
             </div>
             <div class="card-footer bg-transparent text-center py-2">
                 <span class="small fw-medium text-accent selecionado-txt" style="display:none;">
                     <i class="bi bi-check-circle-fill me-1"></i>Selecionado
                 </span>
-                <span class="small text-secondary nao-sel-txt">Clique para selecionar</span>
+                <span class="small text-secondary nao-sel-txt">
+                    <?php if ($temSubs): ?>
+                        Ver opções <i class="bi bi-chevron-up"></i>
+                    <?php else: ?>
+                        Toque para selecionar
+                    <?php endif ?>
+                </span>
             </div>
         </div>
     </div>
     <?php endforeach ?>
 </div>
 
-<!-- Painel de confirmação de seleção -->
+<!-- Bottom sheet para escolher tipo de serviço -->
+<div class="offcanvas offcanvas-bottom" id="ocServico" tabindex="-1"
+     style="border-radius:20px 20px 0 0;max-height:80vh;" aria-labelledby="ocTitulo">
+    <div class="offcanvas-header pb-3" style="border-bottom:1px solid var(--card-border-color);">
+        <div>
+            <div class="text-secondary mb-0"
+                 style="font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;font-weight:500;">
+                Escolha o tipo
+            </div>
+            <h6 class="offcanvas-title fw-bold mb-0 mt-1" id="ocTitulo"></h6>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
+    </div>
+    <div class="offcanvas-body px-3 pt-3 pb-5" id="ocBody" style="overflow-y:auto;"></div>
+</div>
+
+<!-- Painel fixo de confirmação -->
 <div id="painelSelecionado" class="d-none position-fixed bottom-0 start-0 end-0 p-3"
-     style="background:var(--bg-card);border-top:1px solid var(--card-border-color);z-index:1000;box-shadow:0 -4px 20px rgba(0,0,0,.08);">
+     style="background:var(--bg-card);border-top:1px solid var(--card-border-color);z-index:1050;box-shadow:0 -4px 20px rgba(0,0,0,.08);">
     <div class="container-lg d-flex align-items-center gap-3">
-        <div class="flex-grow-1">
-            <div class="fw-semibold" id="svSelecionadoNome">—</div>
+        <div class="flex-grow-1 overflow-hidden">
+            <div class="fw-semibold text-truncate" id="svSelecionadoNome">—</div>
             <div class="small text-secondary">
                 <span id="svSelecionadoPreco"></span>
-                &nbsp;·&nbsp; <i class="bi bi-clock me-1"></i><span id="svSelecionadoDur"></span>min
+                &nbsp;·&nbsp;<i class="bi bi-clock me-1"></i><span id="svSelecionadoDur"></span>min
             </div>
         </div>
-        <a href="<?= BASE ?>/agendamento/horarios.php" id="btnProximo"
-           class="btn btn-accent btn-lg">
+        <button type="button" id="btnProximo" class="btn btn-accent btn-lg flex-shrink-0">
             Escolher horário <i class="bi bi-arrow-right ms-1"></i>
-        </a>
+        </button>
     </div>
 </div>
 
 <form id="formSelecionado" method="GET" action="<?= BASE ?>/agendamento/horarios.php" style="display:none;">
-    <input type="hidden" name="servico_id"  id="inp_servico_id">
-    <input type="hidden" name="sub_id"      id="inp_sub_id">
-    <input type="hidden" name="nome"        id="inp_nome">
-    <input type="hidden" name="preco"       id="inp_preco">
-    <input type="hidden" name="duracao"     id="inp_duracao">
+    <input type="hidden" name="servico_id" id="inp_servico_id">
+    <input type="hidden" name="sub_id"     id="inp_sub_id">
+    <input type="hidden" name="nome"       id="inp_nome">
+    <input type="hidden" name="preco"      id="inp_preco">
+    <input type="hidden" name="duracao"    id="inp_duracao">
 </form>
 <?php endif ?>
 
 <script>
-let cardAtivo = null;
+let cardPendente = null;
+let cardAtivo    = null;
 
 function selecionarServico(card) {
+    cardPendente = card;
+    const subs = JSON.parse(card.dataset.subs || '[]');
+
+    if (subs.length > 0) {
+        document.getElementById('ocTitulo').textContent = card.dataset.nome;
+
+        const body = document.getElementById('ocBody');
+        body.innerHTML = '';
+
+        // Opção principal: aplicação completa
+        body.appendChild(criarOpcaoBtn(
+            'Aplicação completa',
+            card.dataset.preco,
+            card.dataset.duracao,
+            true,
+            () => confirmarSelecao(
+                card.dataset.id, '', card.dataset.nome,
+                card.dataset.preco, card.dataset.duracao
+            )
+        ));
+
+        // Opções de manutenção
+        const sep = document.createElement('p');
+        sep.className = 'text-secondary small fw-medium mt-3 mb-2';
+        sep.textContent = 'Manutenção:';
+        body.appendChild(sep);
+
+        subs.forEach(ss => {
+            body.appendChild(criarOpcaoBtn(
+                ss.subNome, ss.subPreco, ss.subDur, false,
+                () => confirmarSelecao(
+                    card.dataset.id, ss.subId, ss.subNome,
+                    ss.subPreco, ss.subDur
+                )
+            ));
+        });
+
+        bootstrap.Offcanvas.getOrCreateInstance(
+            document.getElementById('ocServico')
+        ).show();
+    } else {
+        confirmarSelecao(
+            card.dataset.id, '', card.dataset.nome,
+            card.dataset.preco, card.dataset.duracao
+        );
+    }
+}
+
+function criarOpcaoBtn(titulo, preco, dur, destaque, callback) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = (destaque
+        ? 'btn btn-accent'
+        : 'btn btn-outline-accent'
+    ) + ' w-100 text-start p-3 mb-2 rounded-3';
+
+    const t = document.createElement('div');
+    t.className = 'fw-semibold';
+    t.textContent = titulo;
+
+    const s = document.createElement('div');
+    s.className = 'small mt-1 opacity-75';
+    s.textContent = formatBRL(preco) + ' · ' + dur + ' min';
+
+    btn.appendChild(t);
+    btn.appendChild(s);
+
+    btn.addEventListener('click', () => {
+        const ocEl = document.getElementById('ocServico');
+        const oc = bootstrap.Offcanvas.getInstance(ocEl);
+        if (oc) {
+            ocEl.addEventListener('hidden.bs.offcanvas', () => {
+                callback();
+                mostrarPainel();
+            }, { once: true });
+            oc.hide();
+        } else {
+            callback();
+            mostrarPainel();
+        }
+    });
+    return btn;
+}
+
+function confirmarSelecao(svId, subId, nome, preco, dur) {
+    // Atualiza destaque do card
     if (cardAtivo) {
         cardAtivo.style.transform = '';
         cardAtivo.style.boxShadow = '';
         cardAtivo.querySelector('.selecionado-txt').style.display = 'none';
-        cardAtivo.querySelector('.nao-sel-txt').style.display = '';
+        cardAtivo.querySelector('.nao-sel-txt').style.display    = '';
     }
-    cardAtivo = card;
-    card.style.transform = 'translateY(-3px)';
-    card.style.boxShadow = '0 8px 24px rgba(176,125,98,.25)';
-    card.querySelector('.selecionado-txt').style.display = '';
-    card.querySelector('.nao-sel-txt').style.display = 'none';
+    cardAtivo = cardPendente;
+    if (cardAtivo) {
+        cardAtivo.style.transform = 'translateY(-3px)';
+        cardAtivo.style.boxShadow = '0 8px 24px rgba(176,125,98,.25)';
+        cardAtivo.querySelector('.selecionado-txt').style.display = '';
+        cardAtivo.querySelector('.nao-sel-txt').style.display    = 'none';
+    }
 
-    const nome = card.dataset.nome;
-    const preco = parseFloat(card.dataset.preco).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-    const dur = card.dataset.duracao;
+    // Preenche form oculto
+    document.getElementById('inp_servico_id').value = svId;
+    document.getElementById('inp_sub_id').value     = subId;
+    document.getElementById('inp_nome').value        = nome;
+    document.getElementById('inp_preco').value       = preco;
+    document.getElementById('inp_duracao').value     = dur;
 
-    document.getElementById('svSelecionadoNome').textContent = nome;
-    document.getElementById('svSelecionadoPreco').textContent = preco;
-    document.getElementById('svSelecionadoDur').textContent = dur;
-    document.getElementById('painelSelecionado').classList.remove('d-none');
+    // Atualiza conteúdo do painel
+    document.getElementById('svSelecionadoNome').textContent  = nome;
+    document.getElementById('svSelecionadoPreco').textContent = formatBRL(preco);
+    document.getElementById('svSelecionadoDur').textContent   = dur;
 
-    // Preparar form
-    document.getElementById('inp_servico_id').value = card.dataset.id;
-    document.getElementById('inp_sub_id').value = '';
-    document.getElementById('inp_nome').value = nome;
-    document.getElementById('inp_preco').value = card.dataset.preco;
-    document.getElementById('inp_duracao').value = dur;
-
-    document.getElementById('btnProximo').onclick = function(e) {
-        e.preventDefault();
+    document.getElementById('btnProximo').onclick = function() {
         document.getElementById('formSelecionado').submit();
     };
 }
 
-function selecionarSubServico(subId, subNome, subPreco, subDur, svId) {
-    document.getElementById('inp_servico_id').value = svId;
-    document.getElementById('inp_sub_id').value = subId;
-    document.getElementById('inp_nome').value = subNome;
-    document.getElementById('inp_preco').value = subPreco;
-    document.getElementById('inp_duracao').value = subDur;
-
-    const preco = parseFloat(subPreco).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-    document.getElementById('svSelecionadoNome').textContent = subNome;
-    document.getElementById('svSelecionadoPreco').textContent = preco;
-    document.getElementById('svSelecionadoDur').textContent = subDur;
+function mostrarPainel() {
     document.getElementById('painelSelecionado').classList.remove('d-none');
+}
 
-    document.getElementById('btnProximo').onclick = function(e) {
-        e.preventDefault();
-        document.getElementById('formSelecionado').submit();
-    };
+function formatBRL(v) {
+    return parseFloat(v).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 }
 </script>
 
