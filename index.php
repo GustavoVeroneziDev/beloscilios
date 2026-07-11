@@ -11,7 +11,8 @@ if (!empty($_SESSION['usuario_id']) && ($_SESSION['nivel_acesso'] ?? '') === 'de
 }
 
 try {
-    $telefoneWa  = getConfig($pdo, 'telefone_estudio', '');
+    $telefoneWa   = getConfig($pdo, 'telefone_estudio', '');
+    $instagramUrl = getConfig($pdo, 'instagram_estudio', '');
     $fotosGaleria = $pdo->query(
         'SELECT NomeArquivo, TituloExibicao, FocoHome
          FROM Imagens
@@ -20,12 +21,21 @@ try {
     )->fetchAll();
 } catch (PDOException) {
     $telefoneWa   = '';
+    $instagramUrl = '';
     $fotosGaleria = [];
 }
 
-$waLink = $telefoneWa
-    ? 'https://wa.me/' . preg_replace('/\D/', '', $telefoneWa) . '?text=' . urlencode('Olá! Gostaria de saber mais sobre os serviços.')
+// Normaliza número com código do país para wa.me
+$waNum  = sanitizarTelefone($telefoneWa);
+$waLink = $waNum
+    ? 'https://wa.me/' . $waNum . '?text=' . urlencode('Olá! Gostaria de saber mais sobre os serviços.')
     : '#';
+
+// Extrai @handle do URL do Instagram
+$igHandle = '';
+if ($instagramUrl) {
+    $igHandle = '@' . rtrim(preg_replace('#https?://(www\.)?instagram\.com/#', '', $instagramUrl), '/');
+}
 
 $paginaTitulo = 'Belos Cílios — Extensão de Cílios e Design de Sobrancelhas';
 $areaAtual    = 'publico';
@@ -659,10 +669,12 @@ require_once __DIR__ . '/geral/header.php';
             </div>
             <?php endforeach ?>
         </div>
+        <?php if ($instagramUrl): ?>
         <p class="lp-ig-cta">
             Mais resultados no Instagram →
-            <a href="#" target="_blank" rel="noopener">@beloscilios</a>
+            <a href="<?= h($instagramUrl) ?>" target="_blank" rel="noopener noreferrer"><?= h($igHandle) ?></a>
         </p>
+        <?php endif ?>
     </div>
 </section>
 

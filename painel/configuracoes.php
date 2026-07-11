@@ -18,7 +18,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Intervalo entre atendimentos deve ser pelo menos 1 minuto.', 'warning');
         }
         $campos = ['nome_estudio', 'telefone_estudio', 'endereco_estudio',
-                   'intervalo_minutos', 'antecedencia_minima_h', 'dias_agenda_futura', 'telefone_designer'];
+                   'intervalo_minutos', 'antecedencia_minima_h', 'dias_agenda_futura',
+                   'telefone_designer', 'instagram_estudio'];
         try {
             foreach ($campos as $c) {
                 if (isset($_POST[$c])) {
@@ -146,6 +147,7 @@ try {
         'msg_cancelamento',
         'msg_cobranca',
         'telefone_designer',
+        'instagram_estudio',
     ];
     $cfg = [];
     foreach ($cfgKeys as $k) {
@@ -230,11 +232,21 @@ require_once __DIR__ . '/../geral/header.php';
                             data-mask="tel" maxlength="15">
                         <div class="form-text">Recebe alertas de respostas incertas e cancelamentos via IA.</div>
                     </div>
-                    <div class="col-12">
+                    <div class="col-md-8">
                         <label class="form-label">Endereço</label>
                         <input type="text" name="endereco_estudio" class="form-control"
                             value="<?= h($cfg['endereco_estudio'] ?? '') ?>"
                             maxlength="255">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">
+                            <i class="bi bi-instagram me-1" style="color:#e1306c"></i>Instagram
+                        </label>
+                        <input type="url" name="instagram_estudio" class="form-control"
+                            value="<?= h($cfg['instagram_estudio'] ?? '') ?>"
+                            placeholder="https://www.instagram.com/seuperfil/"
+                            maxlength="255">
+                        <div class="form-text">URL completa do perfil.</div>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Intervalo entre atendimentos (min)</label>
