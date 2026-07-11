@@ -65,17 +65,23 @@ $base          = '/beloscilios';
                 ['href' => BASE . '/painel/galeria.php',       'icon' => 'bi-images',       'label' => 'Galeria'],
                 ['href' => BASE . '/painel/relatorio.php',     'icon' => 'bi-bar-chart',    'label' => 'Financeiro'],
                 ['href' => BASE . '/painel/configuracoes.php', 'icon' => 'bi-gear',         'label' => 'Configurações'],
+                ['separador' => true],
+                ['href' => BASE . '/agendamento/index.php?designer_preview=1', 'icon' => 'bi-eye', 'label' => 'Ver como Cliente'],
             ];
             ?>
             <ul class="sidebar-nav">
                 <?php foreach ($menuItens as $item): ?>
+                    <?php if (!empty($item['separador'])): ?>
+                        <li><hr class="sidebar-hr"></li>
+                    <?php else: ?>
                     <li>
                         <a href="<?= $item['href'] ?>"
-                            class="<?= str_contains($uri, $item['href']) ? 'ativo' : '' ?>">
+                            class="<?= str_contains($uri, $item['href'] ?? '') ? 'ativo' : '' ?>">
                             <i class="bi <?= $item['icon'] ?>"></i>
                             <?= $item['label'] ?>
                         </a>
                     </li>
+                    <?php endif ?>
                 <?php endforeach ?>
             </ul>
             <div class="sidebar-footer">

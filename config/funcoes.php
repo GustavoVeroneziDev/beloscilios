@@ -103,7 +103,17 @@ function exigirLogin(string $nivel = ''): void
         redirecionarComMensagem(BASE . '/usuario/login.php', 'Faça login para continuar.', 'warning');
     }
     if ($nivel && ($_SESSION['nivel_acesso'] ?? '') !== $nivel) {
-        redirecionarComMensagem(BASE . '/index.php', 'Acesso não permitido.', 'danger');
+        // Designer pode navegar em páginas de cliente para testar o fluxo
+        $ehDesigner = ($_SESSION['nivel_acesso'] ?? '') === 'designer';
+        if (!empty($_GET['designer_preview']) && $ehDesigner) {
+            $_SESSION['designer_preview'] = true; // persiste pelo fluxo
+        }
+        $designerPreview = $nivel === 'cliente'
+            && $ehDesigner
+            && !empty($_SESSION['designer_preview']);
+        if (!$designerPreview) {
+            redirecionarComMensagem(BASE . '/index.php', 'Acesso não permitido.', 'danger');
+        }
     }
 }
 

@@ -157,6 +157,11 @@ button, a, [role="button"] {
     width: 1.3rem;
     flex-shrink: 0;
 }
+.sidebar-hr {
+    border: none;
+    border-top: 1px solid rgba(224, 170, 255, .12);
+    margin: .25rem 1.25rem;
+}
 .sidebar-footer {
     padding: 1rem 1.25rem;
     border-top: 1px solid rgba(224, 170, 255, .1);
