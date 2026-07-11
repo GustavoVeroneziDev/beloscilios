@@ -13,10 +13,11 @@ if (!empty($_SESSION['usuario_id']) && ($_SESSION['nivel_acesso'] ?? '') === 'de
 try {
     $telefoneWa  = getConfig($pdo, 'telefone_estudio', '');
     $fotosGaleria = $pdo->query(
-        'SELECT NomeArquivo, TituloExibicao
+        'SELECT NomeArquivo, TituloExibicao, FocoHome
          FROM Imagens
-         WHERE TituloExibicao IN (\'Wispy\',\'Perfil\',\'Perfil 2\',\'Ambiente\',\'Fox Marrom\')
-         ORDER BY FIELD(TituloExibicao,\'Wispy\',\'Perfil\',\'Perfil 2\',\'Ambiente\',\'Fox Marrom\')'
+         WHERE ExibirNaHome = 1
+         ORDER BY OrdemHome ASC
+         LIMIT 6'
     )->fetchAll();
 } catch (PDOException) {
     $telefoneWa   = '';
@@ -647,21 +648,11 @@ require_once __DIR__ . '/geral/header.php';
 
     <div class="lp-gallery-wrap">
         <div class="lp-gallery">
-            <?php
-            $posicoes = [
-                'Wispy'      => 'center 70%',
-                'Perfil'     => 'center top',
-                'Perfil 2'   => 'center top',
-                'Ambiente'   => 'center center',
-                'Fox Marrom' => 'center 55%',
-            ];
-            foreach ($fotosGaleria as $foto):
-                $pos = $posicoes[$foto['TituloExibicao']] ?? 'center center';
-            ?>
+            <?php foreach ($fotosGaleria as $foto): ?>
             <div class="lp-ph">
                 <img src="<?= BASE ?>/geral/img/galeria/<?= h($foto['NomeArquivo']) ?>"
                      alt="<?= h($foto['TituloExibicao'] ?? 'Resultado') ?>"
-                     style="object-position:<?= $pos ?>"
+                     style="object-position:<?= h($foto['FocoHome'] ?? 'center center') ?>"
                      loading="lazy">
                 <?php if (!empty($foto['TituloExibicao'])): ?>
                 <div class="lp-ph-tag"><?= h($foto['TituloExibicao']) ?></div>

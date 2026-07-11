@@ -27,6 +27,13 @@ $imagens = $stmt->fetchAll();
 
 $totalGeral = (int) $pdo->query('SELECT COUNT(*) FROM Imagens')->fetchColumn();
 
+// Vitrine da home
+$imagensHome = $pdo->query(
+    'SELECT IDImagem, NomeArquivo, TituloExibicao, FocoHome
+     FROM Imagens WHERE ExibirNaHome = 1 ORDER BY OrdemHome ASC'
+)->fetchAll();
+$idsNaHome = array_flip(array_column($imagensHome, 'IDImagem'));
+
 $csrfToken    = gerarTokenCSRF();
 $paginaTitulo = 'Galeria de Imagens';
 $areaAtual    = 'painel';
@@ -67,6 +74,92 @@ require_once __DIR__ . '/../geral/header.php';
 .cat-row:hover { background:var(--bg-hover); }
 .cat-row-nome { flex:1;font-size:.9rem;font-weight:500; }
 .cat-form-section { border-top:1px solid var(--card-border-color);padding-top:1rem;margin-top:.5rem; }
+
+/* ── Vitrine da Home ─────────────────────────────────── */
+.vitrine-item {
+    position:relative;
+    width:100px;
+    border-radius:10px;
+    overflow:hidden;
+    border:2px solid var(--accent);
+    cursor:grab;
+    flex-shrink:0;
+    user-select:none;
+}
+.vitrine-item.dragging { opacity:.4; cursor:grabbing; }
+.vitrine-item.drag-over { outline:2px dashed var(--accent); outline-offset:2px; }
+.vitrine-item img {
+    width:100%;
+    aspect-ratio:3/4;
+    object-fit:cover;
+    display:block;
+    pointer-events:none;
+}
+.vitrine-num {
+    position:absolute;top:5px;left:7px;
+    background:var(--accent);color:#fff;
+    font-size:.65rem;font-weight:800;
+    width:18px;height:18px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    z-index:2;
+}
+.vitrine-destaque-badge {
+    position:absolute;bottom:0;left:0;right:0;
+    background:rgba(90,24,154,.85);
+    color:#fff;font-size:.58rem;font-weight:700;
+    text-align:center;padding:2px 0;letter-spacing:.04em;
+}
+.vitrine-actions {
+    position:absolute;top:5px;right:5px;
+    display:flex;flex-direction:column;gap:3px;
+    z-index:3;
+}
+.vitrine-btn {
+    width:22px;height:22px;border-radius:50%;border:none;
+    display:flex;align-items:center;justify-content:center;
+    font-size:.7rem;cursor:pointer;
+    transition:opacity .15s;
+    backdrop-filter:blur(4px);
+}
+.vitrine-btn-x  { background:rgba(220,50,50,.8);color:#fff; }
+.vitrine-btn-dot { background:rgba(0,0,0,.55);color:#fff; }
+.vitrine-btn:hover { opacity:.85; }
+
+/* Grid de foco 3×3 */
+.foco-grid {
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:3px;
+    padding:4px;
+    list-style:none;
+    margin:0;
+}
+.foco-btn {
+    width:28px;height:28px;border:1.5px solid var(--card-border-color);
+    background:transparent;border-radius:5px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:.75rem;cursor:pointer;transition:background .12s,border-color .12s;
+    color:var(--text-secondary);
+}
+.foco-btn:hover  { background:rgba(90,24,154,.12);border-color:var(--accent); }
+.foco-btn.active { background:var(--accent);border-color:var(--accent);color:#fff; }
+.foco-extras {
+    border-top:1px solid var(--card-border-color);
+    margin-top:4px;padding-top:4px;
+    display:flex;flex-wrap:wrap;gap:3px;
+    padding:4px;
+}
+.foco-ext-btn {
+    font-size:.6rem;border:1.5px solid var(--card-border-color);
+    background:transparent;border-radius:4px;padding:2px 5px;cursor:pointer;
+    color:var(--text-secondary);white-space:nowrap;transition:background .12s;
+}
+.foco-ext-btn:hover  { background:rgba(90,24,154,.12);border-color:var(--accent); }
+.foco-ext-btn.active { background:var(--accent);border-color:var(--accent);color:#fff; }
+
+/* Estrela nos cards da galeria */
+.btn-home-star { transition:color .15s,background .15s; }
+.btn-home-star.ativo { background:#f0b900 !important;border-color:#f0b900 !important;color:#fff !important; }
 </style>
 
 <!-- Cabeçalho -->
@@ -84,6 +177,106 @@ require_once __DIR__ . '/../geral/header.php';
         <button class="btn btn-accent" data-bs-toggle="modal" data-bs-target="#modalUpload">
             <i class="bi bi-plus-lg me-2"></i>Adicionar imagem
         </button>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     VITRINE DA HOME
+════════════════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body p-3 p-md-4">
+        <div class="d-flex align-items-start justify-content-between gap-3 mb-3 flex-wrap">
+            <div>
+                <h5 class="fw-bold mb-0">
+                    <i class="bi bi-house-heart me-2 text-accent"></i>Vitrine da Home
+                </h5>
+                <p class="text-secondary small mb-0 mt-1">
+                    <?php if (empty($imagensHome)): ?>
+                    Nenhuma foto selecionada. Clique em <i class="bi bi-star"></i> nas fotos abaixo para adicionar.
+                    <?php elseif (count($imagensHome) === 1): ?>
+                    1 foto. A primeira aparece em destaque (maior). Arraste para reordenar.
+                    <?php else: ?>
+                    <?= count($imagensHome) ?> fotos. A <strong>1ª aparece em destaque</strong> (maior). Arraste para reordenar. Clique em <i class="bi bi-crosshair2"></i> para ajustar o enquadramento.
+                    <?php endif ?>
+                </p>
+            </div>
+            <a href="<?= BASE ?>/" target="_blank" rel="noopener"
+               class="btn btn-sm btn-outline-secondary flex-shrink-0">
+                <i class="bi bi-box-arrow-up-right me-1"></i>Ver no site
+            </a>
+        </div>
+
+        <?php if (empty($imagensHome)): ?>
+        <div class="text-center py-5 text-secondary" id="vitrineVazia">
+            <i class="bi bi-images" style="font-size:3rem;opacity:.2"></i>
+            <p class="mt-2 mb-0 small">Adicione fotos clicando em <i class="bi bi-star"></i> na galeria abaixo.</p>
+        </div>
+        <?php else: ?>
+        <div id="vitrineVazia" class="text-center py-5 text-secondary" style="display:none">
+            <i class="bi bi-images" style="font-size:3rem;opacity:.2"></i>
+            <p class="mt-2 mb-0 small">Adicione fotos clicando em <i class="bi bi-star"></i> na galeria abaixo.</p>
+        </div>
+        <?php endif ?>
+
+        <?php
+        $focoLabels = [
+            'left top'      => '↖', 'center top'    => '↑', 'right top'    => '↗',
+            'left center'   => '←', 'center center' => '·', 'right center' => '→',
+            'left bottom'   => '↙', 'center bottom' => '↓', 'right bottom' => '↘',
+        ];
+        $focoExtras = ['center 25%','center 35%','center 55%','center 70%','center 80%'];
+        ?>
+        <div id="vitrineLista" class="d-flex gap-3 flex-wrap align-items-start">
+            <?php foreach ($imagensHome as $i => $vimg): ?>
+            <div class="vitrine-item" data-id="<?= h($vimg['IDImagem']) ?>" draggable="true">
+                <div class="vitrine-num"><?= $i + 1 ?></div>
+                <img src="<?= BASE ?>/geral/img/galeria/<?= h($vimg['NomeArquivo']) ?>"
+                     alt="<?= h($vimg['TituloExibicao'] ?? '') ?>"
+                     style="object-position:<?= h($vimg['FocoHome']) ?>"
+                     loading="lazy">
+                <?php if ($i === 0): ?>
+                <div class="vitrine-destaque-badge">Destaque</div>
+                <?php endif ?>
+                <div class="vitrine-actions">
+                    <!-- Foco picker -->
+                    <div class="dropdown">
+                        <button class="vitrine-btn vitrine-btn-dot"
+                                data-bs-toggle="dropdown" data-bs-auto-close="true"
+                                aria-expanded="false" title="Enquadramento">
+                            <i class="bi bi-crosshair2"></i>
+                        </button>
+                        <div class="dropdown-menu p-0 shadow" style="min-width:108px">
+                            <ul class="foco-grid mb-0">
+                                <?php foreach ($focoLabels as $val => $sym): ?>
+                                <li>
+                                    <button class="foco-btn <?= $vimg['FocoHome'] === $val ? 'active' : '' ?>"
+                                            data-id="<?= h($vimg['IDImagem']) ?>"
+                                            data-foco="<?= h($val) ?>"
+                                            onclick="setFoco(this)"
+                                            title="<?= h($val) ?>"><?= $sym ?></button>
+                                </li>
+                                <?php endforeach ?>
+                            </ul>
+                            <div class="foco-extras">
+                                <?php foreach ($focoExtras as $val): ?>
+                                <button class="foco-ext-btn <?= $vimg['FocoHome'] === $val ? 'active' : '' ?>"
+                                        data-id="<?= h($vimg['IDImagem']) ?>"
+                                        data-foco="<?= h($val) ?>"
+                                        onclick="setFoco(this)"><?= h($val) ?></button>
+                                <?php endforeach ?>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Remover -->
+                    <button class="vitrine-btn vitrine-btn-x"
+                            onclick="toggleHome('<?= h($vimg['IDImagem']) ?>', null)"
+                            title="Remover da vitrine">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            </div>
+            <?php endforeach ?>
+        </div>
     </div>
 </div>
 
@@ -125,6 +318,13 @@ require_once __DIR__ . '/../geral/header.php';
                      loading="lazy">
                 <span class="gal-cat-badge"><?= h($img['CategoriaNome'] ?? '—') ?></span>
                 <div class="gal-overlay">
+                    <?php $naHome = isset($idsNaHome[$img['IDImagem']]); ?>
+                    <button class="btn btn-sm py-1 px-2 btn-home-star <?= $naHome ? 'btn-warning ativo' : 'btn-light' ?>"
+                            id="star-<?= h($img['IDImagem']) ?>"
+                            onclick="toggleHome('<?= h($img['IDImagem']) ?>', this)"
+                            title="<?= $naHome ? 'Remover da Vitrine Home' : 'Adicionar à Vitrine Home' ?>">
+                        <i class="bi bi-star<?= $naHome ? '-fill' : '' ?>"></i>
+                    </button>
                     <button class="btn btn-sm btn-light py-1 px-2"
                             onclick="copiarUrl('<?= BASE ?>/geral/img/galeria/<?= h($img['NomeArquivo']) ?>')"
                             title="Copiar URL">
@@ -726,6 +926,145 @@ require_once __DIR__ . '/../geral/header.php';
         });
         canvas.toBlob(function(blob) { enviarEdicao(blob, 'edit.jpg'); }, 'image/jpeg', 0.95);
     });
+
+    // ── Vitrine da Home ───────────────────────────────────────────
+    var VITRINE_URL = BASE + '/painel/vitrine_home.php';
+
+    window.toggleHome = function(id, btnStar) {
+        var fd = new FormData();
+        fd.append('csrf_token', CSRF);
+        fd.append('acao', 'toggle');
+        fd.append('id', id);
+
+        fetch(VITRINE_URL, { method: 'POST', body: fd })
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (!d.ok) { bcToast(d.msg || 'Erro.', 'danger'); return; }
+                // Atualiza botão estrela no card (pode vir do card OU do X do vitrine)
+                var starBtn = document.getElementById('star-' + id);
+                if (starBtn) {
+                    var ico = starBtn.querySelector('i');
+                    if (d.exibindo) {
+                        starBtn.classList.add('btn-warning', 'ativo');
+                        starBtn.classList.remove('btn-light');
+                        starBtn.title = 'Remover da Vitrine Home';
+                        if (ico) { ico.className = 'bi bi-star-fill'; }
+                    } else {
+                        starBtn.classList.remove('btn-warning', 'ativo');
+                        starBtn.classList.add('btn-light');
+                        starBtn.title = 'Adicionar à Vitrine Home';
+                        if (ico) { ico.className = 'bi bi-star'; }
+                    }
+                }
+                // Recarrega só a vitrine (reload simples — vitrine é pequena)
+                location.reload();
+            })
+            .catch(function() { bcToast('Falha de conexão.', 'danger'); });
+    };
+
+    // Drag-and-drop na vitrine
+    (function() {
+        var lista  = document.getElementById('vitrineLista');
+        if (!lista) return;
+        var dragSrc = null;
+
+        lista.addEventListener('dragstart', function(e) {
+            dragSrc = e.target.closest('.vitrine-item');
+            if (!dragSrc) return;
+            dragSrc.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        lista.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            var over = e.target.closest('.vitrine-item');
+            if (!over || over === dragSrc) return;
+            lista.querySelectorAll('.vitrine-item').forEach(function(el) { el.classList.remove('drag-over'); });
+            over.classList.add('drag-over');
+        });
+        lista.addEventListener('dragleave', function(e) {
+            var over = e.target.closest('.vitrine-item');
+            if (over) over.classList.remove('drag-over');
+        });
+        lista.addEventListener('drop', function(e) {
+            e.preventDefault();
+            var over = e.target.closest('.vitrine-item');
+            if (!over || !dragSrc || over === dragSrc) return;
+            over.classList.remove('drag-over');
+            // Reposiciona no DOM
+            var items = Array.from(lista.querySelectorAll('.vitrine-item'));
+            var si = items.indexOf(dragSrc);
+            var oi = items.indexOf(over);
+            if (si < oi) lista.insertBefore(dragSrc, over.nextSibling);
+            else         lista.insertBefore(dragSrc, over);
+            // Atualiza números e badge destaque
+            lista.querySelectorAll('.vitrine-item').forEach(function(el, idx) {
+                var num = el.querySelector('.vitrine-num');
+                if (num) num.textContent = idx + 1;
+                var badge = el.querySelector('.vitrine-destaque-badge');
+                if (idx === 0) {
+                    if (!badge) {
+                        badge = document.createElement('div');
+                        badge.className = 'vitrine-destaque-badge';
+                        badge.textContent = 'Destaque';
+                        el.appendChild(badge);
+                    }
+                } else if (badge) { badge.remove(); }
+            });
+            // Persiste nova ordem
+            var ids = Array.from(lista.querySelectorAll('.vitrine-item')).map(function(el) {
+                return el.dataset.id;
+            });
+            var fd = new FormData();
+            fd.append('csrf_token', CSRF);
+            fd.append('acao', 'reordenar');
+            fd.append('ids', JSON.stringify(ids));
+            fetch(VITRINE_URL, { method: 'POST', body: fd })
+                .then(function(r) { return r.json(); })
+                .then(function(d) { if (!d.ok) bcToast('Erro ao salvar ordem.', 'danger'); else bcToast('Ordem salva!', 'success'); })
+                .catch(function() { bcToast('Falha de conexão.', 'danger'); });
+        });
+        lista.addEventListener('dragend', function() {
+            if (dragSrc) dragSrc.classList.remove('dragging');
+            dragSrc = null;
+            lista.querySelectorAll('.vitrine-item').forEach(function(el) { el.classList.remove('drag-over'); });
+        });
+    }());
+
+    // Foco picker
+    window.setFoco = function(btn) {
+        var id   = btn.dataset.id;
+        var foco = btn.dataset.foco;
+        var fd   = new FormData();
+        fd.append('csrf_token', CSRF);
+        fd.append('acao', 'set_foco');
+        fd.append('id', id);
+        fd.append('foco', foco);
+        fetch(VITRINE_URL, { method: 'POST', body: fd })
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (!d.ok) { bcToast('Erro ao salvar foco.', 'danger'); return; }
+                // Atualiza estado visual dos botões de foco daquele item
+                var item = btn.closest('.vitrine-item');
+                if (item) {
+                    item.querySelectorAll('.foco-btn,.foco-ext-btn').forEach(function(b) { b.classList.remove('active'); });
+                    btn.classList.add('active');
+                    // Atualiza object-position da thumbnail
+                    var img = item.querySelector('img');
+                    if (img) img.style.objectPosition = foco;
+                }
+                bcToast('Enquadramento salvo!', 'success');
+                // Fecha dropdown
+                var dd = btn.closest('[data-bs-toggle="dropdown"]');
+                if (!dd) {
+                    var menu = btn.closest('.dropdown-menu');
+                    if (menu) {
+                        var ddParent = menu.previousElementSibling;
+                        if (ddParent) bootstrap.Dropdown.getOrCreateInstance(ddParent).hide();
+                    }
+                }
+            })
+            .catch(function() { bcToast('Falha de conexão.', 'danger'); });
+    };
 
     // ── Deletar imagem ────────────────────────────────────────────
     window.confirmarDelete = function(id, nome) {
