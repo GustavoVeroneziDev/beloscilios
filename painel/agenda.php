@@ -661,23 +661,23 @@ $csrfToken = gerarTokenCSRF();
 
     <!-- Painel de detalhes do dia (preenchido pelo JS) -->
     <div id="painelDia" class="bc-dia-detalhe p-0 mb-3" style="display:none;">
-        <div class="card-header d-flex align-items-center justify-content-between px-4 py-3">
-            <h6 class="fw-bold mb-0" id="tituloDia"></h6>
-            <div class="d-flex gap-2">
+        <div class="card-header d-flex align-items-center justify-content-between gap-2 px-3 px-md-4 py-2 py-md-3 flex-wrap">
+            <h6 class="fw-bold mb-0 flex-grow-1" id="tituloDia" style="min-width:0;"></h6>
+            <div class="d-flex gap-2 flex-shrink-0">
                 <a id="btnNovoDiaLink" href="#" class="btn btn-accent btn-sm">
-                    <i class="bi bi-plus me-1"></i>Novo agendamento
+                    <i class="bi bi-plus me-1"></i><span class="d-none d-sm-inline">Novo agendamento</span><span class="d-sm-none">Novo</span>
                 </a>
-                <button class="btn btn-sm btn-outline-secondary" onclick="fecharDia()">
+                <button class="btn btn-sm btn-outline-secondary" onclick="fecharDia()" title="Fechar">
                     <i class="bi bi-x-lg"></i>
                 </button>
             </div>
         </div>
         <?php if (!empty($tiposDia)): ?>
-        <div class="d-flex align-items-center gap-2 px-4 py-2"
+        <div class="d-flex align-items-center gap-2 px-3 px-md-4 py-2 flex-wrap"
              style="border-bottom:1px solid var(--card-border-color);background:var(--bg-card);">
-            <i class="bi bi-tags text-secondary small"></i>
-            <span class="small text-secondary">Tipo do dia:</span>
-            <select id="sltTipoDia" class="form-select form-select-sm" style="width:auto;max-width:220px;"
+            <i class="bi bi-tags text-secondary small flex-shrink-0"></i>
+            <span class="small text-secondary flex-shrink-0">Tipo do dia:</span>
+            <select id="sltTipoDia" class="form-select form-select-sm flex-grow-1" style="max-width:220px;"
                     onchange="alterarTipoDia(this.value)">
                 <option value="">— Normal —</option>
                 <?php foreach ($tiposDia as $tp): ?>
