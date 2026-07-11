@@ -16,8 +16,7 @@ try {
         'SELECT NomeArquivo, TituloExibicao, FocoHome
          FROM Imagens
          WHERE ExibirNaHome = 1
-         ORDER BY OrdemHome ASC
-         LIMIT 6'
+         ORDER BY OrdemHome ASC'
     )->fetchAll();
 } catch (PDOException) {
     $telefoneWa   = '';
