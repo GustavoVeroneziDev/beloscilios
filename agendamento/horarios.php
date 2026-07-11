@@ -37,6 +37,19 @@ if ($dataSel < $dataMin) {
     $dataTs  = strtotime($dataMin);
 }
 
+// Dia especial sobrepõe o horário padrão (folga rotacional, academia etc.)
+$diaEspecial = null;
+try {
+    $deStmt = $pdo->prepare(
+        'SELECT td.Nome, td.Cor, td.BloqueiaTotal, td.HoraInicio, td.HoraFim
+         FROM DiasEspeciais de
+         JOIN TiposDia td ON td.IDTipo = de.FKTipo
+         WHERE de.Data = :data LIMIT 1'
+    );
+    $deStmt->execute([':data' => $dataSel]);
+    $diaEspecial = $deStmt->fetch() ?: null;
+} catch (PDOException) {}
+
 // Horário de atendimento neste dia da semana
 $diaSemana = (int) date('w', $dataTs); // 0=dom
 try {
@@ -80,6 +93,19 @@ try {
     $horario = null;
     $agendados = $bloqueios = $reservasTemp = [];
     $minhaSessao = session_id();
+}
+
+// Aplica tipo especial do dia ao horário
+if ($diaEspecial) {
+    if ($diaEspecial['BloqueiaTotal']) {
+        $horario = null; // dia completamente fechado
+    } elseif ($horario) {
+        // Reduz a janela de atendimento; ignora almoço (janela já é menor)
+        $horario['HoraInicio']   = $diaEspecial['HoraInicio'];
+        $horario['HoraFim']      = $diaEspecial['HoraFim'];
+        $horario['AlmocoInicio'] = null;
+        $horario['AlmocoFim']    = null;
+    }
 }
 
 // Gerar slots disponíveis
@@ -180,6 +206,13 @@ require_once __DIR__ . '/../geral/header.php';
                 <div class="text-center py-4 text-secondary">
                     <i class="bi bi-calendar-x fs-2 d-block mb-2 opacity-25"></i>
                     <p>Não atendemos neste dia. Escolha outra data.</p>
+                </div>
+                <?php elseif ($diaEspecial && !$diaEspecial['BloqueiaTotal']): ?>
+                <?php /* Aviso sutil quando horário está reduzido por tipo especial */ ?>
+                <div class="alert alert-warning py-2 px-3 mb-3 d-flex align-items-center gap-2 small">
+                    <i class="bi bi-clock-history flex-shrink-0"></i>
+                    Horário reduzido: <?= h($diaEspecial['Nome']) ?>
+                    (<?= substr($diaEspecial['HoraInicio'], 0, 5) ?>–<?= substr($diaEspecial['HoraFim'], 0, 5) ?>)
                 </div>
                 <?php elseif (empty($slots)): ?>
                 <div class="text-center py-4 text-secondary">

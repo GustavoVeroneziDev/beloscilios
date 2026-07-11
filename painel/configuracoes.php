@@ -102,6 +102,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    if ($acao === 'add_tipo') {
+        $nome = trim($_POST['tipo_nome'] ?? '');
+        $cor  = trim($_POST['tipo_cor']  ?? '#6c757d');
+        $bloq = !empty($_POST['tipo_bloqueia']) ? 1 : 0;
+        $ini  = $bloq ? null : (trim($_POST['tipo_ini'] ?? '') ?: null);
+        $fim  = $bloq ? null : (trim($_POST['tipo_fim'] ?? '') ?: null);
+        if (!$nome) {
+            redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=tipos', 'Informe o nome do tipo.', 'warning');
+        }
+        if (!preg_match('/^#[0-9a-fA-F]{6}$/', $cor)) $cor = '#6c757d';
+        try {
+            $pdo->prepare(
+                'INSERT INTO TiposDia (IDTipo, Nome, Cor, BloqueiaTotal, HoraInicio, HoraFim)
+                 VALUES (:id, :nome, :cor, :bloq, :ini, :fim)'
+            )->execute([':id' => gerarUuid(), ':nome' => $nome, ':cor' => $cor,
+                        ':bloq' => $bloq, ':ini' => $ini, ':fim' => $fim]);
+            redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=tipos', 'Tipo adicionado!', 'success');
+        } catch (PDOException $e) {
+            error_log('[TipoDia] ' . $e->getMessage());
+            redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=tipos', 'Erro ao adicionar.', 'danger');
+        }
+    }
+
+    if ($acao === 'rem_tipo') {
+        $tid = trim($_POST['tid'] ?? '');
+        if ($tid) {
+            try {
+                $pdo->prepare('DELETE FROM TiposDia WHERE IDTipo = :id')->execute([':id' => $tid]);
+                redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=tipos', 'Tipo removido.', 'success');
+            } catch (PDOException $e) {
+                error_log('[TipoDia] ' . $e->getMessage());
+                redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=tipos', 'Erro ao remover.', 'danger');
+            }
+        }
+    }
+
     if ($acao === 'rem_bloqueio') {
         $bid = $_POST['bid'] ?? '';
         if ($bid) {
@@ -163,9 +199,12 @@ try {
     $bloqueios = $pdo->query(
         'SELECT * FROM BloqueiosAgenda WHERE DataFim >= CURDATE() ORDER BY DataInicio ASC'
     )->fetchAll();
+
+    $tiposDia = $pdo->query('SELECT * FROM TiposDia ORDER BY Nome ASC')->fetchAll();
 } catch (PDOException $e) {
     error_log('[Config] ' . $e->getMessage());
     $cfg = $horarios = $bloqueios = [];
+    $tiposDia = [];
 }
 
 $diasNomes = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
@@ -197,6 +236,11 @@ require_once __DIR__ . '/../geral/header.php';
     <li class="nav-item">
         <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabBloqueios">
             <i class="bi bi-calendar-x me-1"></i> Bloqueios
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabTipos">
+            <i class="bi bi-tags me-1"></i> Tipos de Dia
         </button>
     </li>
 </ul>
@@ -624,13 +668,109 @@ require_once __DIR__ . '/../geral/header.php';
             </div>
         <?php endif ?>
     </div>
+
+    <!-- Tipos de Dia -->
+    <div class="tab-pane fade" id="tabTipos">
+        <div class="card mb-3">
+            <form method="POST" class="card-body p-4" id="formAddTipo">
+                <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
+                <input type="hidden" name="acao" value="add_tipo">
+                <h6 class="fw-semibold mb-1">Novo tipo de dia</h6>
+                <p class="small text-secondary mb-3">
+                    Crie perfis reutilizáveis (ex: "Folga Usina", "Academia") e atribua a datas específicas na Agenda.
+                    Dias com um tipo terão o horário ajustado automaticamente.
+                </p>
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label">Nome *</label>
+                        <input type="text" name="tipo_nome" class="form-control" required
+                               maxlength="60" placeholder="Ex: Academia, Folga Usina">
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label">Cor</label>
+                        <input type="color" name="tipo_cor" class="form-control form-control-color"
+                               value="#ef4444" title="Cor de identificação">
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check mt-4">
+                            <input class="form-check-input" type="checkbox" name="tipo_bloqueia"
+                                   id="chkBloqueiaTotal" onchange="toggleHorasTipo(this.checked)">
+                            <label class="form-check-label fw-medium" for="chkBloqueiaTotal">
+                                Bloqueia o dia inteiro
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-2" id="boxTipoIni">
+                        <label class="form-label">Início</label>
+                        <input type="time" name="tipo_ini" id="tipoIni" class="form-control" value="13:00">
+                    </div>
+                    <div class="col-md-2" id="boxTipoFim">
+                        <label class="form-label">Fim</label>
+                        <input type="time" name="tipo_fim" id="tipoFim" class="form-control" value="18:00">
+                    </div>
+                </div>
+                <div class="form-text mt-2 mb-3">
+                    Quando não bloqueia o dia, defina a janela reduzida de atendimento (ex: 13h–18h para manhã ocupada).
+                </div>
+                <button class="btn btn-accent btn-sm">
+                    <i class="bi bi-plus me-1"></i> Adicionar tipo
+                </button>
+            </form>
+        </div>
+
+        <?php if (!empty($tiposDia)): ?>
+        <div class="card">
+            <div class="card-header px-4 py-3 fw-semibold">Tipos cadastrados</div>
+            <ul class="list-group list-group-flush">
+                <?php foreach ($tiposDia as $tp): ?>
+                <li class="list-group-item px-4 py-3 d-flex align-items-center gap-3">
+                    <span class="rounded-circle flex-shrink-0"
+                          style="width:14px;height:14px;background:<?= h($tp['Cor']) ?>;display:inline-block;"></span>
+                    <div class="flex-grow-1">
+                        <span class="fw-medium"><?= h($tp['Nome']) ?></span>
+                        <span class="text-secondary small ms-2">
+                            <?php if ($tp['BloqueiaTotal']): ?>
+                                Dia inteiro bloqueado
+                            <?php elseif ($tp['HoraInicio']): ?>
+                                Das <?= substr($tp['HoraInicio'], 0, 5) ?> às <?= substr($tp['HoraFim'], 0, 5) ?>
+                            <?php endif ?>
+                        </span>
+                    </div>
+                    <form method="POST"
+                          data-confirm="Remover '<?= h($tp['Nome']) ?>'? Dias atribuídos voltam ao normal."
+                          data-confirm-label="Remover">
+                        <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
+                        <input type="hidden" name="acao" value="rem_tipo">
+                        <input type="hidden" name="tid" value="<?= h($tp['IDTipo']) ?>">
+                        <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                    </form>
+                </li>
+                <?php endforeach ?>
+            </ul>
+        </div>
+        <?php else: ?>
+        <div class="text-center text-secondary py-5">
+            <i class="bi bi-tags fs-2 d-block mb-2 opacity-25"></i>
+            <p>Nenhum tipo cadastrado ainda.</p>
+        </div>
+        <?php endif ?>
+
+        <script>
+        function toggleHorasTipo(bloqTotal) {
+            document.getElementById('boxTipoIni').style.display = bloqTotal ? 'none' : '';
+            document.getElementById('boxTipoFim').style.display = bloqTotal ? 'none' : '';
+            document.getElementById('tipoIni').required = !bloqTotal;
+            document.getElementById('tipoFim').required = !bloqTotal;
+        }
+        </script>
+    </div>
 </div>
 
 <script>
 (function () {
     var tab = new URLSearchParams(location.search).get('tab');
     if (!tab) return;
-    var map = { geral: '#tabGeral', horarios: '#tabHorarios', mensagens: '#tabMensagens', bloqueios: '#tabBloqueios' };
+    var map = { geral: '#tabGeral', horarios: '#tabHorarios', mensagens: '#tabMensagens', bloqueios: '#tabBloqueios', tipos: '#tabTipos' };
     var target = map[tab];
     if (!target) return;
     var btn = document.querySelector('[data-bs-target="' + target + '"]');

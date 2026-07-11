@@ -59,6 +59,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $servicos = $pdo->query('SELECT IDServico, Nome, DuracaoMinutos, Preco FROM Servicos WHERE Ativo = 1 ORDER BY Ordem')->fetchAll();
 
+// Tipos de dia (disponíveis em ambas as visões)
+$tiposDia = [];
+try {
+    $tiposDia = $pdo->query(
+        'SELECT IDTipo, Nome, Cor, BloqueiaTotal, HoraInicio, HoraFim FROM TiposDia ORDER BY Nome ASC'
+    )->fetchAll();
+} catch (PDOException) {}
+
 // Horários de atendimento por dia da semana (0=Dom..6=Sáb) para limitar o datetime-local do modal de bloqueio
 $horariosAtend = [];
 try {
@@ -76,9 +84,20 @@ $semanaOffset  = 0;
 $inicioPeriodo = $fimPeriodo = 0;
 $porDia        = [];
 $bloqueiosDia  = [];
+$diasEspSemana = [];
 $mesSel        = $mesPrev = $mesNext = $mesNome = '';
 $porDiaCal     = $semanasCal = $calJson = [];
 $bloqueiosCal  = [];
+$diasEspCal    = [];
+$diasEspCalJson = [];
+$tiposDiaJson  = array_map(fn($tp) => [
+    'id'           => $tp['IDTipo'],
+    'nome'         => $tp['Nome'],
+    'cor'          => $tp['Cor'],
+    'bloqueiaTotal'=> (bool)$tp['BloqueiaTotal'],
+    'horaInicio'   => $tp['HoraInicio'] ? substr($tp['HoraInicio'], 0, 5) : null,
+    'horaFim'      => $tp['HoraFim']    ? substr($tp['HoraFim'],    0, 5) : null,
+], $tiposDia);
 
 // ── VISÃO LISTA (semanal) ─────────────────────────────────────
 if ($vista !== 'calendario') {
@@ -133,6 +152,20 @@ if ($vista !== 'calendario') {
                     $bloqueiosDia[$dStr][] = $b;
                 }
             }
+        }
+    } catch (PDOException) {}
+
+    // Dias especiais da semana
+    try {
+        $deStmt = $pdo->prepare(
+            'SELECT de.Data, td.IDTipo, td.Nome, td.Cor, td.BloqueiaTotal
+             FROM DiasEspeciais de
+             JOIN TiposDia td ON td.IDTipo = de.FKTipo
+             WHERE de.Data BETWEEN :ini AND :fim'
+        );
+        $deStmt->execute([':ini' => $iniSQL, ':fim' => $fimSQL]);
+        foreach ($deStmt->fetchAll() as $de) {
+            $diasEspSemana[$de['Data']] = $de;
         }
     } catch (PDOException) {}
 }
@@ -228,6 +261,28 @@ if ($vista === 'calendario') {
             }
         }
     } catch (PDOException) {}
+
+    // Dias especiais do mês
+    try {
+        $deCalStmt = $pdo->prepare(
+            'SELECT de.Data, td.IDTipo, td.Nome, td.Cor, td.BloqueiaTotal
+             FROM DiasEspeciais de
+             JOIN TiposDia td ON td.IDTipo = de.FKTipo
+             WHERE de.Data BETWEEN :ini AND :fim'
+        );
+        $deCalStmt->execute([':ini' => $primeiroDia, ':fim' => $ultimoDia]);
+        foreach ($deCalStmt->fetchAll() as $de) {
+            $diasEspCal[$de['Data']] = $de;
+        }
+    } catch (PDOException) {}
+    foreach ($diasEspCal as $data => $de) {
+        $diasEspCalJson[$data] = [
+            'id'           => $de['IDTipo'],
+            'nome'         => $de['Nome'],
+            'cor'          => $de['Cor'],
+            'bloqueiaTotal'=> (bool)$de['BloqueiaTotal'],
+        ];
+    }
 
     // JSON para o JS (detalhe do dia clicado)
     $calJson = [];
@@ -370,6 +425,11 @@ $csrfToken = gerarTokenCSRF();
                 <?php if (!empty($bloqs)): ?>
                     <span class="badge ms-1 bg-danger bg-opacity-75"><i class="bi bi-slash-circle me-1"></i><?= count($bloqs) ?> bloqueio<?= count($bloqs) > 1 ? 's' : '' ?></span>
                 <?php endif ?>
+                <?php if (isset($diasEspSemana[$key])): $deL = $diasEspSemana[$key]; ?>
+                    <span class="badge ms-1 rounded-pill" style="background:<?= h($deL['Cor']) ?>;">
+                        <i class="bi bi-<?= $deL['BloqueiaTotal'] ? 'moon' : 'clock' ?> me-1"></i><?= h($deL['Nome']) ?>
+                    </span>
+                <?php endif ?>
                 <span class="ms-auto badge bg-secondary"><?= count($ags) ?> ag.</span>
             </div>
             <?php if (!$temItens): ?>
@@ -474,6 +534,12 @@ $csrfToken = gerarTokenCSRF();
                             onclick="mostrarDia('<?= $key ?>', <?= $dia ?>)"
                             onkeydown="if(event.key==='Enter')mostrarDia('<?= $key ?>', <?= $dia ?>)">
                             <div class="bc-cal-num"><?= $dia ?></div>
+                            <?php if (isset($diasEspCal[$key])): $deC = $diasEspCal[$key]; ?>
+                                <div class="bc-tipo-strip"
+                                     style="color:<?= h($deC['Cor']) ?>;border-top:2px solid <?= h($deC['Cor']) ?>;background:<?= h($deC['Cor']) ?>18;">
+                                    <?= h($deC['Nome']) ?>
+                                </div>
+                            <?php endif ?>
                             <?php if (!empty($bloqNoDia)): ?>
                                 <span class="bc-cal-dot" style="background:#ef4444;" title="Horário bloqueado"></span>
                             <?php endif ?>
@@ -507,6 +573,28 @@ $csrfToken = gerarTokenCSRF();
                 </button>
             </div>
         </div>
+        <?php if (!empty($tiposDia)): ?>
+        <div class="d-flex align-items-center gap-2 px-4 py-2"
+             style="border-bottom:1px solid var(--card-border-color);background:var(--bg-card);">
+            <i class="bi bi-tags text-secondary small"></i>
+            <span class="small text-secondary">Tipo do dia:</span>
+            <select id="sltTipoDia" class="form-select form-select-sm" style="width:auto;max-width:220px;"
+                    onchange="alterarTipoDia(this.value)">
+                <option value="">— Normal —</option>
+                <?php foreach ($tiposDia as $tp): ?>
+                <option value="<?= h($tp['IDTipo']) ?>" data-cor="<?= h($tp['Cor']) ?>">
+                    <?= h($tp['Nome']) ?>
+                    <?php if ($tp['BloqueiaTotal']): ?>
+                        (dia inteiro)
+                    <?php elseif ($tp['HoraInicio']): ?>
+                        (<?= substr($tp['HoraInicio'], 0, 5) ?>–<?= substr($tp['HoraFim'], 0, 5) ?>)
+                    <?php endif ?>
+                </option>
+                <?php endforeach ?>
+            </select>
+            <span id="tipoDiaInfo" class="small text-secondary" style="display:none;"></span>
+        </div>
+        <?php endif ?>
         <div id="conteudoDia" class="p-0"></div>
     </div>
 
@@ -538,10 +626,13 @@ $csrfToken = gerarTokenCSRF();
     </div>
 
     <script>
-        const dadosCal    = <?= json_encode($calJson,      JSON_UNESCAPED_UNICODE) ?>;
-        const bloqueiosCal = <?= json_encode($bloqueiosCal, JSON_UNESCAPED_UNICODE) ?>;
-        const BASE_URL    = '<?= BASE ?>';
-        const MES_SEL     = '<?= h($mesSel) ?>';
+        const dadosCal     = <?= json_encode($calJson,        JSON_UNESCAPED_UNICODE) ?>;
+        const bloqueiosCal = <?= json_encode($bloqueiosCal,  JSON_UNESCAPED_UNICODE) ?>;
+        const BASE_URL     = '<?= BASE ?>';
+        const MES_SEL      = '<?= h($mesSel) ?>';
+        const tiposDiaJS   = <?= json_encode($tiposDiaJson,  JSON_UNESCAPED_UNICODE) ?>;
+        let diasEspCalJS   = <?= json_encode($diasEspCalJson, JSON_UNESCAPED_UNICODE) ?>;
+        const CSRF_AGENDA  = '<?= h(gerarTokenCSRF()) ?>';
 
         const statusLabel = {
             pendente: '<span class="badge bg-warning text-dark">Pendente</span>',
@@ -567,6 +658,13 @@ $csrfToken = gerarTokenCSRF();
             diaAberto = data;
             const ags   = dadosCal[data]    || [];
             const bloqs = bloqueiosCal[data] || [];
+
+            // Sincroniza seletor de tipo com o dia aberto
+            const slt = document.getElementById('sltTipoDia');
+            if (slt) {
+                const tipoAtual = diasEspCalJS[data];
+                slt.value = tipoAtual ? tipoAtual.id : '';
+            }
 
             // Título
             const partes = data.split('-');
@@ -682,6 +780,51 @@ $csrfToken = gerarTokenCSRF();
             return String(s)
                 .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function alterarTipoDia(tipoId) {
+            if (!diaAberto) return;
+            const params = new URLSearchParams({
+                acao:       tipoId ? 'set' : 'remove',
+                data:       diaAberto,
+                csrf_token: CSRF_AGENDA,
+            });
+            if (tipoId) params.set('fk_tipo', tipoId);
+
+            fetch(BASE_URL + '/painel/api_tipo_dia.php', {
+                method:  'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body:    params.toString(),
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.ok) { bcToast('Erro ao salvar tipo.', 'danger'); return; }
+                if (tipoId && res.tipo) {
+                    diasEspCalJS[diaAberto] = res.tipo;
+                } else {
+                    delete diasEspCalJS[diaAberto];
+                }
+                atualizarCelulaTipo(diaAberto);
+            })
+            .catch(() => bcToast('Erro de conexão.', 'danger'));
+        }
+
+        function atualizarCelulaTipo(data) {
+            const cel = document.querySelector('[data-data="' + data + '"]');
+            if (!cel) return;
+            const old = cel.querySelector('.bc-tipo-strip');
+            if (old) old.remove();
+            const tipo = diasEspCalJS[data];
+            if (tipo) {
+                const strip = document.createElement('div');
+                strip.className = 'bc-tipo-strip';
+                strip.style.cssText =
+                    'color:' + tipo.cor + ';border-top:2px solid ' + tipo.cor +
+                    ';background:' + tipo.cor + '18;';
+                strip.textContent = tipo.nome;
+                const num = cel.querySelector('.bc-cal-num');
+                if (num) num.after(strip); else cel.appendChild(strip);
+            }
         }
     </script>
 <?php endif ?>

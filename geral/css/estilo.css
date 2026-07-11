@@ -157,6 +157,19 @@ button, a, [role="button"] {
     width: 1.3rem;
     flex-shrink: 0;
 }
+.bc-tipo-strip {
+    font-size: .6rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    padding: 1px 3px;
+    border-radius: 0 0 3px 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
+    line-height: 1.4;
+}
 .sidebar-hr {
     border: none;
     border-top: 1px solid rgba(224, 170, 255, .12);
