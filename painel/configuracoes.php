@@ -129,6 +129,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    if ($acao === 'edit_tipo') {
+        $tid  = trim($_POST['tid']       ?? '');
+        $nome = trim($_POST['tipo_nome'] ?? '');
+        $cor  = trim($_POST['tipo_cor']  ?? '#6c757d');
+        $bloq      = !empty($_POST['tipo_bloqueia']) ? 1 : 0;
+        $ini       = $bloq ? null : (trim($_POST['tipo_ini'] ?? '') ?: null);
+        $fim       = $bloq ? null : (trim($_POST['tipo_fim'] ?? '') ?: null);
+        $temAlm    = !$bloq && !empty($_POST['tipo_almoco_ativo']);
+        $almocoIni = $temAlm ? (trim($_POST['tipo_almoco_ini'] ?? '') ?: null) : null;
+        $almocoFim = $temAlm ? (trim($_POST['tipo_almoco_fim'] ?? '') ?: null) : null;
+        if (!$tid || !$nome) {
+            redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=tipos', 'Dados inválidos.', 'warning');
+        }
+        if (!preg_match('/^#[0-9a-fA-F]{6}$/', $cor)) $cor = '#6c757d';
+        try {
+            $pdo->prepare(
+                'UPDATE TiposDia SET Nome=:nome, Cor=:cor, BloqueiaTotal=:bloq,
+                 HoraInicio=:ini, HoraFim=:fim, AlmocoInicio=:alni, AlmocoFim=:alfm
+                 WHERE IDTipo=:id'
+            )->execute([':nome' => $nome, ':cor' => $cor, ':bloq' => $bloq,
+                        ':ini' => $ini, ':fim' => $fim,
+                        ':alni' => $almocoIni, ':alfm' => $almocoFim, ':id' => $tid]);
+            redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=tipos', 'Tipo atualizado!', 'success');
+        } catch (PDOException $e) {
+            error_log('[TipoDia] ' . $e->getMessage());
+            redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=tipos', 'Erro ao editar.', 'danger');
+        }
+    }
+
     if ($acao === 'rem_tipo') {
         $tid = trim($_POST['tid'] ?? '');
         if ($tid) {
@@ -760,14 +789,30 @@ require_once __DIR__ . '/../geral/header.php';
                             <?php endif ?>
                         </span>
                     </div>
-                    <form method="POST"
-                          data-confirm="Remover '<?= h($tp['Nome']) ?>'? Dias atribuídos voltam ao normal."
-                          data-confirm-label="Remover">
-                        <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
-                        <input type="hidden" name="acao" value="rem_tipo">
-                        <input type="hidden" name="tid" value="<?= h($tp['IDTipo']) ?>">
-                        <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
-                    </form>
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-accent"
+                                onclick="abrirEditarTipo(<?= h(json_encode([
+                                    'id'        => $tp['IDTipo'],
+                                    'nome'      => $tp['Nome'],
+                                    'cor'       => $tp['Cor'],
+                                    'bloq'      => (bool)$tp['BloqueiaTotal'],
+                                    'ini'       => $tp['HoraInicio'] ? substr($tp['HoraInicio'],0,5) : '',
+                                    'fim'       => $tp['HoraFim']    ? substr($tp['HoraFim'],   0,5) : '',
+                                    'almocoAti' => !empty($tp['AlmocoInicio']),
+                                    'almocoIni' => $tp['AlmocoInicio'] ? substr($tp['AlmocoInicio'],0,5) : '',
+                                    'almocoFim' => $tp['AlmocoFim']    ? substr($tp['AlmocoFim'],   0,5) : '',
+                                ])) ?>)">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <form method="POST"
+                              data-confirm="Remover '<?= h($tp['Nome']) ?>'? Dias atribuídos voltam ao normal."
+                              data-confirm-label="Remover">
+                            <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
+                            <input type="hidden" name="acao" value="rem_tipo">
+                            <input type="hidden" name="tid" value="<?= h($tp['IDTipo']) ?>">
+                            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </div>
                 </li>
                 <?php endforeach ?>
             </ul>
@@ -797,7 +842,107 @@ require_once __DIR__ . '/../geral/header.php';
             document.getElementById('tipoAlmocoIni').required = ativo;
             document.getElementById('tipoAlmocoFim').required = ativo;
         }
+
+        function toggleHorasTipoEdit(bloqTotal) {
+            document.getElementById('editBoxIni').style.display = bloqTotal ? 'none' : '';
+            document.getElementById('editBoxFim').style.display = bloqTotal ? 'none' : '';
+            document.getElementById('editTipoIni').required = !bloqTotal;
+            document.getElementById('editTipoFim').required = !bloqTotal;
+            document.getElementById('editBoxAlmoco').style.display = bloqTotal ? 'none' : '';
+            if (bloqTotal) {
+                document.getElementById('editChkAlmoco').checked = false;
+                toggleAlmocoTipoEdit(false);
+            }
+        }
+        function toggleAlmocoTipoEdit(ativo) {
+            document.getElementById('editBoxAlmocoIni').style.display = ativo ? '' : 'none';
+            document.getElementById('editBoxAlmocoFim').style.display = ativo ? '' : 'none';
+            document.getElementById('editAlmocoIni').required = ativo;
+            document.getElementById('editAlmocoFim').required = ativo;
+        }
+        function abrirEditarTipo(tp) {
+            document.getElementById('editTid').value      = tp.id;
+            document.getElementById('editNome').value     = tp.nome;
+            document.getElementById('editCor').value      = tp.cor;
+            document.getElementById('editChkBloq').checked = tp.bloq;
+            document.getElementById('editTipoIni').value  = tp.ini;
+            document.getElementById('editTipoFim').value  = tp.fim;
+            document.getElementById('editChkAlmoco').checked = tp.almocoAti;
+            document.getElementById('editAlmocoIni').value = tp.almocoIni;
+            document.getElementById('editAlmocoFim').value = tp.almocoFim;
+            toggleHorasTipoEdit(tp.bloq);
+            toggleAlmocoTipoEdit(tp.almocoAti && !tp.bloq);
+            var modal = new bootstrap.Modal(document.getElementById('modalEditarTipo'));
+            modal.show();
+        }
         </script>
+    </div>
+</div>
+
+<!-- Modal: Editar tipo de dia -->
+<div class="modal fade" id="modalEditarTipo" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="<?= BASE ?>/painel/configuracoes.php?tab=tipos">
+                <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
+                <input type="hidden" name="acao" value="edit_tipo">
+                <input type="hidden" name="tid" id="editTid">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-semibold">Editar tipo de dia</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-8">
+                            <label class="form-label">Nome *</label>
+                            <input type="text" name="tipo_nome" id="editNome" class="form-control" required maxlength="60">
+                        </div>
+                        <div class="col-auto">
+                            <label class="form-label">Cor</label>
+                            <input type="color" name="tipo_cor" id="editCor" class="form-control form-control-color">
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="tipo_bloqueia"
+                                       id="editChkBloq" onchange="toggleHorasTipoEdit(this.checked)">
+                                <label class="form-check-label fw-medium" for="editChkBloq">Bloqueia o dia inteiro</label>
+                            </div>
+                        </div>
+                        <div class="col-6" id="editBoxIni">
+                            <label class="form-label">Início</label>
+                            <input type="time" name="tipo_ini" id="editTipoIni" class="form-control">
+                        </div>
+                        <div class="col-6" id="editBoxFim">
+                            <label class="form-label">Fim</label>
+                            <input type="time" name="tipo_fim" id="editTipoFim" class="form-control">
+                        </div>
+                        <div class="col-12" id="editBoxAlmoco">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="tipo_almoco_ativo"
+                                       id="editChkAlmoco" onchange="toggleAlmocoTipoEdit(this.checked)">
+                                <label class="form-check-label" for="editChkAlmoco">Tem intervalo de almoço</label>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-6" id="editBoxAlmocoIni" style="display:none">
+                                    <label class="form-label">Almoço início</label>
+                                    <input type="time" name="tipo_almoco_ini" id="editAlmocoIni" class="form-control">
+                                </div>
+                                <div class="col-6" id="editBoxAlmocoFim" style="display:none">
+                                    <label class="form-label">Almoço fim</label>
+                                    <input type="time" name="tipo_almoco_fim" id="editAlmocoFim" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-accent btn-sm">
+                        <i class="bi bi-check me-1"></i> Salvar alterações
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 

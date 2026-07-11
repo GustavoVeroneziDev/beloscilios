@@ -393,6 +393,11 @@ $csrfToken = gerarTokenCSRF();
                class="btn btn-outline-accent btn-sm">Hoje</a>
         <?php endif ?>
 
+        <?php if ($vista === 'calendario' && !empty($tiposDia)): ?>
+        <button class="btn btn-outline-accent btn-sm" id="btnModoSelecao" onclick="toggleModoSelecao()">
+            <i class="bi bi-ui-checks me-1"></i> Selecionar
+        </button>
+        <?php endif ?>
         <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#modalBloqueio" title="Bloquear horário">
             <i class="bi bi-slash-circle me-1"></i> Bloquear
         </button>
@@ -426,11 +431,31 @@ $csrfToken = gerarTokenCSRF();
                     <span class="badge ms-1 bg-danger bg-opacity-75"><i class="bi bi-slash-circle me-1"></i><?= count($bloqs) ?> bloqueio<?= count($bloqs) > 1 ? 's' : '' ?></span>
                 <?php endif ?>
                 <?php if (isset($diasEspSemana[$key])): $deL = $diasEspSemana[$key]; ?>
-                    <span class="badge ms-1 rounded-pill" style="background:<?= h($deL['Cor']) ?>;">
+                    <span class="badge ms-1 rounded-pill" id="tipoBadgeLista_<?= $key ?>"
+                          style="background:<?= h($deL['Cor']) ?>;">
                         <i class="bi bi-<?= $deL['BloqueiaTotal'] ? 'moon' : 'clock' ?> me-1"></i><?= h($deL['Nome']) ?>
                     </span>
+                <?php else: ?>
+                    <span class="badge ms-1 rounded-pill d-none" id="tipoBadgeLista_<?= $key ?>"></span>
                 <?php endif ?>
-                <span class="ms-auto badge bg-secondary"><?= count($ags) ?> ag.</span>
+                <div class="ms-auto d-flex align-items-center gap-2">
+                    <?php if (!empty($tiposDia)): ?>
+                    <select class="form-select form-select-sm"
+                            style="width:auto;max-width:140px;font-size:.75rem;padding:.15rem .5rem 0.15rem .4rem;"
+                            id="sltTipoDiaLista_<?= $key ?>"
+                            onchange="alterarTipoDiaLista(this.value, '<?= $key ?>', this)">
+                        <option value="">— Tipo —</option>
+                        <?php foreach ($tiposDia as $tp): ?>
+                        <option value="<?= h($tp['IDTipo']) ?>"
+                            data-cor="<?= h($tp['Cor']) ?>"
+                            <?= (isset($diasEspSemana[$key]) && $diasEspSemana[$key]['IDTipo'] === $tp['IDTipo']) ? 'selected' : '' ?>>
+                            <?= h($tp['Nome']) ?>
+                        </option>
+                        <?php endforeach ?>
+                    </select>
+                    <?php endif ?>
+                    <span class="badge bg-secondary"><?= count($ags) ?> ag.</span>
+                </div>
             </div>
             <?php if (!$temItens): ?>
                 <div class="text-center py-3 text-secondary small">Sem agendamentos</div>
@@ -483,6 +508,50 @@ $csrfToken = gerarTokenCSRF();
             <?php endif ?>
         </div>
     <?php endfor ?>
+
+    <?php if (!empty($tiposDia)): ?>
+    <script>
+    (function(){
+        const CSRF_LISTA   = '<?= h(gerarTokenCSRF()) ?>';
+        const BASE_LISTA   = '<?= BASE ?>';
+        const tiposDiaLista = <?= json_encode($tiposDiaJson, JSON_UNESCAPED_UNICODE) ?>;
+
+        window.alterarTipoDiaLista = function(tipoId, data, slt) {
+            const params = new URLSearchParams({
+                acao: tipoId ? 'set' : 'remove',
+                data: data,
+                csrf_token: CSRF_LISTA,
+            });
+            if (tipoId) params.set('fk_tipo', tipoId);
+            fetch(BASE_LISTA + '/painel/api_tipo_dia.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: params.toString()
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.ok) { bcToast('Erro ao salvar tipo.', 'danger'); return; }
+                const badge = document.getElementById('tipoBadgeLista_' + data);
+                if (tipoId && res.tipo) {
+                    const tp = res.tipo;
+                    badge.style.background = tp.cor;
+                    badge.innerHTML = '<i class="bi bi-' + (tp.bloqueiaTotal ? 'moon' : 'clock') + ' me-1"></i>' + escHtmlLista(tp.nome);
+                    badge.classList.remove('d-none');
+                } else if (badge) {
+                    badge.innerHTML = '';
+                    badge.classList.add('d-none');
+                }
+                bcToast(tipoId ? 'Tipo atribuído!' : 'Tipo removido!', 'success');
+            })
+            .catch(() => bcToast('Erro de conexão.', 'danger'));
+        };
+
+        function escHtmlLista(s) {
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+    }());
+    </script>
+    <?php endif ?>
 
 <?php else: ?>
     <!-- ══════════════════════════════════════════════════════════
@@ -559,6 +628,36 @@ $csrfToken = gerarTokenCSRF();
             ?>
         </div>
     </div>
+
+    <!-- Barra de seleção múltipla (bulk) -->
+    <?php if (!empty($tiposDia)): ?>
+    <div id="barraSelecao" style="display:none;"
+         class="position-fixed bottom-0 start-0 end-0 p-3"
+         aria-live="polite"
+         style="background:var(--bg-card);border-top:2px solid var(--accent);z-index:1050;box-shadow:0 -4px 24px rgba(0,0,0,.14);">
+        <div class="container-lg d-flex align-items-center gap-2 flex-wrap">
+            <span class="fw-semibold text-accent" id="contagemSel"></span>
+            <select id="sltTipoBulk" class="form-select form-select-sm" style="width:auto;max-width:200px;">
+                <option value="">— Atribuir tipo —</option>
+                <?php foreach ($tiposDia as $tp): ?>
+                <option value="<?= h($tp['IDTipo']) ?>" data-cor="<?= h($tp['Cor']) ?>">
+                    <?= h($tp['Nome']) ?>
+                    <?php if ($tp['BloqueiaTotal']): ?>(dia inteiro)<?php elseif ($tp['HoraInicio']): ?>(<?= substr($tp['HoraInicio'],0,5) ?>–<?= substr($tp['HoraFim'],0,5) ?>)<?php endif ?>
+                </option>
+                <?php endforeach ?>
+            </select>
+            <button class="btn btn-accent btn-sm" onclick="aplicarTipoBulk()">
+                <i class="bi bi-tag me-1"></i> Aplicar tipo
+            </button>
+            <button class="btn btn-outline-danger btn-sm" onclick="bloquearBulk()">
+                <i class="bi bi-slash-circle me-1"></i> Bloquear dias
+            </button>
+            <button class="btn btn-outline-secondary btn-sm ms-auto" onclick="cancelarSelecao()">
+                <i class="bi bi-x me-1"></i> Cancelar
+            </button>
+        </div>
+    </div>
+    <?php endif ?>
 
     <!-- Painel de detalhes do dia (preenchido pelo JS) -->
     <div id="painelDia" class="bc-dia-detalhe p-0 mb-3" style="display:none;">
@@ -647,8 +746,102 @@ $csrfToken = gerarTokenCSRF();
         };
 
         let diaAberto = null;
+        let modoSelecao = false;
+        const diasSelecionados = new Set();
+
+        function toggleModoSelecao() {
+            modoSelecao = !modoSelecao;
+            const btn = document.getElementById('btnModoSelecao');
+            if (modoSelecao) {
+                btn.classList.replace('btn-outline-accent', 'btn-accent');
+                btn.innerHTML = '<i class="bi bi-x me-1"></i> Cancelar seleção';
+                fecharDia();
+            } else {
+                cancelarSelecao();
+            }
+        }
+
+        function toggleDiaSelecionado(data) {
+            const cel = document.querySelector('[data-data="' + data + '"]');
+            if (!cel || cel.classList.contains('bc-vazio')) return;
+            if (diasSelecionados.has(data)) {
+                diasSelecionados.delete(data);
+                cel.classList.remove('bc-selecionado');
+            } else {
+                diasSelecionados.add(data);
+                cel.classList.add('bc-selecionado');
+            }
+            atualizarBarraSelecao();
+        }
+
+        function atualizarBarraSelecao() {
+            const n = diasSelecionados.size;
+            const barra = document.getElementById('barraSelecao');
+            if (!barra) return;
+            document.getElementById('contagemSel').textContent =
+                n + (n === 1 ? ' dia selecionado' : ' dias selecionados');
+            barra.style.display = n > 0 ? '' : 'none';
+        }
+
+        function cancelarSelecao() {
+            diasSelecionados.clear();
+            document.querySelectorAll('.bc-cal-day.bc-selecionado')
+                .forEach(el => el.classList.remove('bc-selecionado'));
+            const barra = document.getElementById('barraSelecao');
+            if (barra) barra.style.display = 'none';
+            modoSelecao = false;
+            const btn = document.getElementById('btnModoSelecao');
+            if (btn) {
+                btn.classList.replace('btn-accent', 'btn-outline-accent');
+                btn.innerHTML = '<i class="bi bi-ui-checks me-1"></i> Selecionar';
+            }
+        }
+
+        function aplicarTipoBulk() {
+            const tipoId = document.getElementById('sltTipoBulk').value;
+            if (!tipoId) { bcToast('Escolha um tipo na lista.', 'warning'); return; }
+            const datas = Array.from(diasSelecionados);
+            const params = new URLSearchParams({ acao: 'set_tipo_bulk', csrf_token: CSRF_AGENDA, fk_tipo: tipoId });
+            datas.forEach(d => params.append('datas[]', d));
+            fetch(BASE_URL + '/painel/api_agenda_bulk.php', {
+                method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: params.toString()
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.ok) { bcToast('Erro: ' + res.msg, 'danger'); return; }
+                datas.forEach(d => {
+                    diasEspCalJS[d] = res.tipo;
+                    atualizarCelulaTipo(d);
+                });
+                bcToast(res.total + (res.total === 1 ? ' dia atualizado.' : ' dias atualizados.'), 'success');
+                cancelarSelecao();
+            })
+            .catch(() => bcToast('Erro de conexão.', 'danger'));
+        }
+
+        function bloquearBulk() {
+            const datas = Array.from(diasSelecionados);
+            const motivo = prompt('Motivo do bloqueio (opcional):');
+            if (motivo === null) return; // cancelou o prompt
+            const params = new URLSearchParams({ acao: 'bloquear_bulk', csrf_token: CSRF_AGENDA, motivo: motivo.trim() });
+            datas.forEach(d => params.append('datas[]', d));
+            fetch(BASE_URL + '/painel/api_agenda_bulk.php', {
+                method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: params.toString()
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.ok) { bcToast('Erro: ' + res.msg, 'danger'); return; }
+                bcToast(res.total + (res.total === 1 ? ' dia bloqueado.' : ' dias bloqueados.'), 'success');
+                cancelarSelecao();
+                setTimeout(() => location.reload(), 900);
+            })
+            .catch(() => bcToast('Erro de conexão.', 'danger'));
+        }
 
         function mostrarDia(data, dia) {
+            if (modoSelecao) { toggleDiaSelecionado(data); return; }
             // Remove seleção anterior
             document.querySelectorAll('.bc-cal-day.bc-selecionado')
                 .forEach(el => el.classList.remove('bc-selecionado'));
