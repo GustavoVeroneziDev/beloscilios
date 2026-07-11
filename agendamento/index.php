@@ -210,6 +210,7 @@ function criarOpcaoBtn(titulo, preco, dur, destaque, callback) {
         ? 'btn btn-accent'
         : 'btn btn-outline-accent'
     ) + ' w-100 text-start p-3 mb-2 rounded-3';
+    btn.style.whiteSpace = 'normal';
 
     const t = document.createElement('div');
     t.className = 'fw-semibold';
