@@ -5,7 +5,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/config/conexao.php';
 
-if (!empty($_SESSION['usuario_id']) && ($_SESSION['nivel_acesso'] ?? '') === 'designer') {
+if (!empty($_SESSION['usuario_id']) && ($_SESSION['nivel_acesso'] ?? '') === 'designer' && empty($_GET['preview'])) {
     header('Location: ' . BASE . '/painel/index.php');
     exit;
 }

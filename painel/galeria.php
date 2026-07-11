@@ -200,7 +200,7 @@ require_once __DIR__ . '/../geral/header.php';
                     <?php endif ?>
                 </p>
             </div>
-            <a href="<?= BASE ?>/" target="_blank" rel="noopener"
+            <a href="<?= BASE ?>/?preview=1" target="_blank" rel="noopener"
                class="btn btn-sm btn-outline-secondary flex-shrink-0">
                 <i class="bi bi-box-arrow-up-right me-1"></i>Ver no site
             </a>
