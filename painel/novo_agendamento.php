@@ -255,27 +255,6 @@ require_once __DIR__ . '/../geral/header.php';
     overflow: hidden;
 }
 
-/* cliente search */
-#buscaClienteWrap { position: relative; }
-#dropClientes {
-    position: absolute; top: 100%; left: 0; right: 0; z-index: 30;
-    background: var(--bg-card);
-    border: 1px solid var(--card-border-color);
-    border-top: none;
-    border-radius: 0 0 8px 8px;
-    max-height: 200px;
-    overflow-y: auto;
-}
-#dropClientes .dc-item {
-    padding: .5rem .75rem;
-    cursor: pointer;
-    font-size: .88rem;
-    border-bottom: 1px solid var(--card-border-color);
-}
-#dropClientes .dc-item:last-child { border-bottom: none; }
-#dropClientes .dc-item:hover { background: var(--bg-hover); }
-#dropClientes .dc-item small { display: block; color: var(--text-secondary); font-size: .76rem; }
-
 /* badge de hora final */
 #badgeHoraFim {
     font-size: .78rem;
@@ -438,21 +417,16 @@ require_once __DIR__ . '/../geral/header.php';
                         </label>
                     </div>
 
-                    <!-- Busca de cliente cadastrada -->
+                    <!-- Cliente cadastrada -->
                     <div id="secCadastrada" class="mb-3">
-                        <div id="buscaClienteWrap">
-                            <input type="text" id="buscaCliente" class="form-control"
-                                   placeholder="Buscar por nome, e-mail ou telefone…"
-                                   autocomplete="nope" oninput="buscarCliente(this.value)">
-                            <div id="dropClientes" style="display:none;"></div>
-                        </div>
-                        <input type="hidden" name="fk_cliente" id="inp_fk_cliente">
-                        <div id="clienteSel" class="mt-2 small text-secondary d-none">
-                            <i class="bi bi-person-check-fill text-accent me-1"></i>
-                            <span id="clienteSelNome"></span>
-                            <button type="button" class="btn btn-link btn-sm p-0 ms-1 text-danger"
-                                    onclick="limparCliente()">×</button>
-                        </div>
+                        <select name="fk_cliente" id="selCliente" class="form-select" onchange="validarForm()">
+                            <option value="">Selecione…</option>
+                            <?php foreach ($clientes as $c): ?>
+                                <option value="<?= h($c['id']) ?>">
+                                    <?= h($c['nome']) ?><?= $c['telefone'] ? ' — ' . h($c['telefone']) : '' ?>
+                                </option>
+                            <?php endforeach ?>
+                        </select>
                     </div>
 
                     <!-- Dados de cliente avulsa -->
@@ -494,13 +468,11 @@ var AGENDAMENTOS   = <?= $agJson ?>;
 var BLOQUEIOS      = <?= $bloqJson ?>;
 var ALMOCO         = <?= $almocoJson ?>;
 var SERVICOS       = <?= $svsJson ?>;
-var CLIENTES       = <?= json_encode(array_values($clientes), JSON_UNESCAPED_UNICODE) ?>;
 var FIM_JORNADA_TS = <?= $fimJornadaTs ?>;
 
-var slotSelecionadoTs   = null;
-var duracaoAtual        = 0;
-var tipoCliente         = 'cadastrada';
-var clienteIdSelecionado = null;
+var slotSelecionadoTs = null;
+var duracaoAtual      = 0;
+var tipoCliente       = 'cadastrada';
 
 /* ── Navegação de data ────────────────────────── */
 document.getElementById('seletorData').addEventListener('change', function () {
@@ -656,69 +628,13 @@ function aplicarDuracaoPreco(duracao, preco) {
     validarForm();
 }
 
-/* ── Cliente cadastrada (busca) ──────────────── */
+/* ── Cliente ─────────────────────────────────── */
 function toggleCliente(tipo) {
     tipoCliente = tipo;
     document.getElementById('secCadastrada').classList.toggle('d-none', tipo !== 'cadastrada');
     document.getElementById('secAvulsa').classList.toggle('d-none',    tipo !== 'avulsa');
     validarForm();
 }
-
-function buscarCliente(q) {
-    var drop = document.getElementById('dropClientes');
-    q = q.trim().toLowerCase();
-    if (q.length < 1) { drop.style.display = 'none'; return; }
-
-    var lista = CLIENTES.filter(function (c) {
-        return c.nome.toLowerCase().indexOf(q) !== -1
-            || (c.email    && c.email.toLowerCase().indexOf(q)    !== -1)
-            || (c.telefone && c.telefone.toLowerCase().indexOf(q) !== -1);
-    }).slice(0, 15);
-
-    drop.innerHTML = '';
-    if (!lista.length) { drop.style.display = 'none'; return; }
-
-    lista.forEach(function (c) {
-        var item = document.createElement('div');
-        item.className = 'dc-item';
-        item.addEventListener('click', function () { escolherCliente(c.id, c.nome); });
-
-        var nome = document.createElement('span');
-        nome.textContent = c.nome;
-        item.appendChild(nome);
-
-        var sub = document.createElement('small');
-        sub.textContent = c.telefone || c.email || '';
-        item.appendChild(sub);
-
-        drop.appendChild(item);
-    });
-    drop.style.display = 'block';
-}
-
-function escolherCliente(id, nome) {
-    clienteIdSelecionado = id;
-    document.getElementById('inp_fk_cliente').value = id;
-    document.getElementById('dropClientes').style.display = 'none';
-    document.getElementById('buscaCliente').value = nome;
-    document.getElementById('clienteSelNome').textContent = nome;
-    document.getElementById('clienteSel').classList.remove('d-none');
-    validarForm();
-}
-
-function limparCliente() {
-    clienteIdSelecionado = null;
-    document.getElementById('inp_fk_cliente').value = '';
-    document.getElementById('buscaCliente').value = '';
-    document.getElementById('clienteSel').classList.add('d-none');
-    validarForm();
-}
-
-document.addEventListener('click', function (e) {
-    if (!document.getElementById('buscaClienteWrap').contains(e.target)) {
-        document.getElementById('dropClientes').style.display = 'none';
-    }
-});
 
 /* ── Validação geral ─────────────────────────── */
 function validarForm() {
@@ -728,8 +644,8 @@ function validarForm() {
     if (!slotSelecionadoTs) { ok = false; erro = 'Selecione um horário na grade.'; }
     if (!document.getElementById('selServico').value) { ok = false; erro = erro || 'Selecione um serviço.'; }
 
-    if (tipoCliente === 'cadastrada' && !clienteIdSelecionado) {
-        ok = false; erro = erro || 'Busque e selecione uma cliente cadastrada.';
+    if (tipoCliente === 'cadastrada' && !document.getElementById('selCliente').value) {
+        ok = false; erro = erro || 'Selecione uma cliente.';
     }
     if (tipoCliente === 'avulsa') {
         var nome = document.querySelector('[name="nome_avulso"]').value.trim();
