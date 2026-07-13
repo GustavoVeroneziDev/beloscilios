@@ -11,7 +11,7 @@ if (($_SESSION['nivel_acesso'] ?? '') !== 'designer') {
 }
 
 $q = trim($_GET['q'] ?? '');
-if (strlen($q) < 2) {
+if (strlen($q) < 1) {
     echo json_encode([]);
     exit;
 }

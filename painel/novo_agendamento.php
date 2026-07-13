@@ -436,8 +436,8 @@ require_once __DIR__ . '/../geral/header.php';
                     <div id="secCadastrada" class="mb-3">
                         <div id="buscaClienteWrap">
                             <input type="text" id="buscaCliente" class="form-control"
-                                   placeholder="Buscar por nome ou e-mail…"
-                                   autocomplete="off" oninput="buscarCliente(this.value)">
+                                   placeholder="Buscar por nome, e-mail ou telefone…"
+                                   autocomplete="nope" oninput="buscarCliente(this.value)">
                             <div id="dropClientes" style="display:none;"></div>
                         </div>
                         <input type="hidden" name="fk_cliente" id="inp_fk_cliente">
@@ -661,7 +661,7 @@ function toggleCliente(tipo) {
 function buscarCliente(q) {
     clearTimeout(buscaTimer);
     var drop = document.getElementById('dropClientes');
-    if (q.length < 2) { drop.style.display = 'none'; return; }
+    if (q.length < 1) { drop.style.display = 'none'; return; }
 
     buscaTimer = setTimeout(function () {
         fetch('<?= BASE ?>/painel/api_busca_clientes.php?q=' + encodeURIComponent(q))
