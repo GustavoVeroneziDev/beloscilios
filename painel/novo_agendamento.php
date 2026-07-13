@@ -60,7 +60,8 @@ try {
     error_log('[NovoAg] agendados: ' . $e->getMessage());
 }
 
-// Serviços — try independente para sempre carregar o dropdown
+// Serviços e clientes — try independente para sempre carregar os dropdowns
+$clientes = [];
 try {
     $servicos = $pdo->query(
         'SELECT IDServico, Nome, DuracaoMinutos, Preco FROM Servicos WHERE Ativo = 1 ORDER BY Ordem'
@@ -71,8 +72,13 @@ try {
     )->fetchAll() as $ss) {
         $subsPorSv[$ss['FKServico']][] = $ss;
     }
+
+    $clientes = $pdo->query(
+        'SELECT IDUsuario AS id, Nome AS nome, Email AS email, Telefone AS telefone
+         FROM Usuarios WHERE NivelAcesso = \'cliente\' ORDER BY Nome ASC LIMIT 500'
+    )->fetchAll();
 } catch (PDOException $e) {
-    error_log('[NovoAg] servicos: ' . $e->getMessage());
+    error_log('[NovoAg] servicos/clientes: ' . $e->getMessage());
 }
 
 // Monta grade de slots
@@ -488,13 +494,13 @@ var AGENDAMENTOS   = <?= $agJson ?>;
 var BLOQUEIOS      = <?= $bloqJson ?>;
 var ALMOCO         = <?= $almocoJson ?>;
 var SERVICOS       = <?= $svsJson ?>;
+var CLIENTES       = <?= json_encode(array_values($clientes), JSON_UNESCAPED_UNICODE) ?>;
 var FIM_JORNADA_TS = <?= $fimJornadaTs ?>;
 
 var slotSelecionadoTs   = null;
 var duracaoAtual        = 0;
 var tipoCliente         = 'cadastrada';
 var clienteIdSelecionado = null;
-var buscaTimer          = null;
 
 /* ── Navegação de data ────────────────────────── */
 document.getElementById('seletorData').addEventListener('change', function () {
@@ -659,38 +665,35 @@ function toggleCliente(tipo) {
 }
 
 function buscarCliente(q) {
-    clearTimeout(buscaTimer);
     var drop = document.getElementById('dropClientes');
+    q = q.trim().toLowerCase();
     if (q.length < 1) { drop.style.display = 'none'; return; }
 
-    buscaTimer = setTimeout(function () {
-        fetch('<?= BASE ?>/painel/api_busca_clientes.php', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: 'q=' + encodeURIComponent(q)
-        })
-            .then(function (r) { return r.json(); })
-            .then(function (lista) {
-                drop.innerHTML = '';
-                if (!lista.length) { drop.style.display = 'none'; return; }
-                lista.forEach(function (c) {
-                    var item = document.createElement('div');
-                    item.className = 'dc-item';
-                    item.addEventListener('click', function () { escolherCliente(c.id, c.nome); });
+    var lista = CLIENTES.filter(function (c) {
+        return c.nome.toLowerCase().indexOf(q) !== -1
+            || (c.email    && c.email.toLowerCase().indexOf(q)    !== -1)
+            || (c.telefone && c.telefone.toLowerCase().indexOf(q) !== -1);
+    }).slice(0, 15);
 
-                    var nome = document.createElement('span');
-                    nome.textContent = c.nome;
-                    item.appendChild(nome);
+    drop.innerHTML = '';
+    if (!lista.length) { drop.style.display = 'none'; return; }
 
-                    var sub = document.createElement('small');
-                    sub.textContent = c.telefone || c.email || '';
-                    item.appendChild(sub);
+    lista.forEach(function (c) {
+        var item = document.createElement('div');
+        item.className = 'dc-item';
+        item.addEventListener('click', function () { escolherCliente(c.id, c.nome); });
 
-                    drop.appendChild(item);
-                });
-                drop.style.display = 'block';
-            });
-    }, 280);
+        var nome = document.createElement('span');
+        nome.textContent = c.nome;
+        item.appendChild(nome);
+
+        var sub = document.createElement('small');
+        sub.textContent = c.telefone || c.email || '';
+        item.appendChild(sub);
+
+        drop.appendChild(item);
+    });
+    drop.style.display = 'block';
 }
 
 function escolherCliente(id, nome) {
