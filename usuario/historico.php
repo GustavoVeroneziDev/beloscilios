@@ -5,7 +5,13 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/../config/conexao.php';
 exigirLogin('cliente');
 
-$uid  = $_SESSION['usuario_id'];
+$uid = $_SESSION['usuario_id'];
+
+// Cancela um reagendamento em curso
+if (!empty($_GET['cancelar_reagendamento'])) {
+    unset($_SESSION['reagendar_id']);
+}
+
 $pag  = max(1, (int)($_GET['pag'] ?? 1));
 $porPag = 10;
 $offset = ($pag - 1) * $porPag;
@@ -69,10 +75,14 @@ require_once __DIR__ . '/../geral/header.php';
                         <th>Valor</th>
                         <th>Status</th>
                         <th>Pagamento</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($agendamentos as $ag): ?>
+                    <?php foreach ($agendamentos as $ag):
+                        $futuro     = strtotime($ag['DataHoraAgendamento']) > time();
+                        $reagendavel= $futuro && in_array($ag['StatusAgendamento'], ['pendente','confirmado']);
+                    ?>
                     <tr>
                         <td class="px-4">
                             <div class="fw-medium"><?= date('d/m/Y', strtotime($ag['DataHoraAgendamento'])) ?></div>
@@ -82,6 +92,14 @@ require_once __DIR__ . '/../geral/header.php';
                         <td><?= $ag['ValorCobrado'] ? formatarMoeda((float)$ag['ValorCobrado']) : '<span class="text-secondary">—</span>' ?></td>
                         <td><?= labelStatus($ag['StatusAgendamento']) ?></td>
                         <td><?= labelStatusPag($ag['StatusPagamento']) ?></td>
+                        <td class="pe-3">
+                            <?php if ($reagendavel): ?>
+                            <a href="<?= BASE ?>/agendamento/reagendar.php?id=<?= h($ag['IDAgendamento']) ?>"
+                               class="btn btn-sm btn-outline-accent">
+                                <i class="bi bi-arrow-repeat me-1"></i>Reagendar
+                            </a>
+                            <?php endif ?>
+                        </td>
                     </tr>
                     <?php endforeach ?>
                 </tbody>

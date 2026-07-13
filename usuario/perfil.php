@@ -105,9 +105,10 @@ require_once __DIR__ . '/../geral/header.php';
                         $ts  = strtotime($ag['DataHoraAgendamento']);
                         $dia = date('d', $ts);
                         $mes = $mesesPt[(int) date('n', $ts) - 1];
+                        $reagendavel = in_array($ag['StatusAgendamento'], ['pendente','confirmado']);
                     ?>
                     <li class="list-group-item px-4 py-3">
-                        <div class="d-flex align-items-center gap-3">
+                        <div class="d-flex align-items-center gap-3 flex-wrap">
                             <div class="text-center flex-shrink-0"
                                  style="min-width:48px;border-right:1px solid var(--card-border-color);padding-right:12px;">
                                 <div class="fw-bold text-accent fs-5 lh-1"><?= $dia ?></div>
@@ -123,6 +124,12 @@ require_once __DIR__ . '/../geral/header.php';
                                 </div>
                             </div>
                             <?= labelStatus($ag['StatusAgendamento']) ?>
+                            <?php if ($reagendavel): ?>
+                            <a href="<?= BASE ?>/agendamento/reagendar.php?id=<?= h($ag['IDAgendamento']) ?>"
+                               class="btn btn-sm btn-outline-accent flex-shrink-0">
+                                <i class="bi bi-arrow-repeat me-1"></i>Reagendar
+                            </a>
+                            <?php endif ?>
                         </div>
                     </li>
                     <?php endforeach ?>

@@ -5,6 +5,19 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/../config/conexao.php';
 exigirLogin('cliente');
 
+// Verificação da ficha de anamnese (gate secundário — primário está em index.php)
+try {
+    $fStmt = $pdo->prepare('SELECT IDFicha FROM FichaAnamnese WHERE FKCliente = :id LIMIT 1');
+    $fStmt->execute([':id' => $_SESSION['usuario_id']]);
+    if (!$fStmt->fetchColumn()) {
+        redirecionarComMensagem(
+            BASE . '/usuario/ficha_anamnese.php?next=agendamento',
+            'Preencha sua ficha de saúde antes de confirmar o agendamento.',
+            'warning'
+        );
+    }
+} catch (PDOException) {} // Migration pendente — não bloqueia
+
 $servicoId = trim($_GET['servico_id'] ?? '');
 $subId     = trim($_GET['sub_id']     ?? '');
 $nome      = trim($_GET['nome']       ?? '');
@@ -145,6 +158,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $pdo->commit();
 
+        // Se é reagendamento, cancela o agendamento anterior
+        $msgSucesso = "Agendamento confirmado! Te esperamos em {$data} às {$hora}.";
+        if (!empty($_SESSION['reagendar_id'])) {
+            $oldId = $_SESSION['reagendar_id'];
+            unset($_SESSION['reagendar_id']);
+            try {
+                $pdo->prepare(
+                    'UPDATE Agendamentos SET StatusAgendamento = \'cancelado\'
+                     WHERE IDAgendamento = :id AND FKCliente = :uid
+                       AND StatusAgendamento IN (\'pendente\',\'confirmado\')'
+                )->execute([':id' => $oldId, ':uid' => $uid]);
+                $msgSucesso = "Reagendamento confirmado! Seu horário anterior foi cancelado. Te esperamos em {$data} às {$hora}.";
+            } catch (PDOException $e) {
+                error_log('[Reagendar] Erro ao cancelar agendamento anterior: ' . $e->getMessage());
+            }
+        }
+
         // Notificações após o commit — falha aqui não desfaz o agendamento
         $usuarioStmt = $pdo->prepare(
             'SELECT Nome, Email, Telefone FROM Usuarios WHERE IDUsuario = :id LIMIT 1'
@@ -187,11 +217,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        redirecionarComMensagem(
-            BASE . '/usuario/perfil.php',
-            "Agendamento confirmado! Te esperamos em {$data} às {$hora}.",
-            'success'
-        );
+        redirecionarComMensagem(BASE . '/usuario/perfil.php', $msgSucesso, 'success');
     } catch (\Exception $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         error_log('[Confirmar] ' . $e->getMessage());

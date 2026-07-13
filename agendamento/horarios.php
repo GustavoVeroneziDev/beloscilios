@@ -187,6 +187,20 @@ require_once __DIR__ . '/../geral/header.php';
     </span>
 </div>
 
+<?php if (!empty($_SESSION['reagendar_id'])): ?>
+<div class="alert alert-info d-flex align-items-center gap-2 mb-4 flex-wrap">
+    <i class="bi bi-arrow-repeat fs-5 flex-shrink-0"></i>
+    <span class="flex-grow-1">
+        <strong>Reagendamento em curso.</strong>
+        Selecione a nova data e horário — o agendamento anterior será cancelado ao confirmar.
+    </span>
+    <a href="<?= BASE ?>/usuario/historico.php?cancelar_reagendamento=1"
+       class="btn btn-sm btn-outline-secondary flex-shrink-0">
+        <i class="bi bi-x me-1"></i>Cancelar
+    </a>
+</div>
+<?php endif ?>
+
 <div class="row g-4">
     <div class="col-lg-8">
         <!-- Seletor de data -->
