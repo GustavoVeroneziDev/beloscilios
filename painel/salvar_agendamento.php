@@ -110,15 +110,32 @@ try {
     }
 
     // ── 4. Insere agendamento ─────────────────────────────────────
-    $id   = gerarUuid();
-    $stmt = $pdo->prepare(
+    $recorrencia  = !empty($_POST['recorrencia']);
+    $recVezes     = $recorrencia ? min(104, max(1, (int)($_POST['rec_vezes']     ?? 1))) : 1;
+    $recIntervalo = $recorrencia ? max(1,       (int)($_POST['rec_intervalo']    ?? 1))  : 1;
+    $recUniDias   = $recorrencia ? max(1,       (int)($_POST['rec_unidade']      ?? 7))  : 1;
+    $intervaloDias = $recIntervalo * $recUniDias;
+
+    $grupoRec = ($recorrencia && $recVezes > 1) ? gerarUuid() : null;
+
+    $insStmt = $pdo->prepare(
         'INSERT INTO Agendamentos
             (IDAgendamento, FKCliente, FKServico, FKSubServico,
              DataHoraAgendamento, DataHoraFim,
-             StatusAgendamento, ValorCobrado, Observacoes)
-         VALUES (:id, :fkc, :fks, :fksub, :ini, :fim, \'confirmado\', :valor, :obs)'
+             StatusAgendamento, ValorCobrado, Observacoes,
+             GrupoRecorrencia, OrdemRecorrencia)
+         VALUES (:id, :fkc, :fks, :fksub, :ini, :fim, \'confirmado\', :valor, :obs, :grupo, :ordem)'
     );
-    $stmt->execute([
+
+    $chkStmt = $pdo->prepare(
+        'SELECT COUNT(*) FROM Agendamentos
+         WHERE StatusAgendamento NOT IN (\'cancelado\')
+           AND DataHoraAgendamento < :fim
+           AND DataHoraFim > :ini'
+    );
+
+    $id = gerarUuid();
+    $insStmt->execute([
         ':id'    => $id,
         ':fkc'   => $fkCliente,
         ':fks'   => $fkServico,
@@ -127,15 +144,49 @@ try {
         ':fim'   => $fim->format('Y-m-d H:i:s'),
         ':valor' => $valor !== '' ? (float)$valor : $sv['Preco'],
         ':obs'   => $obs ?: null,
+        ':grupo' => $grupoRec,
+        ':ordem' => $grupoRec ? 1 : null,
     ]);
+
+    $criados   = 1;
+    $pulados   = 0;
+
+    if ($grupoRec && $recVezes > 1) {
+        for ($i = 2; $i <= $recVezes; $i++) {
+            $offsetDias = ($i - 1) * $intervaloDias;
+            $iniRec     = $inicio->modify("+{$offsetDias} days");
+            $fimRec     = $iniRec->modify("+{$sv['DuracaoMinutos']} minutes");
+
+            $chkStmt->execute([':ini' => $iniRec->format('Y-m-d H:i:s'), ':fim' => $fimRec->format('Y-m-d H:i:s')]);
+            if ((int)$chkStmt->fetchColumn() > 0) { $pulados++; continue; }
+
+            $insStmt->execute([
+                ':id'    => gerarUuid(),
+                ':fkc'   => $fkCliente,
+                ':fks'   => $fkServico,
+                ':fksub' => $fkSub,
+                ':ini'   => $iniRec->format('Y-m-d H:i:s'),
+                ':fim'   => $fimRec->format('Y-m-d H:i:s'),
+                ':valor' => $valor !== '' ? (float)$valor : $sv['Preco'],
+                ':obs'   => $obs ?: null,
+                ':grupo' => $grupoRec,
+                ':ordem' => $i,
+            ]);
+            $criados++;
+        }
+    }
 
 } catch (Exception $e) {
     error_log('[SalvarAg] ' . $e->getMessage());
     redirecionarComMensagem($retorno, 'Erro ao salvar agendamento.', 'danger');
 }
 
+$msg = $grupoRec
+    ? "Série criada: {$criados} agendamento(s)." . ($pulados > 0 ? " {$pulados} datas com conflito foram ignoradas." : '')
+    : 'Agendamento criado com sucesso!';
+
 redirecionarComMensagem(
     BASE . '/painel/agenda.php?data=' . urlencode($data ?: date('Y-m-d')),
-    'Agendamento criado com sucesso!',
+    $msg,
     'success'
 );

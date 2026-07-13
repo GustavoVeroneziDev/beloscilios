@@ -46,6 +46,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    // Cancelar série recorrente (este + futuros ou somente este)
+    if ($acao === 'cancelar_serie' && $id) {
+        $modo = $_POST['modo'] ?? 'este'; // 'este' | 'futuros'
+        try {
+            if ($modo === 'futuros') {
+                // Busca grupo e data do agendamento clicado
+                $rowRec = $pdo->prepare(
+                    'SELECT GrupoRecorrencia, DataHoraAgendamento FROM Agendamentos WHERE IDAgendamento = :id LIMIT 1'
+                );
+                $rowRec->execute([':id' => $id]);
+                $recInfo = $rowRec->fetch();
+                if ($recInfo && $recInfo['GrupoRecorrencia']) {
+                    $pdo->prepare(
+                        'UPDATE Agendamentos SET StatusAgendamento = \'cancelado\'
+                         WHERE GrupoRecorrencia = :grupo
+                           AND DataHoraAgendamento >= :data
+                           AND StatusAgendamento IN (\'pendente\',\'confirmado\')'
+                    )->execute([':grupo' => $recInfo['GrupoRecorrencia'], ':data' => $recInfo['DataHoraAgendamento']]);
+                } else {
+                    // Sem grupo — cancela só este
+                    $pdo->prepare('UPDATE Agendamentos SET StatusAgendamento = \'cancelado\' WHERE IDAgendamento = :id')
+                        ->execute([':id' => $id]);
+                }
+            } else {
+                $pdo->prepare('UPDATE Agendamentos SET StatusAgendamento = \'cancelado\' WHERE IDAgendamento = :id')
+                    ->execute([':id' => $id]);
+            }
+            $params = array_filter(['vista' => $_GET['vista'] ?? null, 'mes' => $_GET['mes'] ?? null, 'semana' => $_GET['semana'] ?? null]);
+            $qs = $params ? '?' . http_build_query($params) : '';
+            $msgRec = $modo === 'futuros' ? 'Série cancelada a partir deste agendamento.' : 'Agendamento cancelado.';
+            redirecionarComMensagem(BASE . '/painel/agenda.php' . $qs, $msgRec, 'success');
+        } catch (PDOException $e) {
+            error_log('[Agenda] ' . $e->getMessage());
+            redirecionarComMensagem(BASE . '/painel/agenda.php', 'Erro ao cancelar.', 'danger');
+        }
+    }
+
     // Remover bloqueio
     if ($acao === 'rem_bloqueio' && $id) {
         try {
@@ -209,7 +246,8 @@ if ($vista === 'calendario') {
     try {
         $stmtCal = $pdo->prepare(
             'SELECT a.IDAgendamento, a.DataHoraAgendamento, a.StatusAgendamento,
-                    a.StatusPagamento, u.Nome AS NomeCliente, u.Telefone,
+                    a.StatusPagamento, a.GrupoRecorrencia,
+                    u.Nome AS NomeCliente, u.Telefone,
                     s.Nome AS NomeServico, s.DuracaoMinutos,
                     ss.Nome AS NomeSubServico,
                     IF(fa.IDFicha IS NOT NULL, 1, 0) AS TemFicha,
@@ -311,6 +349,7 @@ if ($vista === 'calendario') {
             'pag'     => $ag['StatusPagamento'],
             'tel'     => $ag['Telefone'] ?? '',
             'alerta'  => $ag['AlertaAlto'] ? 'alto' : ($ag['AlertaMedio'] ? 'medio' : ($ag['TemFicha'] ? 'ok' : 'sem_ficha')),
+            'grupo'   => $ag['GrupoRecorrencia'] ?? null,
         ], $ags);
     }
 }
@@ -338,14 +377,20 @@ function botoesAgendamento(array $ag, string $csrfToken, array $extraGet = []): 
                         <i class="bi bi-check-lg"></i></button></form>';
     }
     if (in_array($ag['StatusAgendamento'], ['pendente', 'confirmado'])) {
-        $out .= '<form method="POST" class="d-inline"
-                      data-confirm="Confirma o cancelamento deste agendamento?"
-                      data-confirm-label="Cancelar agendamento">
-                    <input type="hidden" name="csrf_token" value="' . $csrfToken . '">
-                    <input type="hidden" name="acao" value="cancelar">
-                    <input type="hidden" name="id" value="' . h($ag['IDAgendamento']) . '">
-                    <button class="btn btn-sm btn-outline-danger" title="Cancelar">
-                        <i class="bi bi-x-lg"></i></button></form>';
+        if (!empty($ag['GrupoRecorrencia'])) {
+            $out .= '<button class="btn btn-sm btn-outline-danger" title="Cancelar"
+                         onclick="cancelarComOpcoesRec(\'' . h($ag['IDAgendamento']) . '\',\'lista\')">
+                         <i class="bi bi-x-lg"></i></button>';
+        } else {
+            $out .= '<form method="POST" class="d-inline"
+                          data-confirm="Confirma o cancelamento deste agendamento?"
+                          data-confirm-label="Cancelar agendamento">
+                        <input type="hidden" name="csrf_token" value="' . $csrfToken . '">
+                        <input type="hidden" name="acao" value="cancelar">
+                        <input type="hidden" name="id" value="' . h($ag['IDAgendamento']) . '">
+                        <button class="btn btn-sm btn-outline-danger" title="Cancelar">
+                            <i class="bi bi-x-lg"></i></button></form>';
+        }
     }
     if ($ag['StatusAgendamento'] === 'confirmado') {
         $out .= '<form method="POST" class="d-inline">
@@ -507,6 +552,9 @@ $csrfToken = gerarTokenCSRF();
                                 <div class="flex-grow-1">
                                     <div class="d-flex align-items-center gap-1 flex-wrap">
                                         <span class="fw-medium"><?= h($ag['NomeCliente']) ?></span>
+                                        <?php if (!empty($ag['GrupoRecorrencia'])): ?>
+                                        <span class="badge bg-secondary" title="Agendamento recorrente" style="font-size:.7rem;"><i class="bi bi-arrow-repeat"></i></span>
+                                        <?php endif ?>
                                         <?php if (!empty($ag['AlertaAlto'])): ?>
                                         <span class="badge bg-danger" title="Ficha: atenção alta — verificar antes do atendimento"><i class="bi bi-heart-pulse-fill"></i></span>
                                         <?php elseif (!empty($ag['AlertaMedio'])): ?>
@@ -942,7 +990,11 @@ $csrfToken = gerarTokenCSRF();
                         botoes += '<button class="btn btn-sm btn-outline-success" onclick="acaoAg(\'confirmar\',\'' + ag.id + '\')" title="Confirmar"><i class="bi bi-check-lg"></i></button>';
                     }
                     if (ag.status === 'pendente' || ag.status === 'confirmado') {
-                        botoes += '<button class="btn btn-sm btn-outline-danger" onclick="acaoAg(\'cancelar\',\'' + ag.id + '\')" title="Cancelar"><i class="bi bi-x-lg"></i></button>';
+                        if (ag.grupo) {
+                            botoes += '<button class="btn btn-sm btn-outline-danger" onclick="cancelarComOpcoesRec(\'' + escHtml(ag.id) + '\',\'cal\')" title="Cancelar"><i class="bi bi-x-lg"></i></button>';
+                        } else {
+                            botoes += '<button class="btn btn-sm btn-outline-danger" onclick="acaoAg(\'cancelar\',\'' + ag.id + '\')" title="Cancelar"><i class="bi bi-x-lg"></i></button>';
+                        }
                     }
                     if (ag.status === 'confirmado') {
                         botoes += '<button class="btn btn-sm btn-outline-secondary" onclick="acaoAg(\'concluir\',\'' + ag.id + '\')" title="Concluído"><i class="bi bi-check2-all"></i></button>';
@@ -955,12 +1007,13 @@ $csrfToken = gerarTokenCSRF();
                         ok:       '',
                     };
                     const alertaBadge = alertaBadges[ag.alerta] || '';
+                    const recBadge = ag.grupo ? '<span class="badge bg-secondary ms-1" style="font-size:.7rem;" title="Agendamento recorrente"><i class="bi bi-arrow-repeat"></i></span>' : '';
 
                     li.innerHTML =
                         '<div class="d-flex align-items-center gap-2 flex-wrap">' +
                         '<span class="fw-bold text-accent" style="min-width:40px;">' + escHtml(ag.hora) + '</span>' +
                         '<div class="flex-grow-1">' +
-                        '<span class="fw-medium">' + escHtml(ag.nome) + '</span>' + alertaBadge +
+                        '<span class="fw-medium">' + escHtml(ag.nome) + '</span>' + recBadge + alertaBadge +
                         '<span class="text-secondary small ms-1 d-block d-md-inline">' +
                         escHtml(ag.servico) + ' (' + ag.duracao + 'min)</span>' +
                         '</div>' +
@@ -1066,6 +1119,79 @@ $csrfToken = gerarTokenCSRF();
         }
     </script>
 <?php endif ?>
+
+<!-- Modal de cancelamento de série recorrente (global — lista e calendário) -->
+<div class="modal fade" id="modalCancelRec" tabindex="-1" aria-labelledby="modalCancelRecLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalCancelRecLabel">
+                    <i class="bi bi-arrow-repeat me-2 text-accent"></i>Cancelar agendamento recorrente
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Este agendamento faz parte de uma série recorrente. Como deseja cancelar?</p>
+            </div>
+            <div class="modal-footer flex-column align-items-stretch gap-2">
+                <button class="btn btn-outline-danger" onclick="confirmarCancelRec('este')">
+                    <i class="bi bi-x-circle me-1"></i> Somente este agendamento
+                </button>
+                <button class="btn btn-danger" onclick="confirmarCancelRec('futuros')">
+                    <i class="bi bi-x-circle-fill me-1"></i> Este e todos os futuros
+                </button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-arrow-left me-1"></i> Não cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Formulários ocultos para cancelar série (usados pelo JS em ambas as views) -->
+<div style="display:none;">
+    <form id="formListaCancel" method="POST">
+        <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+        <input type="hidden" name="vista" value="lista">
+        <input type="hidden" name="semana" value="<?= (int)($semanaOffset ?? 0) ?>">
+        <input type="hidden" name="acao" value="cancelar_serie">
+        <input type="hidden" name="id" id="listaCancelId">
+        <input type="hidden" name="modo" id="listaCancelModo">
+    </form>
+    <form id="formCancelarSerie" method="POST">
+        <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+        <input type="hidden" name="vista" value="calendario">
+        <input type="hidden" name="mes" value="<?= h($mesSel) ?>">
+        <input type="hidden" name="acao" value="cancelar_serie">
+        <input type="hidden" name="id" id="serieCancelId">
+        <input type="hidden" name="modo" id="serieCancelModo">
+    </form>
+</div>
+
+<script>
+(function(){
+    var _cancelRecId  = null;
+    var _cancelRecCtx = null;
+    window.cancelarComOpcoesRec = function(id, ctx) {
+        _cancelRecId  = id;
+        _cancelRecCtx = ctx;
+        new bootstrap.Modal(document.getElementById('modalCancelRec')).show();
+    };
+    window.confirmarCancelRec = function(modo) {
+        var inst = bootstrap.Modal.getInstance(document.getElementById('modalCancelRec'));
+        if (inst) inst.hide();
+        if (_cancelRecCtx === 'lista') {
+            document.getElementById('listaCancelId').value   = _cancelRecId;
+            document.getElementById('listaCancelModo').value = modo;
+            document.getElementById('formListaCancel').submit();
+        } else {
+            document.getElementById('serieCancelId').value   = _cancelRecId;
+            document.getElementById('serieCancelModo').value = modo;
+            document.getElementById('formCancelarSerie').submit();
+        }
+    };
+}());
+</script>
 
 <!-- ══════════════════════════════════════════════════════════
      Modal: Novo agendamento (manual)

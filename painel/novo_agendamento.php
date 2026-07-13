@@ -452,6 +452,48 @@ require_once __DIR__ . '/../geral/header.php';
                                   placeholder="Informações extras, preferências…"></textarea>
                     </div>
 
+                    <!-- Recorrência -->
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="chkRecorrencia"
+                                   name="recorrencia" value="1" onchange="toggleRecorrencia()">
+                            <label class="form-check-label fw-medium" for="chkRecorrencia">
+                                <i class="bi bi-arrow-repeat me-1"></i>Criar série recorrente
+                            </label>
+                        </div>
+                        <div id="secRecorrencia" class="d-none mt-2 p-3 rounded"
+                             style="background:var(--bg-hover);border:1px solid var(--card-border-color);">
+                            <div class="row g-2 align-items-end">
+                                <div class="col-auto">
+                                    <label class="form-label small mb-1">Repetir a cada</label>
+                                    <input type="number" name="rec_intervalo" id="recIntervalo"
+                                           class="form-control form-control-sm" style="width:70px;"
+                                           value="1" min="1" max="52" oninput="atualizarPreviewRec()">
+                                </div>
+                                <div class="col-auto">
+                                    <label class="form-label small mb-1">&nbsp;</label>
+                                    <select name="rec_unidade" id="recUnidade" class="form-select form-select-sm"
+                                            onchange="atualizarPreviewRec()">
+                                        <option value="7">semana(s)</option>
+                                        <option value="1">dia(s)</option>
+                                        <option value="30">mês(es)</option>
+                                    </select>
+                                </div>
+                                <div class="col-auto">
+                                    <label class="form-label small mb-1">por</label>
+                                    <input type="number" name="rec_vezes" id="recVezes"
+                                           class="form-control form-control-sm" style="width:70px;"
+                                           value="4" min="2" max="104" oninput="atualizarPreviewRec()">
+                                </div>
+                                <div class="col-auto">
+                                    <label class="form-label small mb-1">&nbsp;</label>
+                                    <span class="form-control-plaintext form-control-sm">vezes</span>
+                                </div>
+                            </div>
+                            <div id="previewRec" class="text-secondary small mt-2"></div>
+                        </div>
+                    </div>
+
                     <button type="submit" id="btnSalvar" class="btn btn-accent w-100" disabled>
                         <i class="bi bi-calendar-check me-2"></i>Criar agendamento
                     </button>
@@ -495,6 +537,7 @@ function selecionarSlot(btn) {
     atualizarHoraFim();
     atualizarValidezSlots();
     validarForm();
+    if (document.getElementById('chkRecorrencia').checked) atualizarPreviewRec();
 }
 
 function atualizarHoraFim() {
@@ -721,6 +764,43 @@ function validarForm() {
 
 /* Observa campos de texto avulso */
 document.querySelector('[name="nome_avulso"]').addEventListener('input', validarForm);
+
+/* ── Recorrência ─────────────────────────────── */
+function toggleRecorrencia() {
+    var on = document.getElementById('chkRecorrencia').checked;
+    document.getElementById('secRecorrencia').classList.toggle('d-none', !on);
+    if (on) atualizarPreviewRec();
+}
+
+function atualizarPreviewRec() {
+    var intervalo = parseInt(document.getElementById('recIntervalo').value) || 1;
+    var unidade   = parseInt(document.getElementById('recUnidade').value)   || 7;
+    var vezes     = parseInt(document.getElementById('recVezes').value)     || 2;
+    var div       = document.getElementById('previewRec');
+
+    if (!slotSelecionadoTs) {
+        div.textContent = 'Selecione um horário para ver o resumo.';
+        return;
+    }
+
+    var dias  = intervalo * unidade;
+    var datas = [];
+    for (var i = 0; i < Math.min(vezes, 104); i++) {
+        var d = new Date((slotSelecionadoTs + i * dias * 86400) * 1000);
+        datas.push(d.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit', year:'numeric'}));
+    }
+
+    var nomePeriodo = unidade === 1 ? 'dia(s)' : unidade === 7 ? 'semana(s)' : 'mês(es)';
+    var preview = vezes + ' agendamentos · a cada ' + intervalo + ' ' + nomePeriodo;
+    if (datas.length <= 6) {
+        preview += '<br><span class="text-accent">' + datas.join('  →  ') + '</span>';
+    } else {
+        var primeiras = datas.slice(0, 3);
+        var ultimas   = datas.slice(-2);
+        preview += '<br><span class="text-accent">' + primeiras.join('  →  ') + '  →  …  →  ' + ultimas.join('  →  ') + '</span>';
+    }
+    div.innerHTML = preview;
+}
 
 /* Inicializa */
 validarForm();
