@@ -24,7 +24,6 @@ if (!empty($_GET['sair_preview']) && !empty($_SESSION['designer_preview'])) {
 
 $_nomeSession  = $_SESSION['usuario_nome'] ?? '';
 $nivelAcesso   = $_SESSION['nivel_acesso'] ?? '';
-$base          = '/beloscilios';
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR" data-bs-theme="light">

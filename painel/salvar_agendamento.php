@@ -59,6 +59,9 @@ try {
     // ── 2. Resolve cliente ────────────────────────────────────────
     $fkCliente = null;
 
+    // Variáveis necessárias dentro da transação
+    $nomeAvulso = $telAvulso = $emailFake = $senhaFake = null;
+
     if ($tipoCliente === 'avulsa') {
         $nomeAvulso = trim($_POST['nome_avulso'] ?? '');
         $telAvulso  = trim($_POST['tel_avulso']  ?? '');
@@ -66,22 +69,10 @@ try {
             redirecionarComMensagem($retorno, 'Informe o nome da cliente avulsa.', 'warning');
         }
 
-        $uuidAvulso  = gerarUuid();
-        $emailFake   = 'avulso_' . substr(str_replace('-', '', $uuidAvulso), 0, 8) . '@avulso.internal';
-        $senhaFake   = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
-
-        $insUsr = $pdo->prepare(
-            'INSERT INTO Usuarios (IDUsuario, Nome, Email, Senha, Telefone, NivelAcesso, Ativo, MomentoRegistro)
-             VALUES (:id, :nome, :email, :senha, :tel, \'cliente\', 1, NOW())'
-        );
-        $insUsr->execute([
-            ':id'    => $uuidAvulso,
-            ':nome'  => $nomeAvulso,
-            ':email' => $emailFake,
-            ':senha' => $senhaFake,
-            ':tel'   => $telAvulso ?: null,
-        ]);
-        $fkCliente = $uuidAvulso;
+        $uuidAvulso = gerarUuid();
+        $emailFake  = 'avulso_' . substr(str_replace('-', '', $uuidAvulso), 0, 8) . '@avulso.internal';
+        $senhaFake  = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
+        $fkCliente  = $uuidAvulso;
 
         // Anota no campo obs que é cliente avulsa
         $tagAvulso = '[Avulsa' . ($telAvulso ? " — $telAvulso" : '') . ']';
@@ -94,22 +85,45 @@ try {
         }
     }
 
-    // ── 3. Verifica conflito ──────────────────────────────────────
+    // ── 3. Verifica conflito (agendamentos + reservas temporárias ativas) ──
     $checkConflito = $pdo->prepare(
         'SELECT COUNT(*) FROM Agendamentos
          WHERE StatusAgendamento NOT IN (\'cancelado\')
            AND DataHoraAgendamento < :fim
            AND DataHoraFim > :ini'
     );
-    $checkConflito->execute([
-        ':ini' => $inicio->format('Y-m-d H:i:s'),
-        ':fim' => $fim->format('Y-m-d H:i:s'),
-    ]);
-    if ((int)$checkConflito->fetchColumn() > 0) {
+    $checkConflito->execute([':ini' => $inicio->format('Y-m-d H:i:s'), ':fim' => $fim->format('Y-m-d H:i:s')]);
+    if ($checkConflito->fetchColumn() > 0) {
         redirecionarComMensagem($retorno, 'Conflito: já existe agendamento neste horário.', 'warning');
     }
 
-    // ── 4. Insere agendamento ─────────────────────────────────────
+    $checkTemp = $pdo->prepare(
+        'SELECT COUNT(*) FROM ReservasTemporarias
+         WHERE DataHoraSlot < :fim AND DataHoraFim > :ini AND ExpiraEm > NOW()'
+    );
+    $checkTemp->execute([':ini' => $inicio->format('Y-m-d H:i:s'), ':fim' => $fim->format('Y-m-d H:i:s')]);
+    if ($checkTemp->fetchColumn() > 0) {
+        redirecionarComMensagem($retorno, 'Horário reservado por uma cliente no fluxo de agendamento. Aguarde 10 minutos ou escolha outro.', 'warning');
+    }
+
+    // ── 4. Insere agendamento em transação ───────────────────────
+    $pdo->beginTransaction();
+
+    if ($tipoCliente === 'avulsa') {
+        // Recria o usuário avulso dentro da transação
+        $insUsr2 = $pdo->prepare(
+            'INSERT INTO Usuarios (IDUsuario, Nome, Email, Senha, Telefone, NivelAcesso, Ativo, MomentoRegistro)
+             VALUES (:id, :nome, :email, :senha, :tel, \'cliente\', 1, NOW())'
+        );
+        $insUsr2->execute([
+            ':id'    => $fkCliente,
+            ':nome'  => $nomeAvulso,
+            ':email' => $emailFake,
+            ':senha' => $senhaFake,
+            ':tel'   => $telAvulso ?: null,
+        ]);
+    }
+
     $id   = gerarUuid();
     $stmt = $pdo->prepare(
         'INSERT INTO Agendamentos
@@ -129,7 +143,10 @@ try {
         ':obs'   => $obs ?: null,
     ]);
 
+    $pdo->commit();
+
 } catch (Exception $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('[SalvarAg] ' . $e->getMessage());
     redirecionarComMensagem($retorno, 'Erro ao salvar agendamento.', 'danger');
 }

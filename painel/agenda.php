@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $statusMap = ['confirmar' => 'confirmado', 'cancelar' => 'cancelado', 'concluir' => 'concluido'];
     if (isset($statusMap[$acao]) && $id) {
         try {
-            $pdo->prepare('UPDATE Agendamentos SET StatusAgendamento = :status WHERE IDAgendamento = :id')
+            $pdo->prepare('UPDATE Agendamentos SET StatusAgendamento = :status WHERE IDAgendamento = :id AND StatusAgendamento != \'cancelado\'')
                 ->execute([':status' => $statusMap[$acao], ':id' => $id]);
             $params = array_filter(['vista' => $_GET['vista'] ?? null, 'mes' => $_GET['mes'] ?? null, 'semana' => $_GET['semana'] ?? null]);
             $qs = $params ? '?' . http_build_query($params) : '';
@@ -104,8 +104,9 @@ if ($vista !== 'calendario') {
     $semanaOffset  = (int)($_GET['semana'] ?? 0);
     $inicioPeriodo = strtotime("monday this week +{$semanaOffset} week");
     $fimPeriodo    = strtotime("sunday this week +{$semanaOffset} week");
-    $iniSQL = date('Y-m-d', $inicioPeriodo);
-    $fimSQL = date('Y-m-d', $fimPeriodo);
+    $iniSQL     = date('Y-m-d', $inicioPeriodo);
+    $fimSQL     = date('Y-m-d', $fimPeriodo);
+    $fimSQLNext = date('Y-m-d', strtotime($fimSQL . ' +1 day'));
 
     try {
         $stmt = $pdo->prepare(
@@ -123,11 +124,11 @@ if ($vista !== 'calendario') {
              JOIN Servicos s ON s.IDServico = a.FKServico
              LEFT JOIN SubServicos ss ON ss.IDSubServico = a.FKSubServico
              LEFT JOIN FichaAnamnese fa ON fa.FKCliente = a.FKCliente
-             WHERE DATE(a.DataHoraAgendamento) BETWEEN :ini AND :fim
+             WHERE a.DataHoraAgendamento >= :ini AND a.DataHoraAgendamento < :fim
                AND a.StatusAgendamento != \'cancelado\'
              ORDER BY a.DataHoraAgendamento ASC'
         );
-        $stmt->execute([':ini' => $iniSQL, ':fim' => $fimSQL]);
+        $stmt->execute([':ini' => $iniSQL, ':fim' => $fimSQLNext]);
         $agendamentos = $stmt->fetchAll();
     } catch (PDOException $e) {
         error_log('[Agenda] ' . $e->getMessage());
@@ -201,10 +202,11 @@ if ($vista === 'calendario') {
         'Dezembro'
     ];
     $mesNome     = $mesesPT[(int)date('n', $mesTs)] . ' de ' . date('Y', $mesTs);
-    $primeiroDia = date('Y-m-d', $mesTs);
-    $ultimoDia   = date('Y-m-d', strtotime('last day of', $mesTs));
-    $diasNoMes   = (int) date('t', $mesTs);
-    $colInicio   = (int) date('w', $mesTs); // 0=Dom
+    $primeiroDia    = date('Y-m-d', $mesTs);
+    $ultimoDia      = date('Y-m-d', strtotime('last day of', $mesTs));
+    $ultimoDiaNext  = date('Y-m-d', strtotime($ultimoDia . ' +1 day'));
+    $diasNoMes      = (int) date('t', $mesTs);
+    $colInicio      = (int) date('w', $mesTs); // 0=Dom
 
     try {
         $stmtCal = $pdo->prepare(
@@ -223,11 +225,11 @@ if ($vista === 'calendario') {
              JOIN Servicos s ON s.IDServico = a.FKServico
              LEFT JOIN SubServicos ss ON ss.IDSubServico = a.FKSubServico
              LEFT JOIN FichaAnamnese fa ON fa.FKCliente = a.FKCliente
-             WHERE DATE(a.DataHoraAgendamento) BETWEEN :ini AND :fim
+             WHERE a.DataHoraAgendamento >= :ini AND a.DataHoraAgendamento < :fim
                AND a.StatusAgendamento != \'cancelado\'
              ORDER BY a.DataHoraAgendamento ASC'
         );
-        $stmtCal->execute([':ini' => $primeiroDia, ':fim' => $ultimoDia]);
+        $stmtCal->execute([':ini' => $primeiroDia, ':fim' => $ultimoDiaNext]);
         $agsCal = $stmtCal->fetchAll();
     } catch (PDOException $e) {
         error_log('[Agenda] ' . $e->getMessage());
@@ -655,10 +657,10 @@ $csrfToken = gerarTokenCSRF();
 
     <!-- Barra de seleção múltipla (bulk) -->
     <?php if (!empty($tiposDia)): ?>
-    <div id="barraSelecao" style="display:none;"
+    <div id="barraSelecao"
          class="position-fixed bottom-0 start-0 end-0 p-3"
          aria-live="polite"
-         style="background:var(--bg-card);border-top:2px solid var(--accent);z-index:1050;box-shadow:0 -4px 24px rgba(0,0,0,.14);">
+         style="display:none;background:var(--bg-card);border-top:2px solid var(--accent);z-index:1050;box-shadow:0 -4px 24px rgba(0,0,0,.14);">
         <div class="container-lg d-flex align-items-center gap-2 flex-wrap">
             <span class="fw-semibold text-accent" id="contagemSel"></span>
             <select id="sltTipoBulk" class="form-select form-select-sm" style="width:auto;max-width:200px;">

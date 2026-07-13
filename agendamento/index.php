@@ -18,9 +18,10 @@ try {
 }
 
 try {
+    // Separadores CHAR(1)/CHAR(2) são bytes de controle que nunca aparecem em nomes
     $servicos = $pdo->query(
-        'SELECT s.*, GROUP_CONCAT(ss.IDSubServico,"||",ss.Nome,"||",ss.Preco,"||",ss.DuracaoMinutos
-                 ORDER BY ss.Nome SEPARATOR ";;") AS SubServicos
+        'SELECT s.*, GROUP_CONCAT(ss.IDSubServico, CHAR(1), ss.Nome, CHAR(1), ss.Preco, CHAR(1), ss.DuracaoMinutos
+                 ORDER BY ss.Nome SEPARATOR \'' . chr(2) . '\') AS SubServicos
          FROM Servicos s
          LEFT JOIN SubServicos ss ON ss.FKServico = s.IDServico AND ss.Ativo = 1
          WHERE s.Ativo = 1
@@ -66,8 +67,8 @@ require_once __DIR__ . '/../geral/header.php';
     <?php
     $subs = [];
     if ($sv['SubServicos']) {
-        foreach (explode(';;', $sv['SubServicos']) as $sub) {
-            [$subId, $subNome, $subPreco, $subDur] = explode('||', $sub);
+        foreach (explode(chr(2), $sv['SubServicos']) as $sub) {
+            [$subId, $subNome, $subPreco, $subDur] = explode(chr(1), $sub, 4);
             $subs[] = compact('subId','subNome','subPreco','subDur');
         }
     }

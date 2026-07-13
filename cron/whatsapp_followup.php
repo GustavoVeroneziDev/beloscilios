@@ -14,8 +14,9 @@ require_once __DIR__ . '/../config/conexao.php';
 
 echo '[' . date('Y-m-d H:i:s') . '] Iniciando follow-ups...' . PHP_EOL;
 
-// Agendamentos concluídos nas últimas 3h que ainda não receberam follow-up
-$from = date('Y-m-d H:i:s', strtotime('-3 hours'));
+// Agendamentos concluídos nos últimos 7 dias que ainda não receberam follow-up.
+// Janela de 7 dias (em vez de 3h) para sobreviver a paradas de servidor.
+$from = date('Y-m-d H:i:s', strtotime('-7 days'));
 
 try {
     $stmt = $pdo->prepare(

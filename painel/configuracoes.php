@@ -49,35 +49,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($acao === 'horarios') {
-        try {
-            $pdo->exec('DELETE FROM HorariosAtendimento');
-            for ($d = 0; $d <= 6; $d++) {
-                $ativo = isset($_POST["dia_{$d}_ativo"]) ? 1 : 0;
-                $ini   = $_POST["dia_{$d}_ini"] ?? '09:00';
-                $fim   = $_POST["dia_{$d}_fim"] ?? '18:00';
-                $temAlmoco  = isset($_POST["dia_{$d}_almoco_ativo"]);
-                $almocoIni  = $temAlmoco ? (trim($_POST["dia_{$d}_almoco_ini"] ?? '') ?: null) : null;
-                $almocoFim  = $temAlmoco ? (trim($_POST["dia_{$d}_almoco_fim"] ?? '') ?: null) : null;
-                if ($ativo) {
-                    $stmt = $pdo->prepare(
-                        'INSERT INTO HorariosAtendimento
-                            (IDHorario, DiaSemana, HoraInicio, HoraFim, AlmocoInicio, AlmocoFim, Ativo)
-                         VALUES (:id, :d, :ini, :fim, :alni, :alfm, 1)'
-                    );
-                    $stmt->execute([
-                        ':id'   => gerarUuid(),
-                        ':d'    => $d,
-                        ':ini'  => $ini,
-                        ':fim'  => $fim,
-                        ':alni' => $almocoIni,
-                        ':alfm' => $almocoFim,
-                    ]);
+        $nomesLocal = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+        // Validação server-side antes de tocar no banco
+        for ($d = 0; $d <= 6; $d++) {
+            if (!isset($_POST["dia_{$d}_ativo"])) continue;
+            $ini = $_POST["dia_{$d}_ini"] ?? '';
+            $fim = $_POST["dia_{$d}_fim"] ?? '';
+            if (!$ini || !$fim || $ini >= $fim) {
+                redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=horarios',
+                    "{$nomesLocal[$d]}: abertura ({$ini}) deve ser anterior ao término ({$fim}).", 'warning');
+            }
+            if (isset($_POST["dia_{$d}_almoco_ativo"])) {
+                $almIni = trim($_POST["dia_{$d}_almoco_ini"] ?? '');
+                $almFim = trim($_POST["dia_{$d}_almoco_fim"] ?? '');
+                if (!$almIni || !$almFim || $almIni >= $almFim || $almIni <= $ini || $almFim >= $fim) {
+                    redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=horarios',
+                        "Almoço de {$nomesLocal[$d]} com horário inválido.", 'warning');
                 }
             }
-            redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Horários atualizados!', 'success');
+        }
+        try {
+            $pdo->beginTransaction();
+            $pdo->exec('DELETE FROM HorariosAtendimento');
+            $stmt = $pdo->prepare(
+                'INSERT INTO HorariosAtendimento
+                    (IDHorario, DiaSemana, HoraInicio, HoraFim, AlmocoInicio, AlmocoFim, Ativo)
+                 VALUES (:id, :d, :ini, :fim, :alni, :alfm, 1)'
+            );
+            for ($d = 0; $d <= 6; $d++) {
+                if (!isset($_POST["dia_{$d}_ativo"])) continue;
+                $ini       = $_POST["dia_{$d}_ini"] ?? '09:00';
+                $fim       = $_POST["dia_{$d}_fim"] ?? '18:00';
+                $temAlmoco = isset($_POST["dia_{$d}_almoco_ativo"]);
+                $almocoIni = $temAlmoco ? (trim($_POST["dia_{$d}_almoco_ini"] ?? '') ?: null) : null;
+                $almocoFim = $temAlmoco ? (trim($_POST["dia_{$d}_almoco_fim"] ?? '') ?: null) : null;
+                $stmt->execute([':id' => gerarUuid(), ':d' => $d, ':ini' => $ini,
+                                ':fim' => $fim, ':alni' => $almocoIni, ':alfm' => $almocoFim]);
+            }
+            $pdo->commit();
+            redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=horarios', 'Horários atualizados!', 'success');
         } catch (PDOException $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
             error_log('[Horarios] ' . $e->getMessage());
-            redirecionarComMensagem(BASE . '/painel/configuracoes.php', 'Erro ao salvar horários.', 'danger');
+            redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=horarios', 'Erro ao salvar horários.', 'danger');
         }
     }
 
@@ -354,81 +368,67 @@ require_once __DIR__ . '/../geral/header.php';
             <form method="POST" id="formHorarios" class="card-body p-4">
                 <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
                 <input type="hidden" name="acao" value="horarios">
-                <div class="table-responsive">
-                    <table class="table align-middle" style="min-width:680px;">
-                        <thead>
-                            <tr>
-                                <th>Dia</th>
-                                <th>Ativo</th>
-                                <th>Almoço</th>
-                                <th>Abertura</th>
-                                <th>Início almoço</th>
-                                <th>Fim almoço</th>
-                                <th>Término</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php for ($d = 0; $d <= 6; $d++): ?>
-                                <?php
-                                $h_row  = $horarios[$d] ?? null;
-                                $temAlm = $h_row && !empty($h_row['AlmocoInicio']);
-                                $almIni = substr($h_row['AlmocoInicio'] ?? '12:00', 0, 5);
-                                $almFim = substr($h_row['AlmocoFim']    ?? '13:00', 0, 5);
-                                ?>
-                                <tr>
-                                    <td class="fw-medium"><?= $diasNomes[$d] ?></td>
-                                    <td>
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox"
-                                                name="dia_<?= $d ?>_ativo" id="dia<?= $d ?>"
-                                                <?= $h_row ? 'checked' : '' ?>>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input"
-                                                type="checkbox"
-                                                name="dia_<?= $d ?>_almoco_ativo"
-                                                id="almoco<?= $d ?>"
-                                                <?= $temAlm ? 'checked' : '' ?>
-                                                onchange="toggleAlmoco(<?= $d ?>)">
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <input type="time" name="dia_<?= $d ?>_ini"
-                                            id="ini_<?= $d ?>"
-                                            class="form-control form-control-sm"
-                                            value="<?= h($h_row['HoraInicio'] ?? '09:00') ?>"
-                                            style="width:110px;">
-                                    </td>
-                                    <td>
-                                        <input type="time" name="dia_<?= $d ?>_almoco_ini"
-                                            id="almoco_ini_<?= $d ?>"
-                                            class="form-control form-control-sm"
-                                            value="<?= h($almIni) ?>"
-                                            style="width:110px;"
-                                            <?= $temAlm ? '' : 'disabled' ?>>
-                                    </td>
-                                    <td>
-                                        <input type="time" name="dia_<?= $d ?>_almoco_fim"
-                                            id="almoco_fim_<?= $d ?>"
-                                            class="form-control form-control-sm"
-                                            value="<?= h($almFim) ?>"
-                                            style="width:110px;"
-                                            <?= $temAlm ? '' : 'disabled' ?>>
-                                    </td>
-                                    <td>
-                                        <input type="time" name="dia_<?= $d ?>_fim"
-                                            id="fim_<?= $d ?>"
-                                            class="form-control form-control-sm"
-                                            value="<?= h($h_row['HoraFim'] ?? '18:00') ?>"
-                                            style="width:110px;">
-                                    </td>
-                                </tr>
-                            <?php endfor ?>
-                        </tbody>
-                    </table>
+                <?php for ($d = 0; $d <= 6; $d++):
+                    $h_row  = $horarios[$d] ?? null;
+                    $temAlm = $h_row && !empty($h_row['AlmocoInicio']);
+                    $almIni = substr($h_row['AlmocoInicio'] ?? '12:00', 0, 5);
+                    $almFim = substr($h_row['AlmocoFim']    ?? '13:00', 0, 5);
+                ?>
+                <div class="card mb-2">
+                    <div class="card-body py-3 px-3">
+                        <div class="d-flex align-items-center gap-3 mb-2">
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox"
+                                    name="dia_<?= $d ?>_ativo" id="dia<?= $d ?>"
+                                    <?= $h_row ? 'checked' : '' ?>
+                                    onchange="toggleDia(<?= $d ?>)">
+                                <label class="form-check-label fw-semibold" for="dia<?= $d ?>">
+                                    <?= $diasNomes[$d] ?>
+                                </label>
+                            </div>
+                        </div>
+                        <div id="row_horas_<?= $d ?>" <?= $h_row ? '' : 'style="display:none"' ?>>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6 col-sm-3">
+                                    <label class="form-label small mb-1">Abertura</label>
+                                    <input type="time" name="dia_<?= $d ?>_ini" id="ini_<?= $d ?>"
+                                        class="form-control form-control-sm"
+                                        value="<?= h($h_row['HoraInicio'] ?? '09:00') ?>">
+                                </div>
+                                <div class="col-6 col-sm-3">
+                                    <label class="form-label small mb-1">Término</label>
+                                    <input type="time" name="dia_<?= $d ?>_fim" id="fim_<?= $d ?>"
+                                        class="form-control form-control-sm"
+                                        value="<?= h($h_row['HoraFim'] ?? '18:00') ?>">
+                                </div>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox"
+                                    name="dia_<?= $d ?>_almoco_ativo" id="almoco<?= $d ?>"
+                                    <?= $temAlm ? 'checked' : '' ?>
+                                    onchange="toggleAlmoco(<?= $d ?>)">
+                                <label class="form-check-label small" for="almoco<?= $d ?>">Intervalo de almoço</label>
+                            </div>
+                            <div id="row_almoco_<?= $d ?>" class="row g-2" <?= $temAlm ? '' : 'style="display:none"' ?>>
+                                <div class="col-6 col-sm-3">
+                                    <label class="form-label small mb-1">Início almoço</label>
+                                    <input type="time" name="dia_<?= $d ?>_almoco_ini" id="almoco_ini_<?= $d ?>"
+                                        class="form-control form-control-sm"
+                                        value="<?= h($almIni) ?>"
+                                        <?= $temAlm ? '' : 'disabled' ?>>
+                                </div>
+                                <div class="col-6 col-sm-3">
+                                    <label class="form-label small mb-1">Fim almoço</label>
+                                    <input type="time" name="dia_<?= $d ?>_almoco_fim" id="almoco_fim_<?= $d ?>"
+                                        class="form-control form-control-sm"
+                                        value="<?= h($almFim) ?>"
+                                        <?= $temAlm ? '' : 'disabled' ?>>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+                <?php endfor ?>
                 <button class="btn btn-accent"><i class="bi bi-save me-1"></i> Salvar horários</button>
             </form>
         </div>
@@ -454,8 +454,15 @@ require_once __DIR__ . '/../geral/header.php';
     <script>
         const diasNomes = <?= json_encode($diasNomes) ?>;
 
+        function toggleDia(d) {
+            const on = document.getElementById('dia' + d).checked;
+            const row = document.getElementById('row_horas_' + d);
+            if (row) row.style.display = on ? '' : 'none';
+        }
         function toggleAlmoco(d) {
             const on = document.getElementById('almoco' + d).checked;
+            const rowAlm = document.getElementById('row_almoco_' + d);
+            if (rowAlm) rowAlm.style.display = on ? '' : 'none';
             document.getElementById('almoco_ini_' + d).disabled = !on;
             document.getElementById('almoco_fim_' + d).disabled = !on;
         }
@@ -467,42 +474,30 @@ require_once __DIR__ . '/../geral/header.php';
 
         document.getElementById('formHorarios').addEventListener('submit', function(e) {
             for (let d = 0; d <= 6; d++) {
-                const ativo = document.getElementById('dia' + d).checked;
-                if (!ativo) continue;
-
-                const ini = document.getElementById('ini_' + d).value;
-                const fim = document.getElementById('fim_' + d).value;
-                const almOn = document.getElementById('almoco' + d).checked;
+                if (!document.getElementById('dia' + d).checked) continue;
+                const ini    = document.getElementById('ini_' + d).value;
+                const fim    = document.getElementById('fim_' + d).value;
+                const almOn  = document.getElementById('almoco' + d).checked;
                 const almIni = document.getElementById('almoco_ini_' + d).value;
                 const almFim = document.getElementById('almoco_fim_' + d).value;
-                const dia = diasNomes[d];
-
-                if (ini >= fim) {
+                const dia    = diasNomes[d];
+                if (!ini || !fim || ini >= fim) {
                     e.preventDefault();
-                    erroHorario(dia + ': o horário de abertura (' + ini + ') deve ser anterior ao término (' + fim + ').');
+                    erroHorario(dia + ': abertura (' + ini + ') deve ser antes do término (' + fim + ').');
                     return;
                 }
-
                 if (almOn) {
                     if (!almIni || !almFim) {
-                        e.preventDefault();
-                        erroHorario(dia + ': preencha os dois horários do intervalo de almoço.');
-                        return;
+                        e.preventDefault(); erroHorario(dia + ': preencha os dois horários do almoço.'); return;
                     }
                     if (almIni >= almFim) {
-                        e.preventDefault();
-                        erroHorario(dia + ': o início do almoço (' + almIni + ') deve ser anterior ao fim (' + almFim + ').');
-                        return;
+                        e.preventDefault(); erroHorario(dia + ': início do almoço deve ser antes do fim.'); return;
                     }
                     if (almIni <= ini) {
-                        e.preventDefault();
-                        erroHorario(dia + ': o início do almoço (' + almIni + ') deve ser após a abertura (' + ini + ').');
-                        return;
+                        e.preventDefault(); erroHorario(dia + ': almoço deve ser após a abertura.'); return;
                     }
                     if (almFim >= fim) {
-                        e.preventDefault();
-                        erroHorario(dia + ': o fim do almoço (' + almFim + ') deve ser antes do término (' + fim + ').');
-                        return;
+                        e.preventDefault(); erroHorario(dia + ': fim do almoço deve ser antes do término.'); return;
                     }
                 }
             }

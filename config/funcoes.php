@@ -1,5 +1,7 @@
 <?php
 
+date_default_timezone_set('America/Sao_Paulo');
+
 function gerarUuid(): string
 {
     $data = random_bytes(16);
@@ -266,11 +268,13 @@ function registrarLogWhatsApp(
 
 function getConfig(PDO $pdo, string $chave, string $padrao = ''): string
 {
+    static $cache = [];
+    if (array_key_exists($chave, $cache)) return $cache[$chave];
     try {
         $stmt = $pdo->prepare('SELECT Valor FROM ConfiguracoesSistema WHERE Chave = :chave LIMIT 1');
         $stmt->execute([':chave' => $chave]);
         $row = $stmt->fetch();
-        return $row ? (string) $row['Valor'] : $padrao;
+        return $cache[$chave] = $row ? (string) $row['Valor'] : $padrao;
     } catch (PDOException) {
         return $padrao;
     }

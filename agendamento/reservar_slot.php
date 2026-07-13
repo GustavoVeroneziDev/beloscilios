@@ -54,8 +54,10 @@ $expira   = (new DateTimeImmutable())->modify('+10 minutes');
 $sessao   = session_id();
 
 try {
-    // Limpa reservas expiradas
+    // Limpa reservas expiradas (fora da transação — manutenção)
     $pdo->exec("DELETE FROM ReservasTemporarias WHERE ExpiraEm < NOW()");
+
+    $pdo->beginTransaction();
 
     // Verifica conflito com agendamentos confirmados
     $check = $pdo->prepare(
@@ -64,11 +66,9 @@ try {
            AND DataHoraAgendamento < :fim
            AND DataHoraFim > :ini'
     );
-    $check->execute([
-        ':ini' => $inicio->format('Y-m-d H:i:s'),
-        ':fim' => $fimSlot->format('Y-m-d H:i:s'),
-    ]);
+    $check->execute([':ini' => $inicio->format('Y-m-d H:i:s'), ':fim' => $fimSlot->format('Y-m-d H:i:s')]);
     if ((int)$check->fetchColumn() > 0) {
+        $pdo->rollBack();
         echo json_encode(['ok' => false, 'msg' => 'Horário já reservado por outra pessoa.']);
         exit;
     }
@@ -81,12 +81,9 @@ try {
            AND DataHoraFim > :ini
            AND ExpiraEm > NOW()'
     );
-    $checkTemp->execute([
-        ':sessao' => $sessao,
-        ':ini'    => $inicio->format('Y-m-d H:i:s'),
-        ':fim'    => $fimSlot->format('Y-m-d H:i:s'),
-    ]);
+    $checkTemp->execute([':sessao' => $sessao, ':ini' => $inicio->format('Y-m-d H:i:s'), ':fim' => $fimSlot->format('Y-m-d H:i:s')]);
     if ((int)$checkTemp->fetchColumn() > 0) {
+        $pdo->rollBack();
         echo json_encode(['ok' => false, 'msg' => 'Alguém está finalizando o agendamento neste horário. Tente outro.']);
         exit;
     }
@@ -96,20 +93,16 @@ try {
         'SELECT COUNT(*) FROM BloqueiosAgenda
          WHERE DataInicio < :fim AND DataFim > :ini'
     );
-    $checkBloq->execute([
-        ':ini' => $inicio->format('Y-m-d H:i:s'),
-        ':fim' => $fimSlot->format('Y-m-d H:i:s'),
-    ]);
+    $checkBloq->execute([':ini' => $inicio->format('Y-m-d H:i:s'), ':fim' => $fimSlot->format('Y-m-d H:i:s')]);
     if ((int)$checkBloq->fetchColumn() > 0) {
+        $pdo->rollBack();
         echo json_encode(['ok' => false, 'msg' => 'Este horário não está disponível para agendamento.']);
         exit;
     }
 
-    // Remove reserva anterior desta sessão
-    $pdo->prepare('DELETE FROM ReservasTemporarias WHERE TokenSessao = :s')
-        ->execute([':s' => $sessao]);
+    // Remove reserva anterior desta sessão e cria a nova
+    $pdo->prepare('DELETE FROM ReservasTemporarias WHERE TokenSessao = :s')->execute([':s' => $sessao]);
 
-    // Cria reserva temporária
     $id = gerarUuid();
     $pdo->prepare(
         'INSERT INTO ReservasTemporarias
@@ -117,22 +110,19 @@ try {
              DataHoraSlot, DataHoraFim, DuracaoMinutos, ExpiraEm)
          VALUES (:id, :s, :srv, :sub, :ini, :fim, :dur, :exp)'
     )->execute([
-        ':id'  => $id,
-        ':s'   => $sessao,
-        ':srv' => $servicoId,
-        ':sub' => $subId,
+        ':id'  => $id,    ':s'   => $sessao,
+        ':srv' => $servicoId, ':sub' => $subId,
         ':ini' => $inicio->format('Y-m-d H:i:s'),
         ':fim' => $fimSlot->format('Y-m-d H:i:s'),
         ':dur' => $duracao,
         ':exp' => $expira->format('Y-m-d H:i:s'),
     ]);
 
-    echo json_encode([
-        'ok'     => true,
-        'expira' => $expira->format('Y-m-d H:i:s'),
-        'token'  => $id,
-    ]);
+    $pdo->commit();
+
+    echo json_encode(['ok' => true, 'expira' => $expira->format('Y-m-d H:i:s'), 'token' => $id]);
 } catch (PDOException $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('[ReservarSlot] ' . $e->getMessage());
     echo json_encode(['ok' => false, 'msg' => 'Erro interno. Tente novamente.']);
 }

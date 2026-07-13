@@ -9,13 +9,18 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !validarTokenCSRF($_POST['csrf_toke
     redirecionarComMensagem(BASE . '/painel/relatorio.php', 'Requisição inválida.', 'danger');
 }
 
-$id       = $_POST['id']       ?? '';
-$redirect = $_POST['redirect'] ?? BASE . '/painel/relatorio.php';
+$id = trim($_POST['id'] ?? '');
+
+// Redireciona sempre para o relatório — não aceita URL externa do POST
+$redirect = BASE . '/painel/relatorio.php';
 
 if ($id) {
     try {
         $pdo->prepare(
-            'UPDATE Agendamentos SET StatusPagamento=\'pago\' WHERE IDAgendamento=:id'
+            'UPDATE Agendamentos SET StatusPagamento=\'pago\'
+             WHERE IDAgendamento=:id
+               AND StatusAgendamento != \'cancelado\'
+               AND StatusPagamento   != \'pago\''
         )->execute([':id' => $id]);
         redirecionarComMensagem($redirect, 'Pagamento registrado!', 'success');
     } catch (PDOException $e) {

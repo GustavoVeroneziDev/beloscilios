@@ -22,10 +22,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Upload de foto
     $fotoUrl = $_POST['foto_atual'] ?? null;
     if (!empty($_FILES['foto']['name'])) {
-        $ext   = strtolower(pathinfo($_FILES['foto']['name'], PATHINFO_EXTENSION));
-        $exts  = ['jpg', 'jpeg', 'png', 'webp'];
-        if (!in_array($ext, $exts)) {
-            redirecionarComMensagem(BASE . '/painel/servicos.php', 'Formato de imagem inválido.', 'warning');
+        $ext          = strtolower(pathinfo($_FILES['foto']['name'], PATHINFO_EXTENSION));
+        $extsPermit   = ['jpg', 'jpeg', 'png', 'webp'];
+        $mimesPermit  = ['image/jpeg', 'image/png', 'image/webp'];
+        $finfo        = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeReal     = finfo_file($finfo, $_FILES['foto']['tmp_name']);
+        finfo_close($finfo);
+        if (!in_array($ext, $extsPermit) || !in_array($mimeReal, $mimesPermit)) {
+            redirecionarComMensagem(BASE . '/painel/servicos.php', 'Formato de imagem inválido. Use JPG, PNG ou WebP.', 'warning');
         }
         $fname = gerarUuid() . '.' . $ext;
         $dir   = __DIR__ . '/../geral/img/servicos/';
@@ -117,9 +121,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 try {
     $servicos = $pdo->query(
-        'SELECT s.*,
-                (SELECT COUNT(*) FROM SubServicos ss WHERE ss.FKServico=s.IDServico AND ss.Ativo=1) AS QtdSub
-         FROM Servicos s ORDER BY s.Ordem ASC, s.Nome ASC'
+        'SELECT s.*, COUNT(ss.IDSubServico) AS QtdSub
+         FROM Servicos s
+         LEFT JOIN SubServicos ss ON ss.FKServico = s.IDServico AND ss.Ativo = 1
+         GROUP BY s.IDServico
+         ORDER BY s.Ordem ASC, s.Nome ASC'
     )->fetchAll();
 
     $subServicos = $pdo->query(

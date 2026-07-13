@@ -156,24 +156,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->prepare('DELETE FROM ReservasTemporarias WHERE TokenSessao = :s')
             ->execute([':s' => session_id()]);
 
-        $pdo->commit();
-
-        // Se é reagendamento, cancela o agendamento anterior
+        // Cancela o agendamento anterior dentro da mesma transação (reagendamento atômico)
         $msgSucesso = "Agendamento confirmado! Te esperamos em {$data} às {$hora}.";
         if (!empty($_SESSION['reagendar_id'])) {
             $oldId = $_SESSION['reagendar_id'];
             unset($_SESSION['reagendar_id']);
-            try {
-                $pdo->prepare(
-                    'UPDATE Agendamentos SET StatusAgendamento = \'cancelado\'
-                     WHERE IDAgendamento = :id AND FKCliente = :uid
-                       AND StatusAgendamento IN (\'pendente\',\'confirmado\')'
-                )->execute([':id' => $oldId, ':uid' => $uid]);
-                $msgSucesso = "Reagendamento confirmado! Seu horário anterior foi cancelado. Te esperamos em {$data} às {$hora}.";
-            } catch (PDOException $e) {
-                error_log('[Reagendar] Erro ao cancelar agendamento anterior: ' . $e->getMessage());
-            }
+            $pdo->prepare(
+                'UPDATE Agendamentos SET StatusAgendamento = \'cancelado\'
+                 WHERE IDAgendamento = :id AND FKCliente = :uid
+                   AND StatusAgendamento IN (\'pendente\',\'confirmado\')'
+            )->execute([':id' => $oldId, ':uid' => $uid]);
+            $msgSucesso = "Reagendamento confirmado! Seu horário anterior foi cancelado. Te esperamos em {$data} às {$hora}.";
         }
+
+        $pdo->commit();
 
         // Notificações após o commit — falha aqui não desfaz o agendamento
         $usuarioStmt = $pdo->prepare(

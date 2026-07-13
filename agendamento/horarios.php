@@ -64,22 +64,26 @@ try {
     // Agendamentos existentes neste dia
     $agStmt = $pdo->prepare(
         'SELECT DataHoraAgendamento, DataHoraFim FROM Agendamentos
-         WHERE DATE(DataHoraAgendamento) = :data
+         WHERE DataHoraAgendamento >= :data AND DataHoraAgendamento < :data_next
            AND StatusAgendamento NOT IN (\'cancelado\')'
     );
-    $agStmt->execute([':data' => $dataSel]);
+    $agStmt->execute([':data' => $dataSel, ':data_next' => date('Y-m-d', strtotime($dataSel . ' +1 day'))]);
     $agendados = $agStmt->fetchAll();
 
     // Reservas temporárias de outras sessões
     $minhaSessao = session_id();
-    $pdo->exec("DELETE FROM ReservasTemporarias WHERE ExpiraEm < NOW()");
+    // Limpeza probabilística (~5%) para não bloquear toda request
+    if (random_int(1, 20) === 1) {
+        try { $pdo->exec("DELETE FROM ReservasTemporarias WHERE ExpiraEm < NOW()"); } catch (PDOException) {}
+    }
+    $dataSelNext = date('Y-m-d', strtotime($dataSel . ' +1 day'));
     $tempStmt = $pdo->prepare(
         'SELECT DataHoraSlot, DataHoraFim FROM ReservasTemporarias
-         WHERE DATE(DataHoraSlot) = :data
+         WHERE DataHoraSlot >= :data AND DataHoraSlot < :data_next
            AND TokenSessao != :sessao
            AND ExpiraEm > NOW()'
     );
-    $tempStmt->execute([':data' => $dataSel, ':sessao' => $minhaSessao]);
+    $tempStmt->execute([':data' => $dataSel, ':data_next' => $dataSelNext, ':sessao' => $minhaSessao]);
     $reservasTemp = $tempStmt->fetchAll();
 
     // Bloqueios que interceptam este dia
@@ -226,14 +230,15 @@ require_once __DIR__ . '/../geral/header.php';
                     <i class="bi bi-calendar-x fs-2 d-block mb-2 opacity-25"></i>
                     <p>Não atendemos neste dia. Escolha outra data.</p>
                 </div>
-                <?php elseif ($diaEspecial && !$diaEspecial['BloqueiaTotal']): ?>
-                <?php /* Aviso sutil quando horário está reduzido por tipo especial */ ?>
+                <?php else: ?>
+                <?php if ($diaEspecial && !$diaEspecial['BloqueiaTotal']): ?>
                 <div class="alert alert-warning py-2 px-3 mb-3 d-flex align-items-center gap-2 small">
                     <i class="bi bi-clock-history flex-shrink-0"></i>
                     Horário reduzido: <?= h($diaEspecial['Nome']) ?>
                     (<?= substr($diaEspecial['HoraInicio'], 0, 5) ?>–<?= substr($diaEspecial['HoraFim'], 0, 5) ?>)
                 </div>
-                <?php elseif (empty($slots)): ?>
+                <?php endif ?>
+                <?php if (empty($slots)): ?>
                 <div class="text-center py-4 text-secondary">
                     <i class="bi bi-clock-history fs-2 d-block mb-2 opacity-25"></i>
                     <p>Nenhum horário disponível neste dia. Tente outra data.</p>
@@ -250,11 +255,12 @@ require_once __DIR__ . '/../geral/header.php';
                     <?php endforeach ?>
                 </div>
                 <?php endif ?>
+                <?php endif ?>
             </div>
         </div>
     </div>
 
-    <!-- Resumo do serviço -->
+    <!-- Resumo do serviço (desktop) -->
     <div class="col-lg-4">
         <div class="card p-4 sticky-top" style="top:80px;">
             <h6 class="fw-bold mb-3"><img src="<?= BASE ?>/geral/img/mascara.png" alt="" style="width:1.1rem;height:1.1rem;object-fit:contain;vertical-align:middle;" class="me-2">Resumo</h6>
@@ -281,6 +287,21 @@ require_once __DIR__ . '/../geral/header.php';
                 Confirmar agendamento <i class="bi bi-arrow-right ms-1"></i>
             </a>
         </div>
+    </div>
+</div>
+
+<!-- Barra fixa mobile: aparece ao selecionar slot em telas < lg -->
+<div id="barraConfirmarMobile"
+     class="d-lg-none position-fixed bottom-0 start-0 end-0 p-3"
+     style="display:none!important;background:var(--bg-card);border-top:2px solid var(--accent);z-index:1050;box-shadow:0 -4px 24px rgba(0,0,0,.14);">
+    <div class="d-flex align-items-center gap-2">
+        <div class="flex-grow-1 small">
+            <span class="fw-semibold text-accent" id="mobResumoHora">—</span>
+            <span class="text-secondary ms-1" id="mobResumoData"></span>
+        </div>
+        <a href="#" id="btnConfirmarMobile" class="btn btn-accent flex-shrink-0">
+            Confirmar <i class="bi bi-arrow-right ms-1"></i>
+        </a>
     </div>
 </div>
 
@@ -332,6 +353,8 @@ function iniciarCountdown(expiraISO) {
             }
             document.getElementById('btnConfirmar').classList.add('disabled');
             box.classList.add('d-none');
+            const barMob = document.getElementById('barraConfirmarMobile');
+            if (barMob) barMob.style.setProperty('display', 'none', 'important');
             return;
         }
         const m = String(Math.floor(diff / 60)).padStart(2, '0');
@@ -388,15 +411,27 @@ function selecionarSlot(btn) {
 
         document.getElementById('inp_hora').value  = hora;
         document.getElementById('inp_token').value = res.token;
-        document.getElementById('resumoData').textContent = data.split('-').reverse().join('/');
+        const dataFmt = data.split('-').reverse().join('/');
+        document.getElementById('resumoData').textContent = dataFmt;
         document.getElementById('resumoHora').textContent = hora;
 
-        const btnConf = document.getElementById('btnConfirmar');
-        btnConf.classList.remove('disabled');
-        btnConf.onclick = function(e) {
+        const acao = function(e) {
             e.preventDefault();
             document.getElementById('formConfirmar').submit();
         };
+
+        const btnConf = document.getElementById('btnConfirmar');
+        btnConf.classList.remove('disabled');
+        btnConf.onclick = acao;
+
+        // Barra mobile
+        const barMob = document.getElementById('barraConfirmarMobile');
+        if (barMob) {
+            barMob.style.setProperty('display', 'block', 'important');
+            document.getElementById('mobResumoHora').textContent = hora;
+            document.getElementById('mobResumoData').textContent = dataFmt;
+            document.getElementById('btnConfirmarMobile').onclick = acao;
+        }
 
         iniciarCountdown(res.expira);
     })
