@@ -511,7 +511,7 @@ require_once __DIR__ . '/../geral/header.php';
                 <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
                 <input type="hidden" name="acao" value="mensagens">
                 <?php
-                $varBase  = '<code>{nome}</code>, <code>{data}</code>, <code>{hora}</code>, <code>{servico}</code>';
+                $varBase  = '<code>{nome}</code>, <code>{dia_semana}</code>, <code>{data}</code>, <code>{hora}</code>, <code>{servico}</code>';
                 $msgs = [
                     [
                         'key'  => 'msg_confirmacao',

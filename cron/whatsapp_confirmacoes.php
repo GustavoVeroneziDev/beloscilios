@@ -55,12 +55,15 @@ foreach ($pendentes as $ag) {
         continue;
     }
 
-    $data = date('d/m/Y', strtotime($ag['DataHoraAgendamento']));
-    $hora = date('H:i',   strtotime($ag['DataHoraAgendamento']));
+    $ts         = strtotime($ag['DataHoraAgendamento']);
+    $data       = date('d/m/Y', $ts);
+    $hora       = date('H:i',   $ts);
+    $diasPT     = ['domingo','segunda feira','terça feira','quarta feira','quinta feira','sexta feira','sábado'];
+    $diaSemana  = $diasPT[(int)date('w', $ts)];
 
     $msg = str_replace(
-        ['{nome}', '{data}', '{hora}', '{servico}'],
-        [$ag['NomeCliente'], $data, $hora, $ag['NomeServico']],
+        ['{nome}', '{data}', '{hora}', '{servico}', '{dia_semana}'],
+        [$ag['NomeCliente'], $data, $hora, $ag['NomeServico'], $diaSemana],
         $msgTpl
     );
 
