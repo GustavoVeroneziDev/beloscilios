@@ -21,10 +21,9 @@ try {
         'SELECT IDUsuario AS id, Nome AS nome, Email AS email, Telefone AS telefone
          FROM Usuarios
          WHERE NivelAcesso = \'cliente\'
-           AND Ativo = 1
-           AND (Nome LIKE :q OR Email LIKE :q)
+           AND (Nome LIKE :q OR Email LIKE :q OR Telefone LIKE :q)
          ORDER BY Nome ASC
-         LIMIT 10'
+         LIMIT 15'
     );
     $stmt->execute([':q' => '%' . $q . '%']);
     $resultados = $stmt->fetchAll();

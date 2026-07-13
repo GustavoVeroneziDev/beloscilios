@@ -15,14 +15,29 @@ $bloqueios = [];
 $servicos  = [];
 $subsPorSv = [];
 
+// Horário do dia — try separado: falha aqui não impede serviços de carregar
 try {
     $horStmt = $pdo->prepare(
         'SELECT HoraInicio, HoraFim, AlmocoInicio, AlmocoFim
          FROM HorariosAtendimento WHERE DiaSemana = :d AND Ativo = 1 LIMIT 1'
     );
     $horStmt->execute([':d' => $diaSemana]);
-    $horario = $horStmt->fetch();
+    $horario = $horStmt->fetch() ?: null;
+} catch (PDOException $e) {
+    error_log('[NovoAg] horario: ' . $e->getMessage());
+    // Fallback sem almoço se a coluna não existir
+    try {
+        $horStmt2 = $pdo->prepare(
+            'SELECT HoraInicio, HoraFim FROM HorariosAtendimento WHERE DiaSemana = :d AND Ativo = 1 LIMIT 1'
+        );
+        $horStmt2->execute([':d' => $diaSemana]);
+        $h2 = $horStmt2->fetch();
+        if ($h2) $horario = array_merge($h2, ['AlmocoInicio' => null, 'AlmocoFim' => null]);
+    } catch (PDOException) {}
+}
 
+// Agendamentos e bloqueios do dia
+try {
     $agStmt = $pdo->prepare(
         'SELECT a.DataHoraAgendamento, a.DataHoraFim,
                 u.Nome AS NomeCliente, s.Nome AS NomeServico
@@ -41,7 +56,12 @@ try {
     );
     $bloqStmt->execute([':data' => $dataSel]);
     $bloqueios = $bloqStmt->fetchAll();
+} catch (PDOException $e) {
+    error_log('[NovoAg] agendados: ' . $e->getMessage());
+}
 
+// Serviços — try independente para sempre carregar o dropdown
+try {
     $servicos = $pdo->query(
         'SELECT IDServico, Nome, DuracaoMinutos, Preco FROM Servicos WHERE Ativo = 1 ORDER BY Ordem'
     )->fetchAll();
@@ -52,7 +72,7 @@ try {
         $subsPorSv[$ss['FKServico']][] = $ss;
     }
 } catch (PDOException $e) {
-    error_log('[NovoAg] ' . $e->getMessage());
+    error_log('[NovoAg] servicos: ' . $e->getMessage());
 }
 
 // Monta grade de slots
