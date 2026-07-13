@@ -139,6 +139,8 @@ $base          = '/beloscilios';
                                             <i class="bi bi-person me-2"></i>Meu Perfil</a></li>
                                     <li><a class="dropdown-item" href="<?= BASE ?>/usuario/historico.php">
                                             <i class="bi bi-clock-history me-2"></i>Histórico</a></li>
+                                    <li><a class="dropdown-item" href="<?= BASE ?>/usuario/ficha_anamnese.php">
+                                            <i class="bi bi-clipboard2-pulse me-2"></i>Ficha de saúde</a></li>
                                     <li><a class="dropdown-item" href="<?= BASE ?>/agendamento/index.php">
                                             <i class="bi bi-calendar-plus me-2"></i>Agendar</a></li>
                                     <li>

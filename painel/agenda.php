@@ -111,11 +111,18 @@ if ($vista !== 'calendario') {
         $stmt = $pdo->prepare(
             'SELECT a.*, u.Nome AS NomeCliente, u.Telefone,
                     s.Nome AS NomeServico, s.DuracaoMinutos,
-                    ss.Nome AS NomeSubServico
+                    ss.Nome AS NomeSubServico,
+                    IF(fa.IDFicha IS NOT NULL, 1, 0) AS TemFicha,
+                    IF(fa.Gravida OR fa.Amamentando OR fa.AlergiaAdesivo OR fa.AlergiaLatex
+                       OR fa.ReacaoAnterior OR fa.ProblemaOcular OR fa.QuimioRadio
+                       OR fa.Tricotilomania, 1, 0) AS AlertaAlto,
+                    IF(fa.Tireoide OR fa.Diabetes OR fa.PressaoAlterada OR fa.UsaMedicamentos
+                       OR fa.Retinoide OR fa.CondicaoPele, 1, 0) AS AlertaMedio
              FROM Agendamentos a
              JOIN Usuarios u ON u.IDUsuario = a.FKCliente
              JOIN Servicos s ON s.IDServico = a.FKServico
              LEFT JOIN SubServicos ss ON ss.IDSubServico = a.FKSubServico
+             LEFT JOIN FichaAnamnese fa ON fa.FKCliente = a.FKCliente
              WHERE DATE(a.DataHoraAgendamento) BETWEEN :ini AND :fim
                AND a.StatusAgendamento != \'cancelado\'
              ORDER BY a.DataHoraAgendamento ASC'
@@ -204,11 +211,18 @@ if ($vista === 'calendario') {
             'SELECT a.IDAgendamento, a.DataHoraAgendamento, a.StatusAgendamento,
                     a.StatusPagamento, u.Nome AS NomeCliente, u.Telefone,
                     s.Nome AS NomeServico, s.DuracaoMinutos,
-                    ss.Nome AS NomeSubServico
+                    ss.Nome AS NomeSubServico,
+                    IF(fa.IDFicha IS NOT NULL, 1, 0) AS TemFicha,
+                    IF(fa.Gravida OR fa.Amamentando OR fa.AlergiaAdesivo OR fa.AlergiaLatex
+                       OR fa.ReacaoAnterior OR fa.ProblemaOcular OR fa.QuimioRadio
+                       OR fa.Tricotilomania, 1, 0) AS AlertaAlto,
+                    IF(fa.Tireoide OR fa.Diabetes OR fa.PressaoAlterada OR fa.UsaMedicamentos
+                       OR fa.Retinoide OR fa.CondicaoPele, 1, 0) AS AlertaMedio
              FROM Agendamentos a
              JOIN Usuarios u ON u.IDUsuario = a.FKCliente
              JOIN Servicos s ON s.IDServico = a.FKServico
              LEFT JOIN SubServicos ss ON ss.IDSubServico = a.FKSubServico
+             LEFT JOIN FichaAnamnese fa ON fa.FKCliente = a.FKCliente
              WHERE DATE(a.DataHoraAgendamento) BETWEEN :ini AND :fim
                AND a.StatusAgendamento != \'cancelado\'
              ORDER BY a.DataHoraAgendamento ASC'
@@ -296,6 +310,7 @@ if ($vista === 'calendario') {
             'status'  => $ag['StatusAgendamento'],
             'pag'     => $ag['StatusPagamento'],
             'tel'     => $ag['Telefone'] ?? '',
+            'alerta'  => $ag['AlertaAlto'] ? 'alto' : ($ag['AlertaMedio'] ? 'medio' : ($ag['TemFicha'] ? 'ok' : 'sem_ficha')),
         ], $ags);
     }
 }
@@ -490,8 +505,17 @@ $csrfToken = gerarTokenCSRF();
                                     <?= date('H:i', strtotime($ag['DataHoraAgendamento'])) ?>
                                 </span>
                                 <div class="flex-grow-1">
-                                    <span class="fw-medium"><?= h($ag['NomeCliente']) ?></span>
-                                    <span class="text-secondary small ms-1 d-block d-md-inline">
+                                    <div class="d-flex align-items-center gap-1 flex-wrap">
+                                        <span class="fw-medium"><?= h($ag['NomeCliente']) ?></span>
+                                        <?php if (!empty($ag['AlertaAlto'])): ?>
+                                        <span class="badge bg-danger" title="Ficha: atenção alta — verificar antes do atendimento"><i class="bi bi-heart-pulse-fill"></i></span>
+                                        <?php elseif (!empty($ag['AlertaMedio'])): ?>
+                                        <span class="badge bg-warning text-dark" title="Ficha: atenção moderada"><i class="bi bi-heart-pulse"></i></span>
+                                        <?php elseif (empty($ag['TemFicha'])): ?>
+                                        <span class="badge bg-secondary" style="opacity:.6;" title="Sem ficha de anamnese"><i class="bi bi-clipboard2-x"></i></span>
+                                        <?php endif ?>
+                                    </div>
+                                    <span class="text-secondary small d-block d-md-inline">
                                         <?= h($ag['NomeSubServico'] ?? $ag['NomeServico']) ?>
                                         (<?= $ag['DuracaoMinutos'] ?>min)
                                     </span>
@@ -924,11 +948,19 @@ $csrfToken = gerarTokenCSRF();
                         botoes += '<button class="btn btn-sm btn-outline-secondary" onclick="acaoAg(\'concluir\',\'' + ag.id + '\')" title="Concluído"><i class="bi bi-check2-all"></i></button>';
                     }
 
+                    const alertaBadges = {
+                        alto:     '<span class="badge bg-danger ms-1" title="Ficha: atenção alta — verificar antes do atendimento"><i class="bi bi-heart-pulse-fill"></i></span>',
+                        medio:    '<span class="badge bg-warning text-dark ms-1" title="Ficha: atenção moderada"><i class="bi bi-heart-pulse"></i></span>',
+                        sem_ficha:'<span class="badge bg-secondary ms-1" style="opacity:.6;" title="Sem ficha de anamnese"><i class="bi bi-clipboard2-x"></i></span>',
+                        ok:       '',
+                    };
+                    const alertaBadge = alertaBadges[ag.alerta] || '';
+
                     li.innerHTML =
                         '<div class="d-flex align-items-center gap-2 flex-wrap">' +
                         '<span class="fw-bold text-accent" style="min-width:40px;">' + escHtml(ag.hora) + '</span>' +
                         '<div class="flex-grow-1">' +
-                        '<span class="fw-medium">' + escHtml(ag.nome) + '</span>' +
+                        '<span class="fw-medium">' + escHtml(ag.nome) + '</span>' + alertaBadge +
                         '<span class="text-secondary small ms-1 d-block d-md-inline">' +
                         escHtml(ag.servico) + ' (' + ag.duracao + 'min)</span>' +
                         '</div>' +

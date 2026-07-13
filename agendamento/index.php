@@ -5,6 +5,18 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/../config/conexao.php';
 exigirLogin('cliente');
 
+// Redireciona para ficha de anamnese se o cliente ainda não preencheu
+try {
+    $stmtFicha = $pdo->prepare('SELECT IDFicha FROM FichaAnamnese WHERE FKCliente = :id LIMIT 1');
+    $stmtFicha->execute([':id' => $_SESSION['usuario_id']]);
+    if (!$stmtFicha->fetchColumn()) {
+        header('Location: ' . BASE . '/usuario/ficha_anamnese.php?next=agendamento');
+        exit;
+    }
+} catch (PDOException) {
+    // Migration pendente — não bloqueia o agendamento
+}
+
 try {
     $servicos = $pdo->query(
         'SELECT s.*, GROUP_CONCAT(ss.IDSubServico,"||",ss.Nome,"||",ss.Preco,"||",ss.DuracaoMinutos

@@ -40,6 +40,20 @@ try {
     $totalAg    = 0;
 }
 
+$ficha = null;
+try {
+    $sf = $pdo->prepare('SELECT AtualizadoEm, Gravida, Amamentando, AlergiaAdesivo, AlergiaLatex,
+                                ReacaoAnterior, ProblemaOcular, QuimioRadio, Tricotilomania,
+                                Tireoide, Diabetes, PressaoAlterada, UsaMedicamentos, Retinoide, CondicaoPele
+                         FROM FichaAnamnese WHERE FKCliente = :id LIMIT 1');
+    $sf->execute([':id' => $uid]);
+    $ficha = $sf->fetch() ?: null;
+} catch (PDOException) {
+    $ficha = null; // Migration pendente
+}
+$fichaAlertaAlto  = $ficha && ($ficha['Gravida'] || $ficha['Amamentando'] || $ficha['AlergiaAdesivo'] || $ficha['AlergiaLatex'] || $ficha['ReacaoAnterior'] || $ficha['ProblemaOcular'] || $ficha['QuimioRadio'] || $ficha['Tricotilomania']);
+$fichaAlertaMedio = $ficha && ($ficha['Tireoide'] || $ficha['Diabetes'] || $ficha['PressaoAlterada'] || $ficha['UsaMedicamentos'] || $ficha['Retinoide'] || $ficha['CondicaoPele']);
+
 $mesesPt = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 
 $paginaTitulo = 'Meu Perfil';
@@ -175,6 +189,55 @@ require_once __DIR__ . '/../geral/header.php';
             <?php endif ?>
         </div>
     </div>
+
+
+    <!-- Ficha de Anamnese -->
+    <?php if ($ficha !== null || true): // mostra sempre (null = migration pendente) ?>
+    <div class="col-12">
+        <?php if (!$ficha): ?>
+        <div class="card border-danger" style="border-color:#dc3545!important;">
+            <div class="card-body px-4 py-3 d-flex align-items-center gap-3 flex-wrap">
+                <i class="bi bi-clipboard2-x fs-3 text-danger flex-shrink-0"></i>
+                <div class="flex-grow-1">
+                    <div class="fw-semibold text-danger">Ficha de saúde pendente</div>
+                    <p class="text-secondary small mb-0">Preencha antes do próximo agendamento para garantir sua segurança durante o procedimento.</p>
+                </div>
+                <a href="<?= BASE ?>/usuario/ficha_anamnese.php" class="btn btn-danger btn-sm flex-shrink-0">
+                    <i class="bi bi-clipboard2-plus me-1"></i> Preencher agora
+                </a>
+            </div>
+        </div>
+        <?php else: ?>
+        <div class="card">
+            <div class="card-body px-4 py-3 d-flex align-items-center gap-3 flex-wrap">
+                <?php if ($fichaAlertaAlto): ?>
+                    <i class="bi bi-heart-pulse-fill fs-3 text-danger flex-shrink-0"></i>
+                <?php elseif ($fichaAlertaMedio): ?>
+                    <i class="bi bi-heart-pulse fs-3 text-warning flex-shrink-0"></i>
+                <?php else: ?>
+                    <i class="bi bi-clipboard2-check fs-3 text-success flex-shrink-0"></i>
+                <?php endif ?>
+                <div class="flex-grow-1">
+                    <div class="fw-semibold">Ficha de anamnese</div>
+                    <p class="text-secondary small mb-0">
+                        Atualizada em <?= date('d/m/Y', strtotime($ficha['AtualizadoEm'])) ?>.
+                        <?php if ($fichaAlertaAlto): ?>
+                            <span class="text-danger">Contém informações de atenção alta.</span>
+                        <?php elseif ($fichaAlertaMedio): ?>
+                            <span class="text-warning">Contém informações de atenção moderada.</span>
+                        <?php else: ?>
+                            <span class="text-success">Nenhuma condição de atenção.</span>
+                        <?php endif ?>
+                    </p>
+                </div>
+                <a href="<?= BASE ?>/usuario/ficha_anamnese.php" class="btn btn-outline-accent btn-sm flex-shrink-0">
+                    <i class="bi bi-pencil me-1"></i> Atualizar ficha
+                </a>
+            </div>
+        </div>
+        <?php endif ?>
+    </div>
+    <?php endif ?>
 
 </div>
 
