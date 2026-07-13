@@ -61,9 +61,13 @@ foreach ($pendentes as $ag) {
     $diasPT     = ['domingo','segunda feira','terça feira','quarta feira','quinta feira','sexta feira','sábado'];
     $diaSemana  = $diasPT[(int)date('w', $ts)];
 
+    $valor = $ag['ValorCobrado'] > 0
+        ? 'R$ ' . number_format((float)$ag['ValorCobrado'], 2, ',', '.')
+        : '';
+
     $msg = str_replace(
-        ['{nome}', '{data}', '{hora}', '{servico}', '{dia_semana}'],
-        [$ag['NomeCliente'], $data, $hora, $ag['NomeServico'], $diaSemana],
+        ['{nome}', '{data}', '{hora}', '{servico}', '{dia_semana}', '{valor}'],
+        [$ag['NomeCliente'], $data, $hora, $ag['NomeServico'], $diaSemana, $valor],
         $msgTpl
     );
 

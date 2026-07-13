@@ -1,6 +1,6 @@
 <?php
 /**
- * Cron: lembrete 24h antes do agendamento.
+ * Cron: lembrete 48h antes do agendamento com pedido de confirmação.
  * Executar 1x por dia (ex: 08h):
  *   0 8 * * * php /caminho/para/beloscilios/cron/whatsapp_lembretes.php >> /logs/wa_lembretes.log 2>&1
  */
@@ -14,9 +14,9 @@ require_once __DIR__ . '/../config/conexao.php';
 
 echo '[' . date('Y-m-d H:i:s') . '] Iniciando lembretes...' . PHP_EOL;
 
-// Agendamentos entre 24h e 25h a partir de agora
-$ini24h = date('Y-m-d H:i:s', strtotime('+24 hours'));
-$fim25h = date('Y-m-d H:i:s', strtotime('+25 hours'));
+// Agendamentos entre 48h e 49h a partir de agora
+$ini24h = date('Y-m-d H:i:s', strtotime('+48 hours'));
+$fim25h = date('Y-m-d H:i:s', strtotime('+49 hours'));
 
 try {
     $stmt = $pdo->prepare(

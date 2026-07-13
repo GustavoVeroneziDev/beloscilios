@@ -357,7 +357,34 @@ switch ($estadoAtual) {
             $resposta   = "Entendido! Vamos remarcar 😊\n\n{$lista}";
 
         } else {
-            $resposta = "Oiee! 😊 Preciso da sua confirmação para o agendamento. Você pode *confirmar*, *cancelar* ou *reagendar*. O que prefere?";
+            // Resposta confusa — avisa a designer no pessoal para ela entrar em contato
+            $numDesigner = getConfig($pdo, 'numero_alerta_designer', '');
+            if ($numDesigner) {
+                $telDesigner = sanitizarTelefone($numDesigner);
+                if ($telDesigner && $fkAgendamento) {
+                    // Busca dados do agendamento para o alerta
+                    $stmtAlerta = $pdo->prepare(
+                        "SELECT a.DataHoraAgendamento, s.Nome AS Servico, sub.Nome AS SubServico
+                         FROM Agendamentos a
+                         JOIN Servicos s ON s.IDServico = a.FKServico
+                         LEFT JOIN SubServicos sub ON sub.IDSubServico = a.FKSubServico
+                         WHERE a.IDAgendamento = :id LIMIT 1"
+                    );
+                    $stmtAlerta->execute([':id' => $fkAgendamento]);
+                    $dadosAlerta = $stmtAlerta->fetch();
+                    if ($dadosAlerta) {
+                        $srv = $dadosAlerta['SubServico'] ?: $dadosAlerta['Servico'];
+                        $dt  = date('d/m/Y', strtotime($dadosAlerta['DataHoraAgendamento']));
+                        $hr  = date('H:i',   strtotime($dadosAlerta['DataHoraAgendamento']));
+                        $nomeCli  = $cliente['Nome'] ?? 'Desconhecida';
+                        $alertMsg = "🚨 *Atenção!*\n\n*{$nomeCli}* está com dúvidas sobre o agendamento de *{$srv}* no dia *{$dt} às {$hr}*.\n\nTelefone: *{$telefone}*\n\nPode entrar em contato diretamente com ela? 💜";
+                        $okAlerta = enviarWhatsApp($telDesigner, $alertMsg);
+                        registrarLogWhatsApp($pdo, $telDesigner, $alertMsg, 'alerta_designer', $okAlerta ? 'enviado' : 'erro', $fkAgendamento);
+                    }
+                }
+            }
+            $resposta = "Oiee! 😊 Não entendi sua resposta. A Thainá vai entrar em contato com você em breve! 💜";
+            $novoEstado = 'resolvido';
         }
         break;
 
@@ -498,10 +525,9 @@ function _geminiNLU(
     }
 
     // Contexto da cliente
-    $nomeCliente = $cliente ? $cliente['Nome'] : null;
+    $nomeCliente  = $cliente ? $cliente['Nome'] : null;
     $primeiroNome = $nomeCliente ? explode(' ', trim($nomeCliente))[0] : null;
-
-    $ctxCliente  = $nomeCliente ? "Nome: {$nomeCliente}" : "Não cadastrada no sistema";
+    $ctxCliente   = $nomeCliente ? "Nome: {$nomeCliente} (chame de {$primeiroNome})" : "Não cadastrada no sistema";
 
     $ctxAg = '';
     if ($agendamentos) {
