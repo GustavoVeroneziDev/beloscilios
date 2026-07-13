@@ -664,7 +664,11 @@ function buscarCliente(q) {
     if (q.length < 1) { drop.style.display = 'none'; return; }
 
     buscaTimer = setTimeout(function () {
-        fetch('<?= BASE ?>/painel/api_busca_clientes.php?q=' + encodeURIComponent(q))
+        fetch('<?= BASE ?>/painel/api_busca_clientes.php', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: 'q=' + encodeURIComponent(q)
+        })
             .then(function (r) { return r.json(); })
             .then(function (lista) {
                 drop.innerHTML = '';
