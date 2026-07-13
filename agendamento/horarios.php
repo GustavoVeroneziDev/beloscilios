@@ -101,11 +101,15 @@ if ($diaEspecial) {
     if ($diaEspecial['BloqueiaTotal']) {
         $horario = null; // dia completamente fechado
     } elseif ($horario) {
-        // Reduz a janela de atendimento com almoço do tipo especial
-        $horario['HoraInicio']   = $diaEspecial['HoraInicio'];
-        $horario['HoraFim']      = $diaEspecial['HoraFim'];
-        $horario['AlmocoInicio'] = $diaEspecial['AlmocoInicio'];
-        $horario['AlmocoFim']    = $diaEspecial['AlmocoFim'];
+        if (!$diaEspecial['HoraInicio'] || !$diaEspecial['HoraFim']) {
+            // Tipo configurado sem horário definido — trata como bloqueio total
+            $horario = null;
+        } else {
+            $horario['HoraInicio']   = $diaEspecial['HoraInicio'];
+            $horario['HoraFim']      = $diaEspecial['HoraFim'];
+            $horario['AlmocoInicio'] = $diaEspecial['AlmocoInicio'];
+            $horario['AlmocoFim']    = $diaEspecial['AlmocoFim'];
+        }
     }
 }
 

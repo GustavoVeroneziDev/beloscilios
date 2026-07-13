@@ -41,6 +41,21 @@ switch ($acao) {
         $tipo = $stmt->fetch();
         if (!$tipo) { echo json_encode(['ok' => false, 'msg' => 'Tipo não encontrado']); exit; }
 
+        // Aviso: tipo que bloqueia o dia inteiro + agendamentos confirmados nessa data
+        $aviso = null;
+        if ($tipo['BloqueiaTotal']) {
+            $cntAg = $pdo->prepare(
+                'SELECT COUNT(*) FROM Agendamentos
+                 WHERE DATE(DataHoraAgendamento) = :d
+                   AND StatusAgendamento NOT IN (\'cancelado\')'
+            );
+            $cntAg->execute([':d' => $data]);
+            $qtdAg = (int)$cntAg->fetchColumn();
+            if ($qtdAg > 0) {
+                $aviso = "Há {$qtdAg} agendamento(s) neste dia. Cancelamentos devem ser feitos manualmente.";
+            }
+        }
+
         try {
             $ex = $pdo->prepare('SELECT IDDiaEspecial FROM DiasEspeciais WHERE Data = :d');
             $ex->execute([':d' => $data]);
@@ -51,14 +66,18 @@ switch ($acao) {
                 $pdo->prepare('INSERT INTO DiasEspeciais (IDDiaEspecial, Data, FKTipo) VALUES (:id, :d, :fk)')
                     ->execute([':id' => gerarUuid(), ':d' => $data, ':fk' => $fkTipo]);
             }
-            echo json_encode(['ok' => true, 'tipo' => [
-                'id'           => $tipo['IDTipo'],
-                'nome'         => $tipo['Nome'],
-                'cor'          => $tipo['Cor'],
-                'bloqueiaTotal'=> (bool)$tipo['BloqueiaTotal'],
-                'horaInicio'   => $tipo['HoraInicio'] ? substr($tipo['HoraInicio'], 0, 5) : null,
-                'horaFim'      => $tipo['HoraFim']    ? substr($tipo['HoraFim'],    0, 5) : null,
-            ]]);
+            echo json_encode([
+                'ok'   => true,
+                'aviso'=> $aviso,
+                'tipo' => [
+                    'id'           => $tipo['IDTipo'],
+                    'nome'         => $tipo['Nome'],
+                    'cor'          => $tipo['Cor'],
+                    'bloqueiaTotal'=> (bool)$tipo['BloqueiaTotal'],
+                    'horaInicio'   => $tipo['HoraInicio'] ? substr($tipo['HoraInicio'], 0, 5) : null,
+                    'horaFim'      => $tipo['HoraFim']    ? substr($tipo['HoraFim'],    0, 5) : null,
+                ],
+            ]);
         } catch (PDOException $e) {
             error_log('[TipoDia] ' . $e->getMessage());
             echo json_encode(['ok' => false, 'msg' => 'Erro ao salvar']);

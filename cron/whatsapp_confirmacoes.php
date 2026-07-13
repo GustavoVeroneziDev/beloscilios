@@ -43,9 +43,15 @@ $msgTpl = getConfig($pdo, 'msg_confirmacao', '');
 $enviados = 0;
 $erros    = 0;
 
+if (!$msgTpl) {
+    echo '[AVISO] Template msg_confirmacao não configurado — nenhuma confirmação enviada.' . PHP_EOL;
+    exit(0);
+}
+
 foreach ($pendentes as $ag) {
-    if (!$ag['Telefone']) {
-        echo "[SKIP] {$ag['IDAgendamento']} — sem telefone" . PHP_EOL;
+    $telNorm = sanitizarTelefone((string)($ag['Telefone'] ?? ''));
+    if (!$telNorm) {
+        echo "[SKIP] {$ag['IDAgendamento']} — telefone inválido ou ausente" . PHP_EOL;
         continue;
     }
 
@@ -58,8 +64,8 @@ foreach ($pendentes as $ag) {
         $msgTpl
     );
 
-    $ok = enviarWhatsApp($ag['Telefone'], $msg);
-    registrarLogWhatsApp($pdo, $ag['Telefone'], $msg, 'confirmacao',
+    $ok = enviarWhatsApp($telNorm, $msg);
+    registrarLogWhatsApp($pdo, $telNorm, $msg, 'confirmacao',
         $ok ? 'enviado' : 'erro', $ag['IDAgendamento']);
 
     if ($ok) {

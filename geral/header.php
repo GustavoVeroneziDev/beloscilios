@@ -14,6 +14,14 @@ $ehPainel      = $areaAtual === 'painel';
 if (!estaLogado() && !empty($_COOKIE['bc_lembrar']) && isset($pdo)) {
     tentarLoginLembrado($pdo);
 }
+
+// Sair do modo preview (qualquer página que receba ?sair_preview=1)
+if (!empty($_GET['sair_preview']) && !empty($_SESSION['designer_preview'])) {
+    unset($_SESSION['designer_preview']);
+    header('Location: ' . BASE . '/painel/agenda.php');
+    exit;
+}
+
 $_nomeSession  = $_SESSION['usuario_nome'] ?? '';
 $nivelAcesso   = $_SESSION['nivel_acesso'] ?? '';
 $base          = '/beloscilios';
@@ -157,6 +165,21 @@ $base          = '/beloscilios';
 
             <main class="container-lg py-4">
                 <?php flashMsg() ?>
+
+                <?php if (!empty($_SESSION['designer_preview'])): ?>
+                <div class="d-flex align-items-center gap-2 px-3 py-2 mb-3 rounded-3 small fw-medium"
+                     style="background:#fff8e1;border:1px solid #f59e0b;color:#78350f;">
+                    <i class="bi bi-eye-fill flex-shrink-0" style="color:#f59e0b;"></i>
+                    <span class="flex-grow-1">
+                        Modo visualização ativo — agendamentos feitos aqui <strong>não serão salvos</strong>.
+                    </span>
+                    <a href="<?= BASE ?>/painel/agenda.php?sair_preview=1"
+                       class="btn btn-sm fw-semibold flex-shrink-0"
+                       style="background:#f59e0b;color:#fff;border:none;white-space:nowrap;">
+                        <i class="bi bi-x me-1"></i>Sair
+                    </a>
+                </div>
+                <?php endif ?>
 
                 <?php
                 // Banner de verificação de e-mail — carrega status uma vez por sessão

@@ -45,9 +45,15 @@ $msgTpl   = getConfig($pdo, 'msg_followup', '');
 $enviados = 0;
 $erros    = 0;
 
+if (!$msgTpl) {
+    echo '[AVISO] Template msg_followup não configurado — nenhum follow-up enviado.' . PHP_EOL;
+    exit(0);
+}
+
 foreach ($agendamentos as $ag) {
-    if (!$ag['Telefone']) {
-        echo "[SKIP] {$ag['IDAgendamento']} — sem telefone" . PHP_EOL;
+    $telNorm = sanitizarTelefone((string)($ag['Telefone'] ?? ''));
+    if (!$telNorm) {
+        echo "[SKIP] {$ag['IDAgendamento']} — telefone inválido ou ausente" . PHP_EOL;
         continue;
     }
 
@@ -65,8 +71,8 @@ foreach ($agendamentos as $ag) {
         $msg .= "\n\n💳 Seu pagamento ainda está pendente. Qualquer dúvida, nos avise!";
     }
 
-    $ok = enviarWhatsApp($ag['Telefone'], $msg);
-    registrarLogWhatsApp($pdo, $ag['Telefone'], $msg, 'followup',
+    $ok = enviarWhatsApp($telNorm, $msg);
+    registrarLogWhatsApp($pdo, $telNorm, $msg, 'followup',
         $ok ? 'enviado' : 'erro', $ag['IDAgendamento']);
 
     if ($ok) {

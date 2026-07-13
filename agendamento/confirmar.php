@@ -16,6 +16,21 @@ if (!$servicoId || !$data || !$hora) {
     redirecionarComMensagem(BASE . '/agendamento/index.php', 'Dados incompletos. Tente novamente.', 'warning');
 }
 
+// Valida formato de data e hora antes de qualquer DateTimeImmutable
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $data) || !preg_match('/^\d{2}:\d{2}$/', $hora)) {
+    redirecionarComMensagem(BASE . '/agendamento/index.php', 'Data ou hora inválida.', 'danger');
+}
+
+// Modo preview da designer — exibe a tela mas não salva o agendamento
+if (!empty($_SESSION['designer_preview']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    unset($_SESSION['designer_preview']);
+    redirecionarComMensagem(
+        BASE . '/painel/agenda.php',
+        'Simulação concluída! Nenhum agendamento foi criado.',
+        'info'
+    );
+}
+
 $dataHora = "{$data} {$hora}:00";
 
 // Busca preço e duração do banco — não confiar nos valores do GET
@@ -177,7 +192,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             "Agendamento confirmado! Te esperamos em {$data} às {$hora}.",
             'success'
         );
-    } catch (PDOException $e) {
+    } catch (\Exception $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         error_log('[Confirmar] ' . $e->getMessage());
         redirecionarComMensagem(BASE . '/agendamento/index.php', 'Erro ao agendar. Tente novamente.', 'danger');

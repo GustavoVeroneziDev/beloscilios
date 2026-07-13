@@ -46,9 +46,15 @@ $msgTpl   = getConfig($pdo, 'msg_lembrete', '');
 $enviados = 0;
 $erros    = 0;
 
+if (!$msgTpl) {
+    echo '[AVISO] Template msg_lembrete não configurado — nenhum lembrete enviado.' . PHP_EOL;
+    exit(0);
+}
+
 foreach ($agendamentos as $ag) {
-    if (!$ag['Telefone']) {
-        echo "[SKIP] {$ag['IDAgendamento']} — sem telefone" . PHP_EOL;
+    $telNorm = sanitizarTelefone((string)($ag['Telefone'] ?? ''));
+    if (!$telNorm) {
+        echo "[SKIP] {$ag['IDAgendamento']} — telefone inválido ou ausente" . PHP_EOL;
         continue;
     }
 
@@ -61,12 +67,12 @@ foreach ($agendamentos as $ag) {
         $msgTpl
     );
 
-    $ok = enviarWhatsApp($ag['Telefone'], $msg);
-    registrarLogWhatsApp($pdo, $ag['Telefone'], $msg, 'lembrete',
+    $ok = enviarWhatsApp($telNorm, $msg);
+    registrarLogWhatsApp($pdo, $telNorm, $msg, 'lembrete',
         $ok ? 'enviado' : 'erro', $ag['IDAgendamento']);
 
     if ($ok) {
-        $telefoneNorm = sanitizarTelefone($ag['Telefone']) ?? $ag['Telefone'];
+        $telefoneNorm = $telNorm;
 
         // Marca agendamento como aguardando confirmação via IA
         $pdo->prepare(

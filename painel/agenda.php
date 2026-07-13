@@ -820,11 +820,18 @@ $csrfToken = gerarTokenCSRF();
             .catch(() => bcToast('Erro de conexão.', 'danger'));
         }
 
-        function bloquearBulk() {
+        function bloquearBulk(force) {
             const datas = Array.from(diasSelecionados);
-            const motivo = prompt('Motivo do bloqueio (opcional):');
-            if (motivo === null) return; // cancelou o prompt
-            const params = new URLSearchParams({ acao: 'bloquear_bulk', csrf_token: CSRF_AGENDA, motivo: motivo.trim() });
+            if (!force) {
+                const motivo = prompt('Motivo do bloqueio (opcional):');
+                if (motivo === null) return;
+                bloquearBulk._motivo = motivo.trim();
+            }
+            const params = new URLSearchParams({
+                acao: 'bloquear_bulk', csrf_token: CSRF_AGENDA,
+                motivo: bloquearBulk._motivo || '',
+            });
+            if (force) params.set('force', '1');
             datas.forEach(d => params.append('datas[]', d));
             fetch(BASE_URL + '/painel/api_agenda_bulk.php', {
                 method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -832,8 +839,13 @@ $csrfToken = gerarTokenCSRF();
             })
             .then(r => r.json())
             .then(res => {
+                if (!res.ok && res.aviso) {
+                    if (confirm(res.msg)) bloquearBulk(true);
+                    return;
+                }
                 if (!res.ok) { bcToast('Erro: ' + res.msg, 'danger'); return; }
-                bcToast(res.total + (res.total === 1 ? ' dia bloqueado.' : ' dias bloqueados.'), 'success');
+                const n = res.total;
+                bcToast(n + (n === 1 ? ' dia bloqueado.' : ' dias bloqueados.'), 'success');
                 cancelarSelecao();
                 setTimeout(() => location.reload(), 900);
             })
@@ -998,6 +1010,7 @@ $csrfToken = gerarTokenCSRF();
                     delete diasEspCalJS[diaAberto];
                 }
                 atualizarCelulaTipo(diaAberto);
+                if (res.aviso) bcToast('⚠ ' + res.aviso, 'warning');
             })
             .catch(() => bcToast('Erro de conexão.', 'danger'));
         }

@@ -78,20 +78,53 @@ switch ($acao) {
 
     case 'bloquear_bulk':
         $motivo = trim($_POST['motivo'] ?? '') ?: null;
+        $force  = !empty($_POST['force']);
+
+        // Verifica agendamentos confirmados nas datas selecionadas
+        if (!$force) {
+            $cntAg = $pdo->prepare(
+                'SELECT COUNT(*) FROM Agendamentos
+                 WHERE DATE(DataHoraAgendamento) = :d
+                   AND StatusAgendamento NOT IN (\'cancelado\')'
+            );
+            $totalConflitos = 0;
+            foreach ($datas as $d) {
+                $cntAg->execute([':d' => $d]);
+                $totalConflitos += (int)$cntAg->fetchColumn();
+            }
+            if ($totalConflitos > 0) {
+                echo json_encode([
+                    'ok'              => false,
+                    'aviso'           => true,
+                    'total_conflitos' => $totalConflitos,
+                    'msg'             => "{$totalConflitos} agendamento(s) confirmado(s) nestas datas. Os cancelamentos devem ser feitos manualmente. Deseja bloquear mesmo assim?",
+                ]);
+                exit;
+            }
+        }
+
         try {
+            $checkDup = $pdo->prepare(
+                "SELECT COUNT(*) FROM BloqueiosAgenda
+                 WHERE DATE(DataInicio) = :d AND TIME(DataInicio) = '00:00:00'"
+            );
             $ins = $pdo->prepare(
                 'INSERT INTO BloqueiosAgenda (IDBloqueio, DataInicio, DataFim, Motivo)
                  VALUES (:id, :ini, :fim, :mot)'
             );
+            $inseridos = 0;
             foreach ($datas as $d) {
+                $checkDup->execute([':d' => $d]);
+                if ((int)$checkDup->fetchColumn() > 0) continue; // dia já bloqueado
                 $ins->execute([
                     ':id'  => gerarUuid(),
                     ':ini' => $d . ' 00:00:00',
                     ':fim' => $d . ' 23:59:59',
                     ':mot' => $motivo,
                 ]);
+                $inseridos++;
             }
-            echo json_encode(['ok' => true, 'total' => count($datas)]);
+            echo json_encode(['ok' => true, 'total' => $inseridos]);
         } catch (PDOException $e) {
             error_log('[BulkBloqueio] ' . $e->getMessage());
             echo json_encode(['ok' => false, 'msg' => 'Erro ao bloquear']);
