@@ -85,6 +85,21 @@ try {
     error_log('[Cadastro][Email] ' . $e->getMessage());
 }
 
+// Boas-vindas via WhatsApp
+try {
+    if ($telefoneFmt) {
+        $primeiroNome = explode(' ', trim($nome))[0];
+        $tpl = getConfig($pdo, 'msg_boas_vindas', '');
+        if ($tpl) {
+            $msg = str_replace('{nome}', $primeiroNome, $tpl);
+            $ok  = enviarWhatsApp($telefoneFmt, $msg);
+            registrarLogWhatsApp($pdo, $telefoneFmt, $msg, 'boas_vindas', $ok ? 'enviado' : 'erro', null);
+        }
+    }
+} catch (\Throwable $e) {
+    error_log('[Cadastro][WhatsApp] ' . $e->getMessage());
+}
+
 // Guarda na sessão para a página de aguardo (sem fazer login ainda)
 $_SESSION['pendente_email']          = $email;
 $_SESSION['pendente_nome']           = $nome;

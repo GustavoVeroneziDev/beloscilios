@@ -23,9 +23,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        $usuario = $pdo->prepare('SELECT Senha FROM Usuarios WHERE IDUsuario = :id LIMIT 1');
+        $usuario = $pdo->prepare('SELECT Senha, Telefone FROM Usuarios WHERE IDUsuario = :id LIMIT 1');
         $usuario->execute([':id' => $uid]);
         $usuario = $usuario->fetch();
+        $telefoneAntigo = $usuario['Telefone'] ?? null;
 
         $params = [':nome' => $nome, ':tel' => sanitizarTelefone($telefone), ':id' => $uid];
 
@@ -53,6 +54,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $_SESSION['usuario_nome'] = $nome;
+
+        // Boas-vindas se a cliente acabou de cadastrar o número pela primeira vez
+        $novoTel = sanitizarTelefone($telefone);
+        if ($novoTel && !$telefoneAntigo) {
+            try {
+                $stmtNome = $pdo->prepare('SELECT Nome FROM Usuarios WHERE IDUsuario = :id LIMIT 1');
+                $stmtNome->execute([':id' => $uid]);
+                $nomeCompleto = $stmtNome->fetchColumn();
+                $primeiroNome = explode(' ', trim((string)$nomeCompleto))[0];
+                $tpl = getConfig($pdo, 'msg_boas_vindas', '');
+                if ($tpl) {
+                    $msg = str_replace('{nome}', $primeiroNome, $tpl);
+                    $ok  = enviarWhatsApp($novoTel, $msg);
+                    registrarLogWhatsApp($pdo, $novoTel, $msg, 'boas_vindas', $ok ? 'enviado' : 'erro', null);
+                }
+            } catch (\Throwable $e) {
+                error_log('[EditarPerfil][WhatsApp] ' . $e->getMessage());
+            }
+        }
+
         redirecionarComMensagem(BASE . '/usuario/perfil.php', 'Dados atualizados com sucesso!', 'success');
     } catch (PDOException $e) {
         error_log('[EditarPerfil] ' . $e->getMessage());
