@@ -86,7 +86,83 @@ switch ($acao) {
 
     case 'remove':
         try {
+            // Se o dia tem grupo, trata como "remove somente este"
             $pdo->prepare('DELETE FROM DiasEspeciais WHERE Data = :d')->execute([':d' => $data]);
+            echo json_encode(['ok' => true]);
+        } catch (PDOException $e) {
+            error_log('[TipoDia] ' . $e->getMessage());
+            echo json_encode(['ok' => false, 'msg' => 'Erro ao remover']);
+        }
+        break;
+
+    case 'set_serie':
+        $fkTipo    = trim($_POST['fk_tipo']    ?? '');
+        $intervalo = max(1, min(365, (int)($_POST['intervalo'] ?? 7)));
+        $vezes     = max(2, min(260, (int)($_POST['vezes']     ?? 4)));
+
+        if (!$fkTipo) { echo json_encode(['ok' => false, 'msg' => 'Tipo inválido']); exit; }
+
+        $stTipo = $pdo->prepare('SELECT IDTipo, Nome, Cor, BloqueiaTotal, HoraInicio, HoraFim FROM TiposDia WHERE IDTipo = :id');
+        $stTipo->execute([':id' => $fkTipo]);
+        $tipo = $stTipo->fetch();
+        if (!$tipo) { echo json_encode(['ok' => false, 'msg' => 'Tipo não encontrado']); exit; }
+
+        $grupo   = gerarUuid();
+        $criados = 0;
+        $ini     = new DateTime($data);
+
+        try {
+            $pdo->beginTransaction();
+            $ins = $pdo->prepare(
+                'INSERT INTO DiasEspeciais (IDDiaEspecial, Data, FKTipo, GrupoRecorrencia, OrdemRecorrencia)
+                 VALUES (:id, :d, :fk, :grupo, :ordem)
+                 ON DUPLICATE KEY UPDATE FKTipo = VALUES(FKTipo), GrupoRecorrencia = VALUES(GrupoRecorrencia), OrdemRecorrencia = VALUES(OrdemRecorrencia)'
+            );
+            for ($i = 0; $i < $vezes; $i++) {
+                $ins->execute([
+                    ':id'    => gerarUuid(),
+                    ':d'     => $ini->format('Y-m-d'),
+                    ':fk'    => $fkTipo,
+                    ':grupo' => $grupo,
+                    ':ordem' => $i + 1,
+                ]);
+                $criados++;
+                $ini->modify("+{$intervalo} days");
+            }
+            $pdo->commit();
+            echo json_encode([
+                'ok'     => true,
+                'criados'=> $criados,
+                'grupo'  => $grupo,
+                'tipo'   => [
+                    'id'           => $tipo['IDTipo'],
+                    'nome'         => $tipo['Nome'],
+                    'cor'          => $tipo['Cor'],
+                    'bloqueiaTotal'=> (bool)$tipo['BloqueiaTotal'],
+                    'horaInicio'   => $tipo['HoraInicio'] ? substr($tipo['HoraInicio'], 0, 5) : null,
+                    'horaFim'      => $tipo['HoraFim']    ? substr($tipo['HoraFim'],    0, 5) : null,
+                    'grupo'        => $grupo,
+                ],
+            ]);
+        } catch (PDOException $e) {
+            $pdo->rollBack();
+            error_log('[TipoDia] ' . $e->getMessage());
+            echo json_encode(['ok' => false, 'msg' => 'Erro ao criar série']);
+        }
+        break;
+
+    case 'remove_serie':
+        $modo  = $_POST['modo']  ?? 'este';
+        $grupo = trim($_POST['grupo'] ?? '');
+
+        try {
+            if ($modo === 'futuros' && $grupo) {
+                $pdo->prepare(
+                    'DELETE FROM DiasEspeciais WHERE GrupoRecorrencia = :g AND Data >= :d'
+                )->execute([':g' => $grupo, ':d' => $data]);
+            } else {
+                $pdo->prepare('DELETE FROM DiasEspeciais WHERE Data = :d')->execute([':d' => $data]);
+            }
             echo json_encode(['ok' => true]);
         } catch (PDOException $e) {
             error_log('[TipoDia] ' . $e->getMessage());

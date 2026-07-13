@@ -46,43 +46,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Cancelar série recorrente (este + futuros ou somente este)
-    if ($acao === 'cancelar_serie' && $id) {
-        $modo = $_POST['modo'] ?? 'este'; // 'este' | 'futuros'
-        try {
-            if ($modo === 'futuros') {
-                // Busca grupo e data do agendamento clicado
-                $rowRec = $pdo->prepare(
-                    'SELECT GrupoRecorrencia, DataHoraAgendamento FROM Agendamentos WHERE IDAgendamento = :id LIMIT 1'
-                );
-                $rowRec->execute([':id' => $id]);
-                $recInfo = $rowRec->fetch();
-                if ($recInfo && $recInfo['GrupoRecorrencia']) {
-                    $pdo->prepare(
-                        'UPDATE Agendamentos SET StatusAgendamento = \'cancelado\'
-                         WHERE GrupoRecorrencia = :grupo
-                           AND DataHoraAgendamento >= :data
-                           AND StatusAgendamento IN (\'pendente\',\'confirmado\')'
-                    )->execute([':grupo' => $recInfo['GrupoRecorrencia'], ':data' => $recInfo['DataHoraAgendamento']]);
-                } else {
-                    // Sem grupo — cancela só este
-                    $pdo->prepare('UPDATE Agendamentos SET StatusAgendamento = \'cancelado\' WHERE IDAgendamento = :id')
-                        ->execute([':id' => $id]);
-                }
-            } else {
-                $pdo->prepare('UPDATE Agendamentos SET StatusAgendamento = \'cancelado\' WHERE IDAgendamento = :id')
-                    ->execute([':id' => $id]);
-            }
-            $params = array_filter(['vista' => $_GET['vista'] ?? null, 'mes' => $_GET['mes'] ?? null, 'semana' => $_GET['semana'] ?? null]);
-            $qs = $params ? '?' . http_build_query($params) : '';
-            $msgRec = $modo === 'futuros' ? 'Série cancelada a partir deste agendamento.' : 'Agendamento cancelado.';
-            redirecionarComMensagem(BASE . '/painel/agenda.php' . $qs, $msgRec, 'success');
-        } catch (PDOException $e) {
-            error_log('[Agenda] ' . $e->getMessage());
-            redirecionarComMensagem(BASE . '/painel/agenda.php', 'Erro ao cancelar.', 'danger');
-        }
-    }
-
     // Remover bloqueio
     if ($acao === 'rem_bloqueio' && $id) {
         try {
@@ -246,8 +209,7 @@ if ($vista === 'calendario') {
     try {
         $stmtCal = $pdo->prepare(
             'SELECT a.IDAgendamento, a.DataHoraAgendamento, a.StatusAgendamento,
-                    a.StatusPagamento, a.GrupoRecorrencia,
-                    u.Nome AS NomeCliente, u.Telefone,
+                    a.StatusPagamento, u.Nome AS NomeCliente, u.Telefone,
                     s.Nome AS NomeServico, s.DuracaoMinutos,
                     ss.Nome AS NomeSubServico,
                     IF(fa.IDFicha IS NOT NULL, 1, 0) AS TemFicha,
@@ -317,7 +279,7 @@ if ($vista === 'calendario') {
     // Dias especiais do mês
     try {
         $deCalStmt = $pdo->prepare(
-            'SELECT de.Data, td.IDTipo, td.Nome, td.Cor, td.BloqueiaTotal
+            'SELECT de.Data, de.GrupoRecorrencia, td.IDTipo, td.Nome, td.Cor, td.BloqueiaTotal
              FROM DiasEspeciais de
              JOIN TiposDia td ON td.IDTipo = de.FKTipo
              WHERE de.Data BETWEEN :ini AND :fim'
@@ -333,6 +295,7 @@ if ($vista === 'calendario') {
             'nome'         => $de['Nome'],
             'cor'          => $de['Cor'],
             'bloqueiaTotal'=> (bool)$de['BloqueiaTotal'],
+            'grupo'        => $de['GrupoRecorrencia'] ?? null,
         ];
     }
 
@@ -349,7 +312,6 @@ if ($vista === 'calendario') {
             'pag'     => $ag['StatusPagamento'],
             'tel'     => $ag['Telefone'] ?? '',
             'alerta'  => $ag['AlertaAlto'] ? 'alto' : ($ag['AlertaMedio'] ? 'medio' : ($ag['TemFicha'] ? 'ok' : 'sem_ficha')),
-            'grupo'   => $ag['GrupoRecorrencia'] ?? null,
         ], $ags);
     }
 }
@@ -361,7 +323,6 @@ require_once __DIR__ . '/../geral/header.php';
 // ── Helper: botões de ação do agendamento ─────────────────────
 function botoesAgendamento(array $ag, string $csrfToken, array $extraGet = []): string
 {
-    $qs = $extraGet ? '?' . http_build_query($extraGet) : '';
     $out = '<div class="d-flex gap-1 flex-shrink-0">';
     if ($ag['Telefone']) {
         $out .= '<a href="https://wa.me/' . h($ag['Telefone']) . '" target="_blank"
@@ -377,20 +338,14 @@ function botoesAgendamento(array $ag, string $csrfToken, array $extraGet = []): 
                         <i class="bi bi-check-lg"></i></button></form>';
     }
     if (in_array($ag['StatusAgendamento'], ['pendente', 'confirmado'])) {
-        if (!empty($ag['GrupoRecorrencia'])) {
-            $out .= '<button class="btn btn-sm btn-outline-danger" title="Cancelar"
-                         onclick="cancelarComOpcoesRec(\'' . h($ag['IDAgendamento']) . '\',\'lista\')">
-                         <i class="bi bi-x-lg"></i></button>';
-        } else {
-            $out .= '<form method="POST" class="d-inline"
-                          data-confirm="Confirma o cancelamento deste agendamento?"
-                          data-confirm-label="Cancelar agendamento">
-                        <input type="hidden" name="csrf_token" value="' . $csrfToken . '">
-                        <input type="hidden" name="acao" value="cancelar">
-                        <input type="hidden" name="id" value="' . h($ag['IDAgendamento']) . '">
-                        <button class="btn btn-sm btn-outline-danger" title="Cancelar">
-                            <i class="bi bi-x-lg"></i></button></form>';
-        }
+        $out .= '<form method="POST" class="d-inline"
+                      data-confirm="Confirma o cancelamento deste agendamento?"
+                      data-confirm-label="Cancelar agendamento">
+                    <input type="hidden" name="csrf_token" value="' . $csrfToken . '">
+                    <input type="hidden" name="acao" value="cancelar">
+                    <input type="hidden" name="id" value="' . h($ag['IDAgendamento']) . '">
+                    <button class="btn btn-sm btn-outline-danger" title="Cancelar">
+                        <i class="bi bi-x-lg"></i></button></form>';
     }
     if ($ag['StatusAgendamento'] === 'confirmado') {
         $out .= '<form method="POST" class="d-inline">
@@ -552,9 +507,6 @@ $csrfToken = gerarTokenCSRF();
                                 <div class="flex-grow-1">
                                     <div class="d-flex align-items-center gap-1 flex-wrap">
                                         <span class="fw-medium"><?= h($ag['NomeCliente']) ?></span>
-                                        <?php if (!empty($ag['GrupoRecorrencia'])): ?>
-                                        <span class="badge bg-secondary" title="Agendamento recorrente" style="font-size:.7rem;"><i class="bi bi-arrow-repeat"></i></span>
-                                        <?php endif ?>
                                         <?php if (!empty($ag['AlertaAlto'])): ?>
                                         <span class="badge bg-danger" title="Ficha: atenção alta — verificar antes do atendimento"><i class="bi bi-heart-pulse-fill"></i></span>
                                         <?php elseif (!empty($ag['AlertaMedio'])): ?>
@@ -745,25 +697,66 @@ $csrfToken = gerarTokenCSRF();
             </div>
         </div>
         <?php if (!empty($tiposDia)): ?>
-        <div class="d-flex align-items-center gap-2 px-3 px-md-4 py-2 flex-wrap"
+        <div class="px-3 px-md-4 py-2 flex-wrap"
              style="border-bottom:1px solid var(--card-border-color);background:var(--bg-card);">
-            <i class="bi bi-tags text-secondary small flex-shrink-0"></i>
-            <span class="small text-secondary flex-shrink-0">Tipo do dia:</span>
-            <select id="sltTipoDia" class="form-select form-select-sm flex-grow-1" style="max-width:220px;"
-                    onchange="alterarTipoDia(this.value)">
-                <option value="">— Normal —</option>
-                <?php foreach ($tiposDia as $tp): ?>
-                <option value="<?= h($tp['IDTipo']) ?>" data-cor="<?= h($tp['Cor']) ?>">
-                    <?= h($tp['Nome']) ?>
-                    <?php if ($tp['BloqueiaTotal']): ?>
-                        (dia inteiro)
-                    <?php elseif ($tp['HoraInicio']): ?>
-                        (<?= substr($tp['HoraInicio'], 0, 5) ?>–<?= substr($tp['HoraFim'], 0, 5) ?>)
-                    <?php endif ?>
-                </option>
-                <?php endforeach ?>
-            </select>
-            <span id="tipoDiaInfo" class="small text-secondary" style="display:none;"></span>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <i class="bi bi-tags text-secondary small flex-shrink-0"></i>
+                <span class="small text-secondary flex-shrink-0">Tipo do dia:</span>
+                <select id="sltTipoDia" class="form-select form-select-sm" style="max-width:220px;"
+                        onchange="alterarTipoDia(this.value)">
+                    <option value="">— Normal —</option>
+                    <?php foreach ($tiposDia as $tp): ?>
+                    <option value="<?= h($tp['IDTipo']) ?>" data-cor="<?= h($tp['Cor']) ?>">
+                        <?= h($tp['Nome']) ?>
+                        <?php if ($tp['BloqueiaTotal']): ?>
+                            (dia inteiro)
+                        <?php elseif ($tp['HoraInicio']): ?>
+                            (<?= substr($tp['HoraInicio'], 0, 5) ?>–<?= substr($tp['HoraFim'], 0, 5) ?>)
+                        <?php endif ?>
+                    </option>
+                    <?php endforeach ?>
+                </select>
+                <!-- Badge ↻ aparece quando o dia tem série recorrente -->
+                <span id="badgeSerieRec" class="badge bg-secondary d-none" style="font-size:.75rem;" title="Parte de uma série recorrente">
+                    <i class="bi bi-arrow-repeat me-1"></i>Série
+                </span>
+                <!-- Botão "↻ Criar série" aparece quando há tipo selecionado mas sem grupo -->
+                <button id="btnCriarSerie" class="btn btn-sm btn-outline-accent d-none"
+                        onclick="abrirFormSerie()" type="button">
+                    <i class="bi bi-arrow-repeat me-1"></i>Criar série
+                </button>
+                <span id="tipoDiaInfo" class="small text-secondary" style="display:none;"></span>
+            </div>
+            <!-- Formulário inline para criar série recorrente -->
+            <div id="formSerie" class="d-none mt-2 p-2 rounded" style="background:var(--bg-hover);border:1px solid var(--card-border-color);">
+                <div class="d-flex align-items-end gap-2 flex-wrap">
+                    <div>
+                        <label class="form-label small mb-1">Repetir a cada</label>
+                        <input type="number" id="serieIntervalo" class="form-control form-control-sm" style="width:65px;" value="7" min="1" max="365" oninput="atualizarPreviewSerie()">
+                    </div>
+                    <div>
+                        <label class="form-label small mb-1">&nbsp;</label>
+                        <select id="serieUnidade" class="form-select form-select-sm" style="width:120px;" onchange="atualizarPreviewSerie()">
+                            <option value="7">semana(s)</option>
+                            <option value="1">dia(s)</option>
+                            <option value="30">mês(es)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label small mb-1">por</label>
+                        <input type="number" id="serieVezes" class="form-control form-control-sm" style="width:65px;" value="52" min="2" max="260" oninput="atualizarPreviewSerie()">
+                    </div>
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-accent btn-sm" type="button" onclick="salvarSerie()">
+                            <i class="bi bi-check-lg"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="fecharFormSerie()">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="previewSerie" class="text-secondary small mt-1"></div>
+            </div>
         </div>
         <?php endif ?>
         <div id="conteudoDia" class="p-0"></div>
@@ -936,11 +929,12 @@ $csrfToken = gerarTokenCSRF();
             const ags   = dadosCal[data]    || [];
             const bloqs = bloqueiosCal[data] || [];
 
-            // Sincroniza seletor de tipo com o dia aberto
+            // Sincroniza seletor de tipo + badges de série com o dia aberto
             const slt = document.getElementById('sltTipoDia');
             if (slt) {
                 const tipoAtual = diasEspCalJS[data];
                 slt.value = tipoAtual ? tipoAtual.id : '';
+                atualizarUISerie(tipoAtual || null);
             }
 
             // Título
@@ -990,11 +984,7 @@ $csrfToken = gerarTokenCSRF();
                         botoes += '<button class="btn btn-sm btn-outline-success" onclick="acaoAg(\'confirmar\',\'' + ag.id + '\')" title="Confirmar"><i class="bi bi-check-lg"></i></button>';
                     }
                     if (ag.status === 'pendente' || ag.status === 'confirmado') {
-                        if (ag.grupo) {
-                            botoes += '<button class="btn btn-sm btn-outline-danger" onclick="cancelarComOpcoesRec(\'' + escHtml(ag.id) + '\',\'cal\')" title="Cancelar"><i class="bi bi-x-lg"></i></button>';
-                        } else {
-                            botoes += '<button class="btn btn-sm btn-outline-danger" onclick="acaoAg(\'cancelar\',\'' + ag.id + '\')" title="Cancelar"><i class="bi bi-x-lg"></i></button>';
-                        }
+                        botoes += '<button class="btn btn-sm btn-outline-danger" onclick="acaoAg(\'cancelar\',\'' + ag.id + '\')" title="Cancelar"><i class="bi bi-x-lg"></i></button>';
                     }
                     if (ag.status === 'confirmado') {
                         botoes += '<button class="btn btn-sm btn-outline-secondary" onclick="acaoAg(\'concluir\',\'' + ag.id + '\')" title="Concluído"><i class="bi bi-check2-all"></i></button>';
@@ -1007,13 +997,12 @@ $csrfToken = gerarTokenCSRF();
                         ok:       '',
                     };
                     const alertaBadge = alertaBadges[ag.alerta] || '';
-                    const recBadge = ag.grupo ? '<span class="badge bg-secondary ms-1" style="font-size:.7rem;" title="Agendamento recorrente"><i class="bi bi-arrow-repeat"></i></span>' : '';
 
                     li.innerHTML =
                         '<div class="d-flex align-items-center gap-2 flex-wrap">' +
                         '<span class="fw-bold text-accent" style="min-width:40px;">' + escHtml(ag.hora) + '</span>' +
                         '<div class="flex-grow-1">' +
-                        '<span class="fw-medium">' + escHtml(ag.nome) + '</span>' + recBadge + alertaBadge +
+                        '<span class="fw-medium">' + escHtml(ag.nome) + '</span>' + alertaBadge +
                         '<span class="text-secondary small ms-1 d-block d-md-inline">' +
                         escHtml(ag.servico) + ' (' + ag.duracao + 'min)</span>' +
                         '</div>' +
@@ -1074,6 +1063,18 @@ $csrfToken = gerarTokenCSRF();
 
         function alterarTipoDia(tipoId) {
             if (!diaAberto) return;
+
+            // Remover tipo com série → abre modal
+            if (!tipoId) {
+                const tipoAtual = diasEspCalJS[diaAberto];
+                if (tipoAtual && tipoAtual.grupo) {
+                    removerSerieTipo(diaAberto, tipoAtual.grupo);
+                    // Restaura seletor (o modal confirma antes de agir)
+                    document.getElementById('sltTipoDia').value = tipoAtual.id;
+                    return;
+                }
+            }
+
             const params = new URLSearchParams({
                 acao:       tipoId ? 'set' : 'remove',
                 data:       diaAberto,
@@ -1095,7 +1096,94 @@ $csrfToken = gerarTokenCSRF();
                     delete diasEspCalJS[diaAberto];
                 }
                 atualizarCelulaTipo(diaAberto);
+                atualizarUISerie(diasEspCalJS[diaAberto] || null);
+                fecharFormSerie();
                 if (res.aviso) bcToast('⚠ ' + res.aviso, 'warning');
+            })
+            .catch(() => bcToast('Erro de conexão.', 'danger'));
+        }
+
+        /* ── Série de tipos de dia ────────────────────────────────── */
+        function atualizarUISerie(tipo) {
+            const badge  = document.getElementById('badgeSerieRec');
+            const btnCr  = document.getElementById('btnCriarSerie');
+            if (!badge || !btnCr) return;
+            if (tipo && tipo.grupo) {
+                badge.classList.remove('d-none');
+                btnCr.classList.add('d-none');
+            } else if (tipo && tipo.id) {
+                badge.classList.add('d-none');
+                btnCr.classList.remove('d-none');
+            } else {
+                badge.classList.add('d-none');
+                btnCr.classList.add('d-none');
+            }
+        }
+
+        function abrirFormSerie() {
+            document.getElementById('formSerie').classList.remove('d-none');
+            document.getElementById('btnCriarSerie').classList.add('d-none');
+            atualizarPreviewSerie();
+        }
+
+        function fecharFormSerie() {
+            document.getElementById('formSerie').classList.add('d-none');
+            const tipoAtual = diaAberto ? diasEspCalJS[diaAberto] : null;
+            atualizarUISerie(tipoAtual || null);
+        }
+
+        function atualizarPreviewSerie() {
+            if (!diaAberto) return;
+            const intervalo = parseInt(document.getElementById('serieIntervalo').value) || 7;
+            const unidade   = parseInt(document.getElementById('serieUnidade').value)   || 7;
+            const vezes     = parseInt(document.getElementById('serieVezes').value)     || 4;
+            const dias      = intervalo * unidade;
+            const datas     = [];
+            const ini       = new Date(diaAberto + 'T00:00:00');
+            for (let i = 0; i < Math.min(vezes, 260); i++) {
+                const d = new Date(ini.getTime() + i * dias * 86400000);
+                datas.push(d.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit', year:'numeric'}));
+            }
+            const nomePer = unidade === 1 ? 'dia(s)' : unidade === 7 ? 'semana(s)' : 'mês(es)';
+            let preview = '<strong>' + vezes + '</strong> dias · a cada ' + intervalo + ' ' + nomePer;
+            if (datas.length <= 5) {
+                preview += '<br>' + datas.join(' → ');
+            } else {
+                preview += '<br>' + datas.slice(0, 3).join(' → ') + ' → … → ' + datas[datas.length - 1];
+            }
+            document.getElementById('previewSerie').innerHTML = preview;
+        }
+
+        function salvarSerie() {
+            if (!diaAberto) return;
+            const tipoId    = document.getElementById('sltTipoDia').value;
+            const intervalo = parseInt(document.getElementById('serieIntervalo').value) || 7;
+            const unidade   = parseInt(document.getElementById('serieUnidade').value)   || 7;
+            const vezes     = parseInt(document.getElementById('serieVezes').value)     || 4;
+            if (!tipoId) { bcToast('Selecione um tipo de dia primeiro.', 'warning'); return; }
+
+            const params = new URLSearchParams({
+                acao:       'set_serie',
+                data:       diaAberto,
+                fk_tipo:    tipoId,
+                intervalo:  intervalo * unidade,
+                vezes:      vezes,
+                csrf_token: CSRF_AGENDA,
+            });
+            fetch(BASE_URL + '/painel/api_tipo_dia.php', {
+                method:  'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body:    params.toString(),
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.ok) { bcToast('Erro ao criar série: ' + (res.msg || ''), 'danger'); return; }
+                diasEspCalJS[diaAberto] = res.tipo;
+                atualizarCelulaTipo(diaAberto);
+                atualizarUISerie(res.tipo);
+                fecharFormSerie();
+                bcToast(res.criados + ' dias marcados na série!', 'success');
+                setTimeout(() => location.reload(), 1200);
             })
             .catch(() => bcToast('Erro de conexão.', 'danger'));
         }
@@ -1112,7 +1200,7 @@ $csrfToken = gerarTokenCSRF();
                 strip.style.cssText =
                     'color:' + tipo.cor + ';border-top:2px solid ' + tipo.cor +
                     ';background:' + tipo.cor + '18;';
-                strip.textContent = tipo.nome;
+                strip.innerHTML = (tipo.grupo ? '<span style="opacity:.7;margin-right:2px;">↻</span>' : '') + escHtml(tipo.nome);
                 const num = cel.querySelector('.bc-cal-num');
                 if (num) num.after(strip); else cel.appendChild(strip);
             }
@@ -1120,75 +1208,70 @@ $csrfToken = gerarTokenCSRF();
     </script>
 <?php endif ?>
 
-<!-- Modal de cancelamento de série recorrente (global — lista e calendário) -->
-<div class="modal fade" id="modalCancelRec" tabindex="-1" aria-labelledby="modalCancelRecLabel" aria-hidden="true">
+<!-- Modal: remover tipo de dia recorrente -->
+<div class="modal fade" id="modalRemoverSerieTipo" tabindex="-1" aria-labelledby="modalRemoverSerieTipoLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="modalCancelRecLabel">
-                    <i class="bi bi-arrow-repeat me-2 text-accent"></i>Cancelar agendamento recorrente
+                <h5 class="modal-title" id="modalRemoverSerieTipoLabel">
+                    <i class="bi bi-arrow-repeat me-2 text-accent"></i>Remover tipo de dia recorrente
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p class="mb-0">Este agendamento faz parte de uma série recorrente. Como deseja cancelar?</p>
+                <p class="mb-0">Este dia faz parte de uma série recorrente. Como deseja remover?</p>
             </div>
             <div class="modal-footer flex-column align-items-stretch gap-2">
-                <button class="btn btn-outline-danger" onclick="confirmarCancelRec('este')">
-                    <i class="bi bi-x-circle me-1"></i> Somente este agendamento
+                <button class="btn btn-outline-danger" onclick="confirmarRemoverSerieTipo('este')">
+                    <i class="bi bi-x-circle me-1"></i> Somente este dia
                 </button>
-                <button class="btn btn-danger" onclick="confirmarCancelRec('futuros')">
+                <button class="btn btn-danger" onclick="confirmarRemoverSerieTipo('futuros')">
                     <i class="bi bi-x-circle-fill me-1"></i> Este e todos os futuros
                 </button>
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                    <i class="bi bi-arrow-left me-1"></i> Não cancelar
+                    <i class="bi bi-arrow-left me-1"></i> Não remover
                 </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Formulários ocultos para cancelar série (usados pelo JS em ambas as views) -->
-<div style="display:none;">
-    <form id="formListaCancel" method="POST">
-        <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
-        <input type="hidden" name="vista" value="lista">
-        <input type="hidden" name="semana" value="<?= (int)($semanaOffset ?? 0) ?>">
-        <input type="hidden" name="acao" value="cancelar_serie">
-        <input type="hidden" name="id" id="listaCancelId">
-        <input type="hidden" name="modo" id="listaCancelModo">
-    </form>
-    <form id="formCancelarSerie" method="POST">
-        <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
-        <input type="hidden" name="vista" value="calendario">
-        <input type="hidden" name="mes" value="<?= h($mesSel) ?>">
-        <input type="hidden" name="acao" value="cancelar_serie">
-        <input type="hidden" name="id" id="serieCancelId">
-        <input type="hidden" name="modo" id="serieCancelModo">
-    </form>
-</div>
-
 <script>
 (function(){
-    var _cancelRecId  = null;
-    var _cancelRecCtx = null;
-    window.cancelarComOpcoesRec = function(id, ctx) {
-        _cancelRecId  = id;
-        _cancelRecCtx = ctx;
-        new bootstrap.Modal(document.getElementById('modalCancelRec')).show();
+    var _removerSerieData  = null;
+    var _removerSerieGrupo = null;
+
+    window.removerSerieTipo = function(data, grupo) {
+        _removerSerieData  = data;
+        _removerSerieGrupo = grupo;
+        new bootstrap.Modal(document.getElementById('modalRemoverSerieTipo')).show();
     };
-    window.confirmarCancelRec = function(modo) {
-        var inst = bootstrap.Modal.getInstance(document.getElementById('modalCancelRec'));
+
+    window.confirmarRemoverSerieTipo = function(modo) {
+        var inst = bootstrap.Modal.getInstance(document.getElementById('modalRemoverSerieTipo'));
         if (inst) inst.hide();
-        if (_cancelRecCtx === 'lista') {
-            document.getElementById('listaCancelId').value   = _cancelRecId;
-            document.getElementById('listaCancelModo').value = modo;
-            document.getElementById('formListaCancel').submit();
-        } else {
-            document.getElementById('serieCancelId').value   = _cancelRecId;
-            document.getElementById('serieCancelModo').value = modo;
-            document.getElementById('formCancelarSerie').submit();
-        }
+        const CSRF_REMOVER = '<?= h(gerarTokenCSRF()) ?>';
+        const params = new URLSearchParams({
+            acao:       'remove_serie',
+            data:       _removerSerieData,
+            grupo:      _removerSerieGrupo || '',
+            modo:       modo,
+            csrf_token: CSRF_REMOVER,
+        });
+        fetch('<?= BASE ?>/painel/api_tipo_dia.php', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: params.toString(),
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (!res.ok) { bcToast('Erro ao remover: ' + (res.msg || ''), 'danger'); return; }
+            // Remove do estado local e recarrega a página para refletir mudanças
+            const msg = modo === 'futuros' ? 'Série removida a partir deste dia.' : 'Tipo removido deste dia.';
+            bcToast(msg, 'success');
+            setTimeout(() => location.reload(), 900);
+        })
+        .catch(() => bcToast('Erro de conexão.', 'danger'));
     };
 }());
 </script>
