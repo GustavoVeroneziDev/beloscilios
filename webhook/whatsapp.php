@@ -158,10 +158,16 @@ if (in_array($estadoAtual, $estadosMidFlow)) {
         $tl
     );
 
+    // Reação casual / risada / elogio — claramente não é uma escolha de serviço/data
+    $eReacaoCasual = (bool) preg_match(
+        '/^(?:k{2,}|rs{2,}|ha{2,}|hue+|ahu+|s[eé]rio|mt? (?:bom|bom|top|legal|fofo|lind|noss|homi)|que (?:fof|lind|top|legal|bom|bonit|int)|iss+o|viss+o|car+amba|nossa|mano|gent[ei]|ei+ta|ai+ta|ih|ahn?|ahh?|ohh?|uau|wow|amei|adorei|lindo|gostei|perfeito|incrível|demais|arrasou|top|show|legal|bonitinho|fofinho|fofa)/u',
+        $tl
+    ) || (mb_strlen($tl, 'UTF-8') <= 15 && !preg_match('/\d|(?:wispy|volume|mega|fox|pluma|classic|egip|sirena|gatinho|luxo|fio)/u', $tl) && $estadoAtual === 'aguardando_servico');
+
     // No aguardando_horario: sem dígito = certamente não é um horário
     $eHorarioInvalido = ($estadoAtual === 'aguardando_horario' && !preg_match('/\d/', $textoMsg));
 
-    if ($eSaudacaoOuReset || $ePerguntaOuDuvida || $eHorarioInvalido) {
+    if ($eSaudacaoOuReset || $ePerguntaOuDuvida || $eReacaoCasual || $eHorarioInvalido) {
         $estadoAtual = 'em_conversa';
         $dadosCtx    = [];
         $historico   = [];
@@ -522,6 +528,36 @@ switch ($estadoAtual) {
                 }
                 break;
 
+            case 'escalar_atendimento':
+                try {
+                    $numDesigner = sanitizarTelefone(getConfig($pdo, 'numero_alerta_designer', ''));
+                    if ($numDesigner) {
+                        $nomeCli  = $cliente['Nome'] ?? 'Desconhecida';
+                        $telCli   = $telefone;
+                        // Monta resumo das últimas mensagens para contexto
+                        $resumo = '';
+                        $recentes = array_slice($historico, -6);
+                        foreach ($recentes as $h) {
+                            $quem    = $h['role'] === 'user' ? '👤' : '🤖';
+                            $resumo .= "{$quem} {$h['text']}\n";
+                        }
+                        $msgEdiane = "📬 *{$nomeCli}* quer falar com você diretamente!\n\n"
+                            . "📱 Número: *{$telCli}*\n\n"
+                            . "_Contexto da conversa:_\n{$resumo}";
+                        $ok = enviarWhatsApp($numDesigner, trim($msgEdiane));
+                        registrarLogWhatsApp($pdo, $numDesigner, $msgEdiane, 'alerta_designer', $ok ? 'enviado' : 'erro', $fkAgLog);
+                    }
+                    $novoEstado = 'resolvido';
+                    if (!$resposta) {
+                        $resposta = "Já avisei a Ediane! 💜 Ela vai entrar em contato com você assim que possível. Se preferir, pode aguardar aqui mesmo pelo WhatsApp 😊";
+                    }
+                } catch (\Throwable $e) {
+                    error_log('[WebhookIA][escalar] ' . $e->getMessage());
+                    $resposta = "Já avisei a Ediane! 💜 Ela vai entrar em contato com você em breve 😊";
+                    $novoEstado = 'resolvido';
+                }
+                break;
+
             case 'iniciar_reagendamento':
                 try {
                 if (!empty($agendamentos)) {
@@ -759,6 +795,7 @@ AÇÕES (substitua "nenhuma" apenas quando aplicável):
 - "iniciar_agendamento" → cliente pediu explicitamente para marcar/agendar um horário
 - "iniciar_cancelamento" → cliente quer cancelar agendamento existente
 - "iniciar_reagendamento" → cliente quer mudar data/hora de agendamento existente
+- "escalar_atendimento" → cliente quer falar diretamente com a Ediane, ou tem dúvida específica que só ela pode responder. Na "resposta", diga que já avisou a Ediane e que ela entrará em contato em breve — de forma calorosa.
 PROMPT;
 
     // Histórico multi-turn real — formato nativo da API Gemini v1beta
@@ -1399,6 +1436,11 @@ function _respostaContextual(PDO $pdo, string $texto, array $historico, array $a
     // ── Reagendar ────────────────────────────────────────────────────────────
     if (preg_match('/reagend|remarc|mud.*horár|troc.*horár/u', $tl)) {
         return ['acao' => 'iniciar_reagendamento', 'resposta' => ''];
+    }
+
+    // ── Escalar para Ediane ───────────────────────────────────────────────────
+    if (preg_match('/falar com (?:ela|ediane|a (?:dona|lash|profissional))|atendimento (?:humano|pessoal)|falar com algu[eé]m|quero (?:falar|conversar) com (?:voc[eê]|ela|algu[eé]m)|fala com a ediane|passa.*ediane|chama.*ediane/u', $tl)) {
+        return ['acao' => 'escalar_atendimento', 'resposta' => ''];
     }
 
     // ── Contexto do histórico: responde ao que a Bel perguntou antes ─────────
