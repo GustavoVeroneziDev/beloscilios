@@ -129,6 +129,22 @@ $novoFkAg   = $fkAgendamento;
 $fkAgLog    = null;
 $tipoLog    = 'ia_resposta';
 
+// ── 9a. Escape do fluxo: saudação/confusão no meio de um agendamento ──────────
+$estadosMidFlow = ['aguardando_servico','aguardando_data','aguardando_horario','aguardando_confirmacao_agendamento'];
+if (in_array($estadoAtual, $estadosMidFlow)) {
+    $tl = mb_strtolower($textoMsg, 'UTF-8');
+    $pareceReset = (bool) preg_match(
+        '/\b(ol[aá]|oie+|oi\b|bom dia|boa tarde|boa noite|confus|come[cç]|in[ií]cio|esquecer?|tudo bem|como vai|para|recomeç)\b/u',
+        $tl
+    ) || ($estadoAtual === 'aguardando_horario' && !preg_match('/\d/', $textoMsg));
+
+    if ($pareceReset) {
+        $estadoAtual = 'em_conversa';
+        $dadosCtx    = [];
+        $historico   = [];
+    }
+}
+
 switch ($estadoAtual) {
 
     // ── aguardando escolha do serviço ─────────────────────────────────────────
