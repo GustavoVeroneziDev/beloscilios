@@ -423,6 +423,7 @@ switch ($estadoAtual) {
 
         switch ($acao) {
             case 'iniciar_agendamento':
+                try {
                 $servicos = _listarServicos($pdo);
                 $svcMatch = _parsearServico($textoMsg, $servicos);
 
@@ -457,9 +458,14 @@ switch ($estadoAtual) {
                         $resposta = "Ótimo! 🎀 Qual serviço você quer agendar?\n\n{$lista}";
                     }
                 }
+                } catch (\Throwable $e) {
+                    error_log('[WebhookIA][agendamento] ' . $e->getMessage());
+                    $resposta = "Tive um probleminha aqui 😅 Tenta de novo em instantes!";
+                }
                 break;
 
             case 'iniciar_cancelamento':
+                try {
                 if (!empty($agendamentos)) {
                     if (count($agendamentos) === 1) {
                         // Intenção já confirmada pelo contexto — cancela direto
@@ -487,9 +493,14 @@ switch ($estadoAtual) {
                 } else {
                     $resposta = "Você não tem agendamentos futuros para cancelar 😊";
                 }
+                } catch (\Throwable $e) {
+                    error_log('[WebhookIA][cancelamento] ' . $e->getMessage());
+                    $resposta = "Tive um probleminha aqui 😅 Tenta de novo em instantes!";
+                }
                 break;
 
             case 'iniciar_reagendamento':
+                try {
                 if (!empty($agendamentos)) {
                     if (count($agendamentos) === 1) {
                         // Cancela o atual e já inicia novo agendamento
@@ -517,6 +528,10 @@ switch ($estadoAtual) {
                     $lista      = _iniciarFluxoAgendamento($pdo);
                     $novoEstado = 'aguardando_servico';
                     $resposta   = "Você não tem agendamentos futuros. Que tal marcar um novo? 🎀\n\n{$lista}";
+                }
+                } catch (\Throwable $e) {
+                    error_log('[WebhookIA][reagendamento] ' . $e->getMessage());
+                    $resposta = "Tive um probleminha aqui 😅 Tenta de novo em instantes!";
                 }
                 break;
         }
@@ -678,53 +693,54 @@ function _geminiNLU(
 
     $ctxNegocio = getConfig($pdo, 'contexto_negocio', '');
 
-    // System prompt: persona + contexto do negócio + contexto da cliente atual
+    $ctxNegocio = getConfig($pdo, 'contexto_negocio', '');
+
+    // System prompt — parte fixa (~60 linhas) + contexto dinâmico injetado
     $sistemaPrompt = <<<PROMPT
-Você é a Bel 💜, a assistente virtual do Belos Cílios. Você conversa pelo WhatsApp com as clientes.
+Você é a Bel 💜, assistente virtual do Belos Cílios. Conversa pelo WhatsApp com as clientes.
 
 PERSONALIDADE:
-Calorosa, informal, natural — como uma amiga que entende muito de cílios. Curiosa, bem-humorada quando o momento pede, sempre acolhedora. Use "Oiee" ao cumprimentar. Emojis com leveza: 💜 🎀 ✨ 😊. Português do Brasil, mensagens curtas e diretas — sem textão.
+Pense numa amiga que entende tudo de cílios e adora ajudar — calorosa, descontraída, sem forçar. Converse de forma natural: responda perguntas diretamente, bata papo quando o clima pede, reaja a comentários com leveza. Não redirecione toda mensagem para agendamento; deixe o assunto fluir. Emojis com moderação e só quando fizerem sentido. Português do Brasil, mensagens curtas — sem textão.
 
-Você GOSTA de conversar. Quando a cliente faz comentários, pergunta sobre você, ou só bate um papo, responda com naturalidade e leveza. Não tente redirecionar toda conversa para agendamento — deixe o assunto fluir.
-
-SOBRE VOCÊ (Bel):
-- É uma assistente virtual, mas com personalidade própria
-- Adora cílios e sabe tudo sobre os serviços do estúdio
-- Se perguntarem se é IA: assuma com leveza ("Sou virtual sim, mas converso de verdade! 😄")
-- Pode falar de si mesma, contar que foi "criada" para o Belos Cílios, ser simpática sobre isso
-- Não tem problema nenhum em bater papo sobre ela mesma
+SOBRE VOCÊ:
+Sou a Bel, criada especialmente para o Belos Cílios. Sou virtual, mas tenho personalidade própria e adoro conversar 😄 Sei tudo sobre os serviços e adoro cílios. Se perguntarem se sou IA, assumo com bom humor e sigo a conversa normalmente.
 
 SOBRE O ESTÚDIO:
 {$ctxNegocio}
 
 {$ctxServicos}
 
-CONTEXTO DA CLIENTE:
+CONTEXTO DA CLIENTE (pré-calculado — use diretamente, nunca invente):
 {$ctxCliente}
 {$ctxAg}{$ctxVisitas}
 
-REGRAS DE RESPOSTA:
-- Responda EXATAMENTE o que foi perguntado. Nunca desvie o assunto.
-- Curiosidade sobre você → fale sobre você com simpatia
-- Comentário casual ("que legal!", "nossa!") → reaja naturalmente, não force o agendamento
-- Dúvida sobre serviço ou preço → responda diretamente com os dados acima
-- Só use acao="iniciar_agendamento" quando a pessoa EXPLICITAMENTE disser que quer marcar/agendar
-- "quero saber mais", "como funciona", "tem assistente?" são curiosidades — acao="nenhuma"
-- Nunca invente informações fora do contexto acima
-- Se não souber algo: "Não tenho essa info, mas pode perguntar direto pra Ediane! 😊"
+REGRAS:
+1. Responda exatamente o que foi perguntado — nunca desvie nem ignore a mensagem.
+2. Curiosidade sobre você ou o estúdio → responda com simpatia, sem forçar agendamento.
+3. Dúvida sobre serviço ou preço → responda com os dados acima, diretamente.
+4. Comentário casual ("que legal!", "nossa!") → reaja de forma natural.
+5. Só use acao "iniciar_agendamento" quando a cliente EXPLICITAMENTE pedir pra marcar/agendar horário.
+6. Nunca invente dados ou informações fora do contexto acima.
+7. Se não souber: "Não tenho essa info, mas pode perguntar direto pra Ediane! 😊"
+
+FORMATAÇÃO WHATSAPP (use no campo "resposta" diretamente):
+- *negrito* para serviços, valores e informações importantes
+- _itálico_ para observações secundárias
+- • no início de linha para listas
+- Nunca use sublinhado — não existe no WhatsApp; use *negrito* no lugar
 
 RETORNE APENAS JSON válido (sem markdown, sem ```):
-{"resposta":"sua mensagem — sempre preenchida, nunca vazia","acao":"nenhuma"}
+{"resposta":"mensagem para a cliente — sempre preenchida","acao":"nenhuma"}
 
-QUANDO MUDAR A AÇÃO (substitua "nenhuma" apenas nestes casos):
-- "iniciar_agendamento" → cliente disse explicitamente "quero agendar", "quero marcar", "quero um horário"
+AÇÕES (substitua "nenhuma" apenas quando aplicável):
+- "iniciar_agendamento" → cliente pediu explicitamente para marcar/agendar um horário
 - "iniciar_cancelamento" → cliente quer cancelar agendamento existente
 - "iniciar_reagendamento" → cliente quer mudar data/hora de agendamento existente
 PROMPT;
 
-    // Histórico em formato multi-turn real (padrão Gemini v1beta)
+    // Histórico multi-turn real — formato nativo da API Gemini v1beta
     $contents = [];
-    foreach (array_slice($historico, -8) as $h) {
+    foreach (array_slice($historico, -10) as $h) {
         $contents[] = [
             'role'  => $h['role'] === 'user' ? 'user' : 'model',
             'parts' => [['text' => $h['text']]],
@@ -736,19 +752,17 @@ PROMPT;
         'system_instruction' => ['parts' => [['text' => $sistemaPrompt]]],
         'contents'           => $contents,
         'generationConfig'   => [
-            'temperature'      => 0.35,
+            'temperature'      => 0.1,   // baixo: classificação + extração, não criatividade
             'maxOutputTokens'  => 500,
             'responseMimeType' => 'application/json',
         ],
     ], JSON_UNESCAPED_UNICODE);
 
-    // Faz a requisição com 1 retentativa em caso de 429
+    // Requisição com 1 retentativa em 429/5xx
     $httpCode = 0;
     $resp     = '';
     for ($tentativa = 0; $tentativa < 2; $tentativa++) {
-        if ($tentativa > 0) {
-            sleep(2);
-        }
+        if ($tentativa > 0) sleep(2);
         $ch = curl_init(GEMINI_ENDPOINT . '?key=' . GEMINI_API_KEY);
         curl_setopt_array($ch, [
             CURLOPT_POST           => true,
@@ -761,23 +775,25 @@ PROMPT;
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
         if ($httpCode === 200) break;
-        // Só retentar em 429/500; 400/403/404 são erros permanentes
         if ($httpCode !== 429 && $httpCode < 500) break;
         error_log("[WebhookIA] Gemini HTTP {$httpCode} (tentativa " . ($tentativa + 1) . ")");
     }
 
     if ($httpCode !== 200 || !$resp) {
-        error_log("[WebhookIA] Gemini falhou definitivamente HTTP {$httpCode}");
+        error_log("[WebhookIA] Gemini falhou HTTP {$httpCode}");
         return ['acao' => 'nenhuma', 'resposta' => ''];
     }
 
     $gemini = json_decode($resp, true);
-    $texto  = $gemini['candidates'][0]['content']['parts'][0]['text'] ?? '{}';
+    // Remove cercas markdown caso o modelo ainda as inclua
+    $texto  = trim($gemini['candidates'][0]['content']['parts'][0]['text'] ?? '{}');
+    $texto  = preg_replace('/^```(?:json)?\s*|\s*```$/s', '', $texto);
     $result = json_decode($texto, true);
 
     if (!is_array($result) || empty($result['resposta'])) {
-        error_log("[WebhookIA] JSON inválido do Gemini: " . substr($texto, 0, 300));
-        return ['acao' => 'nenhuma', 'resposta' => ''];
+        error_log("[WebhookIA] JSON inválido: " . substr($texto, 0, 300));
+        // Fallback com mensagem visível ao usuário (não silêncio)
+        return ['acao' => 'nenhuma', 'resposta' => '⚠️ Tive um problema técnico aqui, tenta de novo em instantes 😅'];
     }
 
     $result['acao'] ??= 'nenhuma';
