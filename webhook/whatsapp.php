@@ -73,6 +73,17 @@ $stmtUsr->execute([':tel' => $telefone]);
 $cliente = $stmtUsr->fetch() ?: null;
 
 // ── 6. Carrega conversa ativa (últimas 24h) ────────────────────────────────────
+// Expira automaticamente conversas em mid-flow inativas há mais de 30 minutos
+$pdo->prepare(
+    "UPDATE ConversasIA
+     SET Estado = 'expirado'
+     WHERE Telefone = :tel
+       AND Estado IN ('aguardando_servico','aguardando_data','aguardando_horario',
+                      'aguardando_confirmacao_agendamento','aguardando_cancelamento_escolha',
+                      'aguardando_reagendamento_escolha')
+       AND UltimaMensagemEm < DATE_SUB(NOW(), INTERVAL 30 MINUTE)"
+)->execute([':tel' => $telefone]);
+
 $stmtConv = $pdo->prepare(
     "SELECT * FROM ConversasIA
      WHERE Telefone = :tel
@@ -133,12 +144,24 @@ $tipoLog    = 'ia_resposta';
 $estadosMidFlow = ['aguardando_servico','aguardando_data','aguardando_horario','aguardando_confirmacao_agendamento'];
 if (in_array($estadoAtual, $estadosMidFlow)) {
     $tl = mb_strtolower($textoMsg, 'UTF-8');
-    $pareceReset = (bool) preg_match(
-        '/\b(ol[aá]|oie+|oi\b|bom dia|boa tarde|boa noite|confus|come[cç]|in[ií]cio|esquecer?|tudo bem|como vai|para|recomeç)\b/u',
-        $tl
-    ) || ($estadoAtual === 'aguardando_horario' && !preg_match('/\d/', $textoMsg));
 
-    if ($pareceReset) {
+    // Saudações e pedidos explícitos de reset
+    $eSaudacaoOuReset = (bool) preg_match(
+        '/\b(ol[aá]|oie+|oi\b|bom dia|boa tarde|boa noite|confus|come[cç]|in[ií]cio|esquecer?|tudo bem|como vai|recomeç|esquece|cancela|desist|para|volta)\b/u',
+        $tl
+    );
+
+    // Mensagem claramente não é uma seleção de serviço/data/horário:
+    // contém dúvida, pergunta explícita, ou é longa demais pra ser uma escolha
+    $ePerguntaOuDuvida = (bool) preg_match(
+        '/\b(d[uú]vida|pergunta|queria saber|pode me|tem algum|[eé] seguro|posso fazer|tem problema|como func|o que [eé]|me conta|me fala|eu tenho|estou gr[aá]vida|grávida|alergi|sens[íi]vel)\b|\?/u',
+        $tl
+    );
+
+    // No aguardando_horario: sem dígito = certamente não é um horário
+    $eHorarioInvalido = ($estadoAtual === 'aguardando_horario' && !preg_match('/\d/', $textoMsg));
+
+    if ($eSaudacaoOuReset || $ePerguntaOuDuvida || $eHorarioInvalido) {
         $estadoAtual = 'em_conversa';
         $dadosCtx    = [];
         $historico   = [];
