@@ -414,29 +414,11 @@ switch ($estadoAtual) {
         $acao      = $resultado['acao'] ?? 'nenhuma';
         $resposta  = $resultado['resposta'] ?? '';
 
-        // 2. Palavras-chave só ativam quando Gemini não retornou resultado (quota/erro)
+        // 2. Gemini falhou (quota/erro) → fallback contextual inteligente
         if (!$resposta && $acao === 'nenhuma') {
-            $tl          = mb_strtolower($textoMsg, 'UTF-8');
-            $kwReagendar = (bool) preg_match('/reagend|remarc|mud.*horár|troc.*horár/u', $tl);
-            $kwCancelar  = !$kwReagendar && (bool) preg_match('/\bcancelar?\b|\bcancela\b/u', $tl);
-            $kwAgendar   = !$kwReagendar && !$kwCancelar && (bool) preg_match('/\bagendar?\b|\bmarcar\b|\bhorár/u', $tl);
-            $kwInfo      = !$kwReagendar && !$kwCancelar && !$kwAgendar
-                        && (bool) preg_match('/como funciona|como [eé]\b|o que [eé]\b|quero saber|me conta|informa|servi[cç]o|pre[cç]o|valor|quanto custa/u', $tl);
-
-            if ($kwCancelar || $kwAgendar || $kwReagendar) {
-                $acao = $kwCancelar ? 'iniciar_cancelamento' : ($kwReagendar ? 'iniciar_reagendamento' : 'iniciar_agendamento');
-            } elseif ($kwInfo) {
-                $stmtSrv = $pdo->prepare("SELECT Nome FROM Servicos WHERE Ativo = 1 ORDER BY Nome");
-                $stmtSrv->execute();
-                $nomesSrv = implode(', ', array_column($stmtSrv->fetchAll(), 'Nome'));
-                $primeiro = $cliente ? explode(' ', $cliente['Nome'])[0] : null;
-                $oi       = $primeiro ? "Oiee, {$primeiro}! 🎀" : "Oiee! 🎀";
-                $resposta = "{$oi} O Belos Cílios é um estúdio especializado em cílios da Ediane! ✨\n\n" .
-                    "Você pode agendar aqui mesmo pelo WhatsApp — é só me dizer o serviço e o dia que prefere e eu verifico os horários disponíveis 😊\n\n" .
-                    "Trabalhamos com: {$nomesSrv}.\n\nQuer agendar ou tem mais alguma dúvida? 💜";
-            } else {
-                $resposta = _fallback($agendamentos, $cliente);
-            }
+            $contextual = _respostaContextual($pdo, $textoMsg, $historico, $agendamentos, $cliente);
+            $acao       = $contextual['acao'];
+            $resposta   = $contextual['resposta'];
         }
 
         switch ($acao) {
@@ -679,12 +661,12 @@ function _geminiNLU(
                 if ($s['subs']) {
                     $ctxServicos .= "• {$nome}:\n";
                     foreach ($s['subs'] as $sub) {
-                        $preco = $sub['preco'] ? 'R$ ' . number_format($sub['preco'], 2, ',', '.') : '';
+                        $preco = $sub['preco'] ? 'R$ ' . number_format((float)$sub['preco'], 2, ',', '.') : '';
                         $dur   = $sub['dur']   ? " ({$sub['dur']} min)" : '';
                         $ctxServicos .= "  - {$sub['nome']}{$dur}" . ($preco ? " — {$preco}" : '') . "\n";
                     }
                 } else {
-                    $preco = $s['preco'] ? 'R$ ' . number_format($s['preco'], 2, ',', '.') : '';
+                    $preco = $s['preco'] ? 'R$ ' . number_format((float)$s['preco'], 2, ',', '.') : '';
                     $dur   = $s['dur']   ? " ({$s['dur']} min)" : '';
                     $ctxServicos .= "• {$nome}{$dur}" . ($preco ? " — {$preco}" : '') . "\n";
                 }
@@ -696,73 +678,92 @@ function _geminiNLU(
 
     $ctxNegocio = getConfig($pdo, 'contexto_negocio', '');
 
+    // System prompt: persona + contexto do negócio + contexto da cliente atual
     $sistemaPrompt = <<<PROMPT
-Você é a Bel 💜, a assistente do estúdio Belos Cílios. Você conversa pelo WhatsApp com as clientes.
+Você é a Bel 💜, a assistente virtual do Belos Cílios. Você conversa pelo WhatsApp com as clientes.
 
-Seu jeito: caloroso, informal, natural. Como uma amiga que entende muito de cílios. Use "Oiee" ao cumprimentar. Emojis com leveza: 💜 🎀 ✨ 😊 — nunca em excesso. Responda SEMPRE em português do Brasil. Mensagens curtas e diretas — sem textão.
+Jeito: caloroso, informal, natural — como uma amiga que entende de cílios. Use "Oiee" ao cumprimentar. Emojis com leveza: 💜 🎀 ✨ 😊. Responda SEMPRE em português do Brasil. Mensagens curtas e diretas.
 
-CONTEXTO DO ESTÚDIO:
+SOBRE O ESTÚDIO:
 {$ctxNegocio}
 
 {$ctxServicos}
 
+CONTEXTO DA CLIENTE:
+{$ctxCliente}
+{$ctxAg}{$ctxVisitas}
+
 COMO SE COMPORTAR:
-- Responda o que a cliente perguntou, diretamente. Se perguntou o preço do volume, diga o preço.
+- Responda o que foi perguntado, diretamente. Se perguntou preço do volume, diga o preço.
 - Converse naturalmente: cumprimento merece cumprimento, dúvida merece resposta clara.
-- Só inicie um fluxo (agendar/cancelar/reagendar) quando a cliente CLARAMENTE quiser isso.
-- Nunca ignore a mensagem da cliente para mandar uma resposta genérica.
-- Nunca invente informações que não estão no contexto acima.
-- Se não souber responder, seja honesta: "Não tenho essa informação, mas pode perguntar diretamente para a Ediane!"
+- Só inicie fluxo (agendar/cancelar/reagendar) quando a cliente CLARAMENTE quiser isso.
+- Nunca ignore a mensagem para responder algo genérico.
+- Nunca invente informações que não estão no contexto.
+- Se não souber: "Não tenho essa info, mas pode perguntar diretamente para a Ediane!"
 
 RETORNE APENAS JSON válido (sem markdown, sem ```):
-{
-  "resposta": "sua mensagem para a cliente — sempre preenchida, nunca vazia",
-  "acao": "nenhuma" | "iniciar_agendamento" | "iniciar_cancelamento" | "iniciar_reagendamento"
-}
+{"resposta":"sua mensagem — sempre preenchida, nunca vazia","acao":"nenhuma"}
 
-QUANDO USAR CADA AÇÃO:
-- "iniciar_agendamento" → cliente claramente quer marcar um horário (não responda listando serviços — o sistema faz isso)
-- "iniciar_cancelamento" → cliente quer cancelar um agendamento existente
-- "iniciar_reagendamento" → cliente quer mudar a data/hora de um agendamento
-- "nenhuma" → tudo o mais: dúvidas, bate-papo, informações, cumprimentos
-
-LEMBRE: a "resposta" deve sempre existir. Mesmo quando a acao for iniciar_agendamento, escreva algo como "Claro, vamos lá! 🎀" — não deixe vazio.
+AÇÕES DISPONÍVEIS (substitua "nenhuma" quando aplicável):
+- "iniciar_agendamento" → cliente quer marcar horário (não liste serviços na resposta — o sistema faz isso)
+- "iniciar_cancelamento" → cliente quer cancelar agendamento existente
+- "iniciar_reagendamento" → cliente quer mudar data/hora de agendamento
 PROMPT;
 
-    $usuarioPrompt = "CLIENTE: {$ctxCliente}\n{$ctxAg}{$ctxVisitas}{$ctxHistorico}\nMENSAGEM ATUAL: \"{$mensagem}\"";
+    // Histórico em formato multi-turn real (padrão Gemini v1beta)
+    $contents = [];
+    foreach (array_slice($historico, -8) as $h) {
+        $contents[] = [
+            'role'  => $h['role'] === 'user' ? 'user' : 'model',
+            'parts' => [['text' => $h['text']]],
+        ];
+    }
+    $contents[] = ['role' => 'user', 'parts' => [['text' => $mensagem]]];
 
     $body = json_encode([
         'system_instruction' => ['parts' => [['text' => $sistemaPrompt]]],
-        'contents'           => [['parts' => [['text' => $usuarioPrompt]]]],
+        'contents'           => $contents,
         'generationConfig'   => [
-            'temperature'      => 0.4,
-            'maxOutputTokens'  => 600,
+            'temperature'      => 0.35,
+            'maxOutputTokens'  => 500,
             'responseMimeType' => 'application/json',
         ],
     ], JSON_UNESCAPED_UNICODE);
 
-    $ch = curl_init(GEMINI_ENDPOINT . '?key=' . GEMINI_API_KEY);
-    curl_setopt_array($ch, [
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => $body,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => 20,
-        CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-    ]);
-    $resp     = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+    // Faz a requisição com 1 retentativa em caso de 429
+    $httpCode = 0;
+    $resp     = '';
+    for ($tentativa = 0; $tentativa < 2; $tentativa++) {
+        if ($tentativa > 0) {
+            sleep(2);
+        }
+        $ch = curl_init(GEMINI_ENDPOINT . '?key=' . GEMINI_API_KEY);
+        curl_setopt_array($ch, [
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $body,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 15,
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+        ]);
+        $resp     = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($httpCode === 200) break;
+        // Só retentar em 429/500; 400/403/404 são erros permanentes
+        if ($httpCode !== 429 && $httpCode < 500) break;
+        error_log("[WebhookIA] Gemini HTTP {$httpCode} (tentativa " . ($tentativa + 1) . ")");
+    }
 
     if ($httpCode !== 200 || !$resp) {
-        error_log("[WebhookIA] Gemini HTTP {$httpCode}: " . substr((string)$resp, 0, 200));
-        return ['acao' => 'nenhuma', 'resposta' => _fallback($agendamentos, $cliente)];
+        error_log("[WebhookIA] Gemini falhou definitivamente HTTP {$httpCode}");
+        return ['acao' => 'nenhuma', 'resposta' => ''];
     }
 
     $gemini = json_decode($resp, true);
     $texto  = $gemini['candidates'][0]['content']['parts'][0]['text'] ?? '{}';
     $result = json_decode($texto, true);
 
-    if (!is_array($result) || !isset($result['resposta'])) {
+    if (!is_array($result) || empty($result['resposta'])) {
         error_log("[WebhookIA] JSON inválido do Gemini: " . substr($texto, 0, 300));
         return ['acao' => 'nenhuma', 'resposta' => ''];
     }
@@ -1242,6 +1243,133 @@ function _formatarDataPT(string $data): string
 function _moeda(float $valor): string
 {
     return 'R$ ' . number_format($valor, 2, ',', '.');
+}
+
+/**
+ * Fallback inteligente quando Gemini está indisponível (429/timeout).
+ * Usa padrões de texto + histórico para dar uma resposta contextual,
+ * em vez de sempre repetir a mesma mensagem genérica.
+ * Retorna array compatível com o retorno de _geminiNLU.
+ */
+function _respostaContextual(PDO $pdo, string $texto, array $historico, array $agendamentos, ?array $cliente): array
+{
+    $tl       = mb_strtolower($texto, 'UTF-8');
+    $primeiro = $cliente ? explode(' ', trim($cliente['Nome']))[0] : null;
+    $oi       = $primeiro ? "Oiee, {$primeiro}! 💜" : "Oiee! 💜";
+
+    // ── Saudação ──────────────────────────────────────────────────────────────
+    if (preg_match('/^\s*(oi+e*|ol[aá]|hey+|eai|e a[ií]|bom dia|boa tarde|boa noite|tudo bem|tudo bom|salve|opa)\b/u', $tl)) {
+        $variações = [
+            "{$oi} Aqui é a Bel, do Belos Cílios 🎀 Como posso te ajudar?",
+            "{$oi} Que ótimo te ver por aqui! Sou a Bel, do Belos Cílios 😊 Posso te ajudar a agendar ou tirar dúvidas 💜",
+            "{$oi} Seja bem-vinda ao Belos Cílios! 🎀 O que posso fazer por você?",
+        ];
+        return ['acao' => 'nenhuma', 'resposta' => $variações[array_rand($variações)]];
+    }
+
+    // ── Identidade da Bel ────────────────────────────────────────────────────
+    if (preg_match('/quem [eé]|o que [eé] voc|voc[eê] [eé]\b|[eé] (?:uma? )?(?:i\.?a\.?|intelig|robô|bot\b|humana?|pessoa|assistente|real)|se apresente|seu nome/u', $tl)) {
+        return ['acao' => 'nenhuma', 'resposta' =>
+            "{$oi} Sou a Bel 💜 a assistente virtual do Belos Cílios!\n\n" .
+            "Posso te ajudar a agendar horários, tirar dúvidas sobre os serviços e valores. " .
+            "A Ediane cuida de tudo pessoalmente no estúdio, e eu fico aqui no WhatsApp pra facilitar a sua vida 😊🎀"
+        ];
+    }
+
+    // ── Serviços / preços ────────────────────────────────────────────────────
+    if (preg_match('/servi[cç]|pre[cç]o|valor|quanto (?:custa|fica|é|cobr)|tipos?|cat[aá]logo|o que voc[eê]s? faz|cílios|extensão/u', $tl)) {
+        try {
+            $stmtSrv = $pdo->prepare(
+                "SELECT s.Nome AS NomeServ, s.Preco AS PrecoServ,
+                        ss.Nome AS NomeSub, ss.Preco AS PrecoSub
+                 FROM Servicos s
+                 LEFT JOIN SubServicos ss ON ss.FKServico = s.IDServico AND ss.Ativo = 1
+                 WHERE s.Ativo = 1
+                 ORDER BY s.Nome, ss.Nome"
+            );
+            $stmtSrv->execute();
+            $linhas = $stmtSrv->fetchAll();
+
+            $agrupados = [];
+            foreach ($linhas as $l) {
+                $agrupados[$l['NomeServ']] ??= ['preco' => $l['PrecoServ'], 'subs' => []];
+                if ($l['NomeSub']) {
+                    $agrupados[$l['NomeServ']]['subs'][] = ['nome' => $l['NomeSub'], 'preco' => $l['PrecoSub']];
+                }
+            }
+
+            $lista = '';
+            foreach ($agrupados as $nome => $s) {
+                if ($s['subs']) {
+                    $lista .= "• *{$nome}*\n";
+                    foreach ($s['subs'] as $sub) {
+                        $p = $sub['preco'] ? ' — R$ ' . number_format((float)$sub['preco'], 2, ',', '.') : '';
+                        $lista .= "  ↳ {$sub['nome']}{$p}\n";
+                    }
+                } else {
+                    $p = $s['preco'] ? ' — R$ ' . number_format((float)$s['preco'], 2, ',', '.') : '';
+                    $lista .= "• *{$nome}*{$p}\n";
+                }
+            }
+
+            if ($lista) {
+                return ['acao' => 'nenhuma', 'resposta' =>
+                    "{$oi} Trabalhamos com os seguintes serviços:\n\n{$lista}\n" .
+                    "Quer agendar algum? É só me dizer o serviço e o dia que você prefere 😊"
+                ];
+            }
+        } catch (\Throwable $e) {
+            error_log('[respostaContextual][servicos] ' . $e->getMessage());
+        }
+    }
+
+    // ── Como funciona / agendamento ──────────────────────────────────────────
+    if (preg_match('/como funciona|como (?:faço|faz[eo]|agendar?|marcar?)|quero (?:agendar?|marcar?|ir)|tem (?:vaga|horário)|disponib/u', $tl)) {
+        return ['acao' => 'iniciar_agendamento', 'resposta' => 'Claro! 🎀 Vamos agendar?'];
+    }
+
+    // ── Cancelar ─────────────────────────────────────────────────────────────
+    if (preg_match('/\bcancelar?\b|\bcancela\b/u', $tl)) {
+        return ['acao' => 'iniciar_cancelamento', 'resposta' => ''];
+    }
+
+    // ── Reagendar ────────────────────────────────────────────────────────────
+    if (preg_match('/reagend|remarc|mud.*horár|troc.*horár/u', $tl)) {
+        return ['acao' => 'iniciar_reagendamento', 'resposta' => ''];
+    }
+
+    // ── Contexto do histórico: responde ao que a Bel perguntou antes ─────────
+    if (!empty($historico)) {
+        $ultimaBot = null;
+        for ($i = count($historico) - 1; $i >= 0; $i--) {
+            if ($historico[$i]['role'] === 'assistant') { $ultimaBot = $historico[$i]['text']; break; }
+        }
+        if ($ultimaBot) {
+            $ultBot = mb_strtolower($ultimaBot, 'UTF-8');
+            if (str_contains($ultBot, 'qual serviço') || str_contains($ultBot, 'que serviço')) {
+                return ['acao' => 'iniciar_agendamento', 'resposta' => ''];
+            }
+            if (str_contains($ultBot, 'qual dia') || str_contains($ultBot, 'que dia') || str_contains($ultBot, 'para quando')) {
+                return ['acao' => 'nenhuma', 'resposta' =>
+                    "Hmm, não entendi bem o dia 😅 Pode me dizer assim: \"dia 15\", \"próxima terça\" ou a data completa? 📅"
+                ];
+            }
+            if (str_contains($ultBot, 'qual horário') || str_contains($ultBot, 'que hora') || str_contains($ultBot, 'prefere')) {
+                return ['acao' => 'nenhuma', 'resposta' =>
+                    "Não consegui identificar o horário 😅 Me fala algo como \"10h\" ou \"às 14:30\"? ⏰"
+                ];
+            }
+        }
+    }
+
+    // ── Agradecimento / encerramento ─────────────────────────────────────────
+    if (preg_match('/\b(obrigad[ao]|valeu|vlw|brigad[ao]|muito obrigad|obg|até|tchau|flw|tudo certo|ok|okay|entendi|perfeito|ótimo)\b/u', $tl)) {
+        return ['acao' => 'nenhuma', 'resposta' =>
+            "Disponha! 🎀 Se precisar de mais alguma coisa é só chamar 💜"
+        ];
+    }
+
+    return ['acao' => 'nenhuma', 'resposta' => _fallback($agendamentos, $cliente)];
 }
 
 function _fallback(array $agendamentos, ?array $cliente): string
