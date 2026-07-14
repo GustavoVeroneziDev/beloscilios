@@ -642,7 +642,7 @@ function _geminiNLU(
         $recentes     = array_slice($historico, -6);
         $ctxHistorico = "Mensagens anteriores desta conversa:\n";
         foreach ($recentes as $h) {
-            $quem         = $h['role'] === 'user' ? 'Cliente' : 'Beli';
+            $quem         = $h['role'] === 'user' ? 'Cliente' : 'Bel';
             $ctxHistorico .= "{$quem}: {$h['text']}\n";
         }
     }
@@ -697,7 +697,7 @@ function _geminiNLU(
     $ctxNegocio = getConfig($pdo, 'contexto_negocio', '');
 
     $sistemaPrompt = <<<PROMPT
-Você é a Beli 💜, a assistente do estúdio Belos Cílios. Você conversa pelo WhatsApp com as clientes.
+Você é a Bel 💜, a assistente do estúdio Belos Cílios. Você conversa pelo WhatsApp com as clientes.
 
 Seu jeito: caloroso, informal, natural. Como uma amiga que entende muito de cílios. Use "Oiee" ao cumprimentar. Emojis com leveza: 💜 🎀 ✨ 😊 — nunca em excesso. Responda SEMPRE em português do Brasil. Mensagens curtas e diretas — sem textão.
 

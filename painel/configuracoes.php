@@ -563,10 +563,10 @@ require_once __DIR__ . '/../geral/header.php';
                 <!-- Contexto permanente para a IA -->
                 <div class="mb-3">
                     <label class="form-label fw-medium">
-                        <i class="bi bi-robot me-1"></i> Contexto do estúdio para a IA (Beli)
+                        <i class="bi bi-robot me-1"></i> Contexto do estúdio para a IA (Bel)
                     </label>
                     <div class="small text-secondary mb-1">
-                        Tudo o que você escrever aqui a Beli vai saber de cor — sobre o estúdio, como funciona, política de cancelamento, cuidados pré-procedimento, formas de pagamento, etc. Mantenha atualizado!
+                        Tudo o que você escrever aqui a Bel vai saber de cor — sobre o estúdio, como funciona, política de cancelamento, cuidados pré-procedimento, formas de pagamento, etc. Mantenha atualizado!
                     </div>
                     <textarea name="contexto_negocio" class="form-control font-monospace small" rows="14"><?= h($cfg['contexto_negocio'] ?? '') ?></textarea>
                 </div>
