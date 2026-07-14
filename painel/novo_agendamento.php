@@ -36,6 +36,32 @@ try {
     } catch (PDOException) {}
 }
 
+// Dia especial: busca tipo e intervalos
+$diaEspecialId = null;
+$intervalosEspeciais = [];
+try {
+    $deStmt = $pdo->prepare(
+        'SELECT td.IDTipo, td.BloqueiaTotal, td.HoraInicio, td.HoraFim
+         FROM DiasEspeciais de
+         JOIN TiposDia td ON td.IDTipo = de.FKTipo
+         WHERE de.Data = :data LIMIT 1'
+    );
+    $deStmt->execute([':data' => $dataSel]);
+    $diaEsp = $deStmt->fetch() ?: null;
+    if ($diaEsp && !$diaEsp['BloqueiaTotal'] && $diaEsp['HoraInicio'] && $diaEsp['HoraFim']) {
+        $horario['HoraInicio'] = $diaEsp['HoraInicio'];
+        $horario['HoraFim']    = $diaEsp['HoraFim'];
+        $horario['AlmocoInicio'] = null;
+        $horario['AlmocoFim']    = null;
+        $diaEspecialId = $diaEsp['IDTipo'];
+        $stIv = $pdo->prepare('SELECT Inicio, Fim FROM IntervalosTipo WHERE FKTipo = :id ORDER BY Inicio');
+        $stIv->execute([':id' => $diaEspecialId]);
+        $intervalosEspeciais = $stIv->fetchAll(PDO::FETCH_ASSOC);
+    } elseif ($diaEsp && $diaEsp['BloqueiaTotal']) {
+        $horario = null;
+    }
+} catch (PDOException) {}
+
 // Agendamentos e bloqueios do dia
 try {
     $agStmt = $pdo->prepare(
@@ -92,10 +118,15 @@ if ($horario) {
         $status = 'livre';
         $info   = '';
 
-        if (!empty($horario['AlmocoInicio']) && !empty($horario['AlmocoFim'])) {
-            $alIni = strtotime("{$dataSel} {$horario['AlmocoInicio']}");
-            $alFim = strtotime("{$dataSel} {$horario['AlmocoFim']}");
-            if ($ts >= $alIni && $ts < $alFim) { $status = 'almoco'; $info = 'Intervalo'; }
+        $ivsGrade = $intervalosEspeciais ?: (
+            (!empty($horario['AlmocoInicio']) && !empty($horario['AlmocoFim']))
+            ? [['Inicio' => $horario['AlmocoInicio'], 'Fim' => $horario['AlmocoFim']]]
+            : []
+        );
+        foreach ($ivsGrade as $iv) {
+            $ivIni = strtotime("{$dataSel} {$iv['Inicio']}");
+            $ivFim = strtotime("{$dataSel} {$iv['Fim']}");
+            if ($ts >= $ivIni && $ts < $ivFim) { $status = 'almoco'; $info = 'Intervalo'; break; }
         }
 
         if ($status === 'livre') {
@@ -139,11 +170,17 @@ $bloqJson = json_encode(array_map(fn($b) => [
     'info'   => $b['Motivo'] ?: 'Bloqueado',
 ], $bloqueios));
 
-$almocoJson = ($horario && !empty($horario['AlmocoInicio']) && !empty($horario['AlmocoFim']))
-    ? json_encode([
-        'ini' => strtotime("{$dataSel} {$horario['AlmocoInicio']}"),
-        'fim' => strtotime("{$dataSel} {$horario['AlmocoFim']}"),
-      ])
+// Serializa todos os intervalos para o JS da grade do painel
+$_ivsJs = $intervalosEspeciais ?: (
+    ($horario && !empty($horario['AlmocoInicio']) && !empty($horario['AlmocoFim']))
+    ? [['Inicio' => $horario['AlmocoInicio'], 'Fim' => $horario['AlmocoFim']]]
+    : []
+);
+$almocoJson = $horario && $_ivsJs
+    ? json_encode(array_map(fn($iv) => [
+        'ini' => strtotime("{$dataSel} {$iv['Inicio']}"),
+        'fim' => strtotime("{$dataSel} {$iv['Fim']}"),
+      ], $_ivsJs))
     : 'null';
 
 $svsJson = json_encode(array_map(fn($s) => [
@@ -527,9 +564,9 @@ function atualizarValidezSlots() {
             });
         }
 
-        // Conflito com almoço
+        // Conflito com intervalos
         if (!invalido && ALMOCO) {
-            invalido = (ts < ALMOCO.fim && fim > ALMOCO.ini);
+            invalido = ALMOCO.some(function(iv) { return ts < iv.fim && fim > iv.ini; });
         }
 
         btn.classList.toggle('slot-invalido', invalido && !btn.classList.contains('slot-sel'));
@@ -613,7 +650,7 @@ function aplicarDuracaoPreco(duracao, preco) {
         if (fimSel > FIM_JORNADA_TS) invalSel = true;
         if (!invalSel) invalSel = AGENDAMENTOS.some(function (ag) { return slotSelecionadoTs < ag.fim && fimSel > ag.ini; });
         if (!invalSel) invalSel = BLOQUEIOS.some(function (b) { return slotSelecionadoTs < b.fim && fimSel > b.ini; });
-        if (!invalSel && ALMOCO) invalSel = (slotSelecionadoTs < ALMOCO.fim && fimSel > ALMOCO.ini);
+        if (!invalSel && ALMOCO) invalSel = ALMOCO.some(function(iv) { return slotSelecionadoTs < iv.fim && fimSel > iv.ini; });
 
         if (invalSel) {
             var btnSel = document.querySelector('.slot-livre.slot-sel');

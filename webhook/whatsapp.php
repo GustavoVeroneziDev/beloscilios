@@ -940,7 +940,7 @@ function _getSlots(PDO $pdo, string $data, int $duracao, ?int $antecMinH = null,
 
     // Dia especial
     $deStmt = $pdo->prepare(
-        'SELECT td.BloqueiaTotal, td.HoraInicio, td.HoraFim, td.AlmocoInicio, td.AlmocoFim
+        'SELECT td.IDTipo, td.BloqueiaTotal, td.HoraInicio, td.HoraFim
          FROM DiasEspeciais de JOIN TiposDia td ON td.IDTipo = de.FKTipo
          WHERE de.Data = :data LIMIT 1'
     );
@@ -957,12 +957,16 @@ function _getSlots(PDO $pdo, string $data, int $duracao, ?int $antecMinH = null,
     $horario = $horStmt->fetch();
     if (!$horario) return [];
 
+    $intervalosEspeciais = [];
     if ($diaEspecial) {
         if (!$diaEspecial['HoraInicio'] || !$diaEspecial['HoraFim']) return [];
         $horario['HoraInicio']   = $diaEspecial['HoraInicio'];
         $horario['HoraFim']      = $diaEspecial['HoraFim'];
-        $horario['AlmocoInicio'] = $diaEspecial['AlmocoInicio'];
-        $horario['AlmocoFim']    = $diaEspecial['AlmocoFim'];
+        $horario['AlmocoInicio'] = null;
+        $horario['AlmocoFim']    = null;
+        $stIv = $pdo->prepare('SELECT Inicio, Fim FROM IntervalosTipo WHERE FKTipo = :id ORDER BY Inicio');
+        $stIv->execute([':id' => $diaEspecial['IDTipo']]);
+        $intervalosEspeciais = $stIv->fetchAll(PDO::FETCH_ASSOC);
     }
 
     $dataNext = date('Y-m-d', strtotime($data . ' +1 day'));
@@ -1005,10 +1009,17 @@ function _getSlots(PDO $pdo, string $data, int $duracao, ?int $antecMinH = null,
                 if ($ts < $bFim && $slotFim > $bIni) { $livre = false; break; }
             }
         }
-        if ($livre && !empty($horario['AlmocoInicio']) && !empty($horario['AlmocoFim'])) {
-            $alIni = strtotime("{$data} {$horario['AlmocoInicio']}");
-            $alFim = strtotime("{$data} {$horario['AlmocoFim']}");
-            if ($ts < $alFim && $slotFim > $alIni) $livre = false;
+        if ($livre) {
+            $ivsCheck = $intervalosEspeciais ?: (
+                (!empty($horario['AlmocoInicio']) && !empty($horario['AlmocoFim']))
+                ? [['Inicio' => $horario['AlmocoInicio'], 'Fim' => $horario['AlmocoFim']]]
+                : []
+            );
+            foreach ($ivsCheck as $iv) {
+                $ivIni = strtotime("{$data} {$iv['Inicio']}");
+                $ivFim = strtotime("{$data} {$iv['Fim']}");
+                if ($ts < $ivFim && $slotFim > $ivIni) { $livre = false; break; }
+            }
         }
 
         if ($livre) $slots[] = date('H:i', $ts);

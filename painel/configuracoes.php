@@ -5,6 +5,20 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/../config/conexao.php';
 exigirLogin('designer');
 
+// AJAX: retorna intervalos de um tipo de dia
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && ($_GET['acao'] ?? '') === 'get_intervalos') {
+    $tid = trim($_GET['tid'] ?? '');
+    $rows = [];
+    if ($tid) {
+        $st = $pdo->prepare('SELECT Nome, Inicio, Fim FROM IntervalosTipo WHERE FKTipo = :id ORDER BY Inicio');
+        $st->execute([':id' => $tid]);
+        $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+    }
+    header('Content-Type: application/json');
+    echo json_encode(array_values($rows));
+    exit;
+}
+
 // Salvar configurações
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!validarTokenCSRF($_POST['csrf_token'] ?? '')) {
@@ -119,23 +133,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($acao === 'add_tipo') {
         $nome = trim($_POST['tipo_nome'] ?? '');
         $cor  = trim($_POST['tipo_cor']  ?? '#6c757d');
-        $bloq      = !empty($_POST['tipo_bloqueia']) ? 1 : 0;
-        $ini       = $bloq ? null : (trim($_POST['tipo_ini'] ?? '') ?: null);
-        $fim       = $bloq ? null : (trim($_POST['tipo_fim'] ?? '') ?: null);
-        $temAlm    = !$bloq && !empty($_POST['tipo_almoco_ativo']);
-        $almocoIni = $temAlm ? (trim($_POST['tipo_almoco_ini'] ?? '') ?: null) : null;
-        $almocoFim = $temAlm ? (trim($_POST['tipo_almoco_fim'] ?? '') ?: null) : null;
+        $bloq = !empty($_POST['tipo_bloqueia']) ? 1 : 0;
+        $ini  = $bloq ? null : (trim($_POST['tipo_ini'] ?? '') ?: null);
+        $fim  = $bloq ? null : (trim($_POST['tipo_fim'] ?? '') ?: null);
         if (!$nome) {
             redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=tipos', 'Informe o nome do tipo.', 'warning');
         }
         if (!preg_match('/^#[0-9a-fA-F]{6}$/', $cor)) $cor = '#6c757d';
+        $intervalos = json_decode($_POST['tipo_intervalos'] ?? '[]', true) ?: [];
         try {
+            $idTipo = gerarUuid();
             $pdo->prepare(
-                'INSERT INTO TiposDia (IDTipo, Nome, Cor, BloqueiaTotal, HoraInicio, HoraFim, AlmocoInicio, AlmocoFim)
-                 VALUES (:id, :nome, :cor, :bloq, :ini, :fim, :alni, :alfm)'
-            )->execute([':id' => gerarUuid(), ':nome' => $nome, ':cor' => $cor,
-                        ':bloq' => $bloq, ':ini' => $ini, ':fim' => $fim,
-                        ':alni' => $almocoIni, ':alfm' => $almocoFim]);
+                'INSERT INTO TiposDia (IDTipo, Nome, Cor, BloqueiaTotal, HoraInicio, HoraFim)
+                 VALUES (:id, :nome, :cor, :bloq, :ini, :fim)'
+            )->execute([':id' => $idTipo, ':nome' => $nome, ':cor' => $cor,
+                        ':bloq' => $bloq, ':ini' => $ini, ':fim' => $fim]);
+            if (!$bloq && $intervalos) {
+                $stInt = $pdo->prepare('INSERT INTO IntervalosTipo (IDIntervalo, FKTipo, Nome, Inicio, Fim) VALUES (:id, :fk, :nome, :ini, :fim)');
+                foreach ($intervalos as $iv) {
+                    if (!empty($iv['inicio']) && !empty($iv['fim'])) {
+                        $stInt->execute([':id' => gerarUuid(), ':fk' => $idTipo,
+                                         ':nome' => $iv['nome'] ?: 'Intervalo',
+                                         ':ini' => $iv['inicio'], ':fim' => $iv['fim']]);
+                    }
+                }
+            }
             redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=tipos', 'Tipo adicionado!', 'success');
         } catch (PDOException $e) {
             error_log('[TipoDia] ' . $e->getMessage());
@@ -147,24 +169,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tid  = trim($_POST['tid']       ?? '');
         $nome = trim($_POST['tipo_nome'] ?? '');
         $cor  = trim($_POST['tipo_cor']  ?? '#6c757d');
-        $bloq      = !empty($_POST['tipo_bloqueia']) ? 1 : 0;
-        $ini       = $bloq ? null : (trim($_POST['tipo_ini'] ?? '') ?: null);
-        $fim       = $bloq ? null : (trim($_POST['tipo_fim'] ?? '') ?: null);
-        $temAlm    = !$bloq && !empty($_POST['tipo_almoco_ativo']);
-        $almocoIni = $temAlm ? (trim($_POST['tipo_almoco_ini'] ?? '') ?: null) : null;
-        $almocoFim = $temAlm ? (trim($_POST['tipo_almoco_fim'] ?? '') ?: null) : null;
+        $bloq = !empty($_POST['tipo_bloqueia']) ? 1 : 0;
+        $ini  = $bloq ? null : (trim($_POST['tipo_ini'] ?? '') ?: null);
+        $fim  = $bloq ? null : (trim($_POST['tipo_fim'] ?? '') ?: null);
         if (!$tid || !$nome) {
             redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=tipos', 'Dados inválidos.', 'warning');
         }
         if (!preg_match('/^#[0-9a-fA-F]{6}$/', $cor)) $cor = '#6c757d';
+        $intervalos = json_decode($_POST['tipo_intervalos'] ?? '[]', true) ?: [];
         try {
             $pdo->prepare(
                 'UPDATE TiposDia SET Nome=:nome, Cor=:cor, BloqueiaTotal=:bloq,
-                 HoraInicio=:ini, HoraFim=:fim, AlmocoInicio=:alni, AlmocoFim=:alfm
-                 WHERE IDTipo=:id'
+                 HoraInicio=:ini, HoraFim=:fim WHERE IDTipo=:id'
             )->execute([':nome' => $nome, ':cor' => $cor, ':bloq' => $bloq,
-                        ':ini' => $ini, ':fim' => $fim,
-                        ':alni' => $almocoIni, ':alfm' => $almocoFim, ':id' => $tid]);
+                        ':ini' => $ini, ':fim' => $fim, ':id' => $tid]);
+            $pdo->prepare('DELETE FROM IntervalosTipo WHERE FKTipo = :id')->execute([':id' => $tid]);
+            if (!$bloq && $intervalos) {
+                $stInt = $pdo->prepare('INSERT INTO IntervalosTipo (IDIntervalo, FKTipo, Nome, Inicio, Fim) VALUES (:id, :fk, :nome, :ini, :fim)');
+                foreach ($intervalos as $iv) {
+                    if (!empty($iv['inicio']) && !empty($iv['fim'])) {
+                        $stInt->execute([':id' => gerarUuid(), ':fk' => $tid,
+                                         ':nome' => $iv['nome'] ?: 'Intervalo',
+                                         ':ini' => $iv['inicio'], ':fim' => $iv['fim']]);
+                    }
+                }
+            }
             redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=tipos', 'Tipo atualizado!', 'success');
         } catch (PDOException $e) {
             error_log('[TipoDia] ' . $e->getMessage());
@@ -752,22 +781,15 @@ require_once __DIR__ . '/../geral/header.php';
                         <input type="time" name="tipo_fim" id="tipoFim" class="form-control" value="18:00">
                     </div>
                 </div>
-                <div class="row g-3 mt-0" id="boxAlmocoTipo">
-                    <div class="col-12">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="tipo_almoco_ativo"
-                                   id="chkAlmocoTipo" onchange="toggleAlmocoTipo(this.checked)">
-                            <label class="form-check-label" for="chkAlmocoTipo">Tem intervalo de almoço</label>
-                        </div>
-                    </div>
-                    <div class="col-md-2" id="boxAlmocoIni" style="display:none">
-                        <label class="form-label">Almoço início</label>
-                        <input type="time" name="tipo_almoco_ini" id="tipoAlmocoIni" class="form-control" value="12:00">
-                    </div>
-                    <div class="col-md-2" id="boxAlmocoFim" style="display:none">
-                        <label class="form-label">Almoço fim</label>
-                        <input type="time" name="tipo_almoco_fim" id="tipoAlmocoFim" class="form-control" value="13:00">
-                    </div>
+                <div class="mt-3" id="boxIntervalosAdd">
+                    <label class="form-label fw-medium">Intervalos</label>
+                    <div class="text-muted small mb-2">Períodos bloqueados dentro do horário (almoço, academia, etc.)</div>
+                    <div id="addIntervalosLista"></div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mt-1"
+                            onclick="adicionarIntervaloAdd()">
+                        <i class="bi bi-plus me-1"></i> Adicionar intervalo
+                    </button>
+                    <input type="hidden" name="tipo_intervalos" id="addIntervalosJson" value="[]">
                 </div>
                 <div class="form-text mt-2 mb-3">
                     Quando não bloqueia o dia, defina a janela reduzida de atendimento (ex: 13h–18h para manhã ocupada).
@@ -840,17 +862,7 @@ require_once __DIR__ . '/../geral/header.php';
             document.getElementById('boxTipoFim').style.display = bloqTotal ? 'none' : '';
             document.getElementById('tipoIni').required = !bloqTotal;
             document.getElementById('tipoFim').required = !bloqTotal;
-            document.getElementById('boxAlmocoTipo').style.display = bloqTotal ? 'none' : '';
-            if (bloqTotal) {
-                document.getElementById('chkAlmocoTipo').checked = false;
-                toggleAlmocoTipo(false);
-            }
-        }
-        function toggleAlmocoTipo(ativo) {
-            document.getElementById('boxAlmocoIni').style.display = ativo ? '' : 'none';
-            document.getElementById('boxAlmocoFim').style.display = ativo ? '' : 'none';
-            document.getElementById('tipoAlmocoIni').required = ativo;
-            document.getElementById('tipoAlmocoFim').required = ativo;
+            document.getElementById('boxIntervalosAdd').style.display = bloqTotal ? 'none' : '';
         }
 
         function toggleHorasTipoEdit(bloqTotal) {
@@ -858,30 +870,74 @@ require_once __DIR__ . '/../geral/header.php';
             document.getElementById('editBoxFim').style.display = bloqTotal ? 'none' : '';
             document.getElementById('editTipoIni').required = !bloqTotal;
             document.getElementById('editTipoFim').required = !bloqTotal;
-            document.getElementById('editBoxAlmoco').style.display = bloqTotal ? 'none' : '';
-            if (bloqTotal) {
-                document.getElementById('editChkAlmoco').checked = false;
-                toggleAlmocoTipoEdit(false);
-            }
+            document.getElementById('editBoxIntervalos').style.display = bloqTotal ? 'none' : '';
         }
-        function toggleAlmocoTipoEdit(ativo) {
-            document.getElementById('editBoxAlmocoIni').style.display = ativo ? '' : 'none';
-            document.getElementById('editBoxAlmocoFim').style.display = ativo ? '' : 'none';
-            document.getElementById('editAlmocoIni').required = ativo;
-            document.getElementById('editAlmocoFim').required = ativo;
+        function _rowIntervalo(iv) {
+            const nome = (iv.Nome || iv.nome || '').replace(/"/g, '&quot;');
+            const ini  = iv.Inicio || iv.inicio || '';
+            const fim  = iv.Fim    || iv.fim    || '';
+            return `<div class="row g-2 align-items-center mb-2 intervalo-row">
+                <div class="col-5">
+                    <input type="text" class="form-control form-control-sm" placeholder="Nome (ex: Academia)" value="${nome}">
+                </div>
+                <div class="col-3">
+                    <input type="time" class="form-control form-control-sm" value="${ini}">
+                </div>
+                <div class="col-3">
+                    <input type="time" class="form-control form-control-sm" value="${fim}">
+                </div>
+                <div class="col-1 text-center">
+                    <button type="button" class="btn btn-sm btn-outline-danger px-2"
+                            onclick="this.closest('.intervalo-row').remove()">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>`;
         }
-        function abrirEditarTipo(tp) {
-            document.getElementById('editTid').value      = tp.id;
-            document.getElementById('editNome').value     = tp.nome;
-            document.getElementById('editCor').value      = tp.cor;
+        function adicionarIntervaloEdit() {
+            document.getElementById('editIntervalosLista').insertAdjacentHTML('beforeend', _rowIntervalo({}));
+        }
+        function adicionarIntervaloAdd() {
+            document.getElementById('addIntervalosLista').insertAdjacentHTML('beforeend', _rowIntervalo({}));
+        }
+        function _serializarIntervalos(listaId, jsonId) {
+            const rows = document.querySelectorAll('#' + listaId + ' .intervalo-row');
+            const ivs = [];
+            rows.forEach(function(row) {
+                const inputs = row.querySelectorAll('input');
+                const ini = inputs[1].value, fim = inputs[2].value;
+                if (ini && fim) ivs.push({nome: inputs[0].value.trim() || 'Intervalo', inicio: ini, fim: fim});
+            });
+            document.getElementById(jsonId).value = JSON.stringify(ivs);
+        }
+        // Serializa antes de submeter o modal de edição
+        document.addEventListener('DOMContentLoaded', function() {
+            var formEdit = document.querySelector('#modalEditarTipo form');
+            if (formEdit) formEdit.addEventListener('submit', function() {
+                _serializarIntervalos('editIntervalosLista', 'editIntervalosJson');
+            });
+            var formAdd = document.querySelector('form[action*="tab=tipos"]');
+            if (formAdd) formAdd.addEventListener('submit', function() {
+                _serializarIntervalos('addIntervalosLista', 'addIntervalosJson');
+            });
+        });
+        async function abrirEditarTipo(tp) {
+            document.getElementById('editTid').value       = tp.id;
+            document.getElementById('editNome').value      = tp.nome;
+            document.getElementById('editCor').value       = tp.cor;
             document.getElementById('editChkBloq').checked = tp.bloq;
-            document.getElementById('editTipoIni').value  = tp.ini;
-            document.getElementById('editTipoFim').value  = tp.fim;
-            document.getElementById('editChkAlmoco').checked = tp.almocoAti;
-            document.getElementById('editAlmocoIni').value = tp.almocoIni;
-            document.getElementById('editAlmocoFim').value = tp.almocoFim;
+            document.getElementById('editTipoIni').value   = tp.ini  || '';
+            document.getElementById('editTipoFim').value   = tp.fim  || '';
             toggleHorasTipoEdit(tp.bloq);
-            toggleAlmocoTipoEdit(tp.almocoAti && !tp.bloq);
+            // Busca intervalos via AJAX
+            var lista = document.getElementById('editIntervalosLista');
+            lista.innerHTML = '<div class="text-muted small">Carregando...</div>';
+            try {
+                var resp = await fetch('<?= BASE ?>/painel/configuracoes.php?acao=get_intervalos&tid=' + encodeURIComponent(tp.id));
+                var ivs  = await resp.json();
+                lista.innerHTML = '';
+                ivs.forEach(function(iv) { lista.insertAdjacentHTML('beforeend', _rowIntervalo(iv)); });
+            } catch(e) { lista.innerHTML = ''; }
             var modal = new bootstrap.Modal(document.getElementById('modalEditarTipo'));
             modal.show();
         }
@@ -926,22 +982,15 @@ require_once __DIR__ . '/../geral/header.php';
                             <label class="form-label">Fim</label>
                             <input type="time" name="tipo_fim" id="editTipoFim" class="form-control">
                         </div>
-                        <div class="col-12" id="editBoxAlmoco">
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" name="tipo_almoco_ativo"
-                                       id="editChkAlmoco" onchange="toggleAlmocoTipoEdit(this.checked)">
-                                <label class="form-check-label" for="editChkAlmoco">Tem intervalo de almoço</label>
-                            </div>
-                            <div class="row g-2">
-                                <div class="col-6" id="editBoxAlmocoIni" style="display:none">
-                                    <label class="form-label">Almoço início</label>
-                                    <input type="time" name="tipo_almoco_ini" id="editAlmocoIni" class="form-control">
-                                </div>
-                                <div class="col-6" id="editBoxAlmocoFim" style="display:none">
-                                    <label class="form-label">Almoço fim</label>
-                                    <input type="time" name="tipo_almoco_fim" id="editAlmocoFim" class="form-control">
-                                </div>
-                            </div>
+                        <div class="col-12" id="editBoxIntervalos">
+                            <label class="form-label fw-medium">Intervalos</label>
+                            <div class="text-muted small mb-2">Períodos bloqueados (almoço, academia, etc.)</div>
+                            <div id="editIntervalosLista"></div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary mt-1"
+                                    onclick="adicionarIntervaloEdit()">
+                                <i class="bi bi-plus me-1"></i> Adicionar intervalo
+                            </button>
+                            <input type="hidden" name="tipo_intervalos" id="editIntervalosJson" value="[]">
                         </div>
                     </div>
                 </div>

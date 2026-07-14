@@ -41,8 +41,7 @@ if ($dataSel < $dataMin) {
 $diaEspecial = null;
 try {
     $deStmt = $pdo->prepare(
-        'SELECT td.Nome, td.Cor, td.BloqueiaTotal, td.HoraInicio, td.HoraFim,
-                td.AlmocoInicio, td.AlmocoFim
+        'SELECT td.IDTipo, td.Nome, td.Cor, td.BloqueiaTotal, td.HoraInicio, td.HoraFim
          FROM DiasEspeciais de
          JOIN TiposDia td ON td.IDTipo = de.FKTipo
          WHERE de.Data = :data LIMIT 1'
@@ -101,18 +100,24 @@ try {
 }
 
 // Aplica tipo especial do dia ao horário
+$intervalosExtras = []; // intervalos do tipo especial (academia, almoço etc.)
 if ($diaEspecial) {
     if ($diaEspecial['BloqueiaTotal']) {
-        $horario = null; // dia completamente fechado
+        $horario = null;
     } elseif ($horario) {
         if (!$diaEspecial['HoraInicio'] || !$diaEspecial['HoraFim']) {
-            // Tipo configurado sem horário definido — trata como bloqueio total
             $horario = null;
         } else {
             $horario['HoraInicio']   = $diaEspecial['HoraInicio'];
             $horario['HoraFim']      = $diaEspecial['HoraFim'];
-            $horario['AlmocoInicio'] = $diaEspecial['AlmocoInicio'];
-            $horario['AlmocoFim']    = $diaEspecial['AlmocoFim'];
+            $horario['AlmocoInicio'] = null;
+            $horario['AlmocoFim']    = null;
+            // Carrega intervalos da nova tabela
+            try {
+                $stIv = $pdo->prepare('SELECT Inicio, Fim FROM IntervalosTipo WHERE FKTipo = :id ORDER BY Inicio');
+                $stIv->execute([':id' => $diaEspecial['IDTipo']]);
+                $intervalosExtras = $stIv->fetchAll(PDO::FETCH_ASSOC);
+            } catch (PDOException) {}
         }
     }
 }
@@ -156,11 +161,18 @@ if ($horario) {
             }
         }
 
-        // Verificar intervalo de almoço
-        if ($livre && !empty($horario['AlmocoInicio']) && !empty($horario['AlmocoFim'])) {
-            $alIni = strtotime("{$dataSel} {$horario['AlmocoInicio']}");
-            $alFim = strtotime("{$dataSel} {$horario['AlmocoFim']}");
-            if ($ts < $alFim && $slotFim > $alIni) { $livre = false; }
+        // Verificar intervalos (almoço padrão ou intervalos do tipo especial)
+        if ($livre) {
+            $ivsCheck = $intervalosExtras ?: (
+                (!empty($horario['AlmocoInicio']) && !empty($horario['AlmocoFim']))
+                ? [['Inicio' => $horario['AlmocoInicio'], 'Fim' => $horario['AlmocoFim']]]
+                : []
+            );
+            foreach ($ivsCheck as $iv) {
+                $ivIni = strtotime("{$dataSel} {$iv['Inicio']}");
+                $ivFim = strtotime("{$dataSel} {$iv['Fim']}");
+                if ($ts < $ivFim && $slotFim > $ivIni) { $livre = false; break; }
+            }
         }
 
         if ($livre) {
