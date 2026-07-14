@@ -51,7 +51,7 @@ if (!$telefone) { http_response_code(200); exit; }
 // ── 5. Busca cliente ───────────────────────────────────────────────────────────
 $stmtUsr = $pdo->prepare(
     "SELECT IDUsuario, Nome FROM Usuarios
-     WHERE REGEXP_REPLACE(Telefone, '[^0-9]', '') = :tel
+     WHERE Telefone = :tel
        AND NivelAcesso = 'cliente' AND Ativo = 1
        AND Email NOT LIKE '%@avulso.internal'
      LIMIT 1"
