@@ -414,10 +414,23 @@ switch ($estadoAtual) {
         $kwReagendar  = (bool) preg_match('/reagend|remarc|mud.*horár|troc.*horár/u', $tl);
         $kwCancelar   = !$kwReagendar && (bool) preg_match('/\bcancelar?\b|\bcancela\b/u', $tl);
         $kwAgendar    = !$kwReagendar && !$kwCancelar && (bool) preg_match('/\bagendar?\b|\bmarcar\b|\bhorár/u', $tl);
+        $kwInfo       = !$kwReagendar && !$kwCancelar && !$kwAgendar
+                     && (bool) preg_match('/como funciona|como [eé]\b|o que [eé]\b|quero saber|me conta|informa|servi[cç]o|pre[cç]o|valor|quanto custa/u', $tl);
 
         if ($kwCancelar || $kwAgendar || $kwReagendar) {
             $kwAcao    = $kwCancelar ? 'iniciar_cancelamento' : ($kwReagendar ? 'iniciar_reagendamento' : 'iniciar_agendamento');
             $resultado = ['acao' => $kwAcao, 'resposta' => ''];
+        } elseif ($kwInfo) {
+            $stmtSrv = $pdo->prepare("SELECT Nome FROM Servicos WHERE Ativo = 1 ORDER BY Nome");
+            $stmtSrv->execute();
+            $nomesSrv = implode(', ', array_column($stmtSrv->fetchAll(), 'Nome'));
+            $primeiro = $cliente ? explode(' ', $cliente['Nome'])[0] : null;
+            $oi       = $primeiro ? "Oiee, {$primeiro}! 🎀" : "Oiee! 🎀";
+            $resultado = ['acao' => 'nenhuma', 'resposta' =>
+                "{$oi} O Belos Cílios é um estúdio especializado em cílios da Thainá! ✨\n\n" .
+                "Você pode agendar aqui mesmo pelo WhatsApp — é só me dizer o serviço e o dia que prefere e eu verifico os horários disponíveis 😊\n\n" .
+                "Trabalhamos com: {$nomesSrv}.\n\nQuer agendar ou tem mais alguma dúvida? 💜"
+            ];
         } else {
             $resultado = _geminiNLU($textoMsg, $cliente, $agendamentos, $visitas, $historico);
         }
