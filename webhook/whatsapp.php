@@ -409,33 +409,35 @@ switch ($estadoAtual) {
 
     // ── conversa livre (estado padrão) ────────────────────────────────────────
     default:
-        // Detecção rápida por palavras-chave (funciona sem Gemini)
-        $tl = mb_strtolower($textoMsg, 'UTF-8');
-        $kwReagendar  = (bool) preg_match('/reagend|remarc|mud.*horár|troc.*horár/u', $tl);
-        $kwCancelar   = !$kwReagendar && (bool) preg_match('/\bcancelar?\b|\bcancela\b/u', $tl);
-        $kwAgendar    = !$kwReagendar && !$kwCancelar && (bool) preg_match('/\bagendar?\b|\bmarcar\b|\bhorár/u', $tl);
-        $kwInfo       = !$kwReagendar && !$kwCancelar && !$kwAgendar
-                     && (bool) preg_match('/como funciona|como [eé]\b|o que [eé]\b|quero saber|me conta|informa|servi[cç]o|pre[cç]o|valor|quanto custa/u', $tl);
-
-        if ($kwCancelar || $kwAgendar || $kwReagendar) {
-            $kwAcao    = $kwCancelar ? 'iniciar_cancelamento' : ($kwReagendar ? 'iniciar_reagendamento' : 'iniciar_agendamento');
-            $resultado = ['acao' => $kwAcao, 'resposta' => ''];
-        } elseif ($kwInfo) {
-            $stmtSrv = $pdo->prepare("SELECT Nome FROM Servicos WHERE Ativo = 1 ORDER BY Nome");
-            $stmtSrv->execute();
-            $nomesSrv = implode(', ', array_column($stmtSrv->fetchAll(), 'Nome'));
-            $primeiro = $cliente ? explode(' ', $cliente['Nome'])[0] : null;
-            $oi       = $primeiro ? "Oiee, {$primeiro}! 🎀" : "Oiee! 🎀";
-            $resultado = ['acao' => 'nenhuma', 'resposta' =>
-                "{$oi} O Belos Cílios é um estúdio especializado em cílios da Ediane! ✨\n\n" .
-                "Você pode agendar aqui mesmo pelo WhatsApp — é só me dizer o serviço e o dia que prefere e eu verifico os horários disponíveis 😊\n\n" .
-                "Trabalhamos com: {$nomesSrv}.\n\nQuer agendar ou tem mais alguma dúvida? 💜"
-            ];
-        } else {
-            $resultado = _geminiNLU($pdo, $textoMsg, $cliente, $agendamentos, $visitas, $historico);
-        }
+        // 1. Gemini é o motor principal: conversa natural + classificação de intenção
+        $resultado = _geminiNLU($pdo, $textoMsg, $cliente, $agendamentos, $visitas, $historico);
         $acao      = $resultado['acao'] ?? 'nenhuma';
-        $resposta  = $resultado['resposta'] ?: _fallback($agendamentos, $cliente);
+        $resposta  = $resultado['resposta'] ?? '';
+
+        // 2. Palavras-chave só ativam quando Gemini não retornou resultado (quota/erro)
+        if (!$resposta && $acao === 'nenhuma') {
+            $tl          = mb_strtolower($textoMsg, 'UTF-8');
+            $kwReagendar = (bool) preg_match('/reagend|remarc|mud.*horár|troc.*horár/u', $tl);
+            $kwCancelar  = !$kwReagendar && (bool) preg_match('/\bcancelar?\b|\bcancela\b/u', $tl);
+            $kwAgendar   = !$kwReagendar && !$kwCancelar && (bool) preg_match('/\bagendar?\b|\bmarcar\b|\bhorár/u', $tl);
+            $kwInfo      = !$kwReagendar && !$kwCancelar && !$kwAgendar
+                        && (bool) preg_match('/como funciona|como [eé]\b|o que [eé]\b|quero saber|me conta|informa|servi[cç]o|pre[cç]o|valor|quanto custa/u', $tl);
+
+            if ($kwCancelar || $kwAgendar || $kwReagendar) {
+                $acao = $kwCancelar ? 'iniciar_cancelamento' : ($kwReagendar ? 'iniciar_reagendamento' : 'iniciar_agendamento');
+            } elseif ($kwInfo) {
+                $stmtSrv = $pdo->prepare("SELECT Nome FROM Servicos WHERE Ativo = 1 ORDER BY Nome");
+                $stmtSrv->execute();
+                $nomesSrv = implode(', ', array_column($stmtSrv->fetchAll(), 'Nome'));
+                $primeiro = $cliente ? explode(' ', $cliente['Nome'])[0] : null;
+                $oi       = $primeiro ? "Oiee, {$primeiro}! 🎀" : "Oiee! 🎀";
+                $resposta = "{$oi} O Belos Cílios é um estúdio especializado em cílios da Ediane! ✨\n\n" .
+                    "Você pode agendar aqui mesmo pelo WhatsApp — é só me dizer o serviço e o dia que prefere e eu verifico os horários disponíveis 😊\n\n" .
+                    "Trabalhamos com: {$nomesSrv}.\n\nQuer agendar ou tem mais alguma dúvida? 💜";
+            } else {
+                $resposta = _fallback($agendamentos, $cliente);
+            }
+        }
 
         switch ($acao) {
             case 'iniciar_agendamento':
@@ -467,8 +469,11 @@ switch ($estadoAtual) {
                         $resposta   = "Ótima escolha! 🎀 Pra quando você quer marcar *{$svcMatch['Nome']}*? Me fala o dia 📅";
                     }
                 } else {
-                    // Gemini já gerou uma resposta amigável — só muda o estado
                     $novoEstado = 'aguardando_servico';
+                    if (!$resposta) {
+                        $lista    = _iniciarFluxoAgendamento($pdo);
+                        $resposta = "Ótimo! 🎀 Qual serviço você quer agendar?\n\n{$lista}";
+                    }
                 }
                 break;
 
@@ -692,40 +697,36 @@ function _geminiNLU(
     $ctxNegocio = getConfig($pdo, 'contexto_negocio', '');
 
     $sistemaPrompt = <<<PROMPT
-Você é a Beli 💜, assistente virtual do estúdio de cílios Belos Cílios da Ediane.
-Atenda com carinho, leveza e naturalidade — como a própria Ediane faria.
-Tom: amigável, informal, acolhedor. Use "Oiee" ao cumprimentar.
-Emojis com moderação: 💜 🎀 ✨ 💕 🫶🏼 😊
-Responda SEMPRE em português do Brasil.
+Você é a Beli 💜, a assistente do estúdio Belos Cílios. Você conversa pelo WhatsApp com as clientes.
 
-SOBRE O ESTÚDIO:
+Seu jeito: caloroso, informal, natural. Como uma amiga que entende muito de cílios. Use "Oiee" ao cumprimentar. Emojis com leveza: 💜 🎀 ✨ 😊 — nunca em excesso. Responda SEMPRE em português do Brasil. Mensagens curtas e diretas — sem textão.
+
+CONTEXTO DO ESTÚDIO:
 {$ctxNegocio}
 
 {$ctxServicos}
 
-Você pode:
-• Agendar novo horário
-• Cancelar agendamento existente
-• Reagendar (mudar horário)
-• Confirmar agendamento pendente
-• Tirar dúvidas sobre cílios, serviços, cuidados, preços
-• Ser uma presença acolhedora e amigável
+COMO SE COMPORTAR:
+- Responda o que a cliente perguntou, diretamente. Se perguntou o preço do volume, diga o preço.
+- Converse naturalmente: cumprimento merece cumprimento, dúvida merece resposta clara.
+- Só inicie um fluxo (agendar/cancelar/reagendar) quando a cliente CLARAMENTE quiser isso.
+- Nunca ignore a mensagem da cliente para mandar uma resposta genérica.
+- Nunca invente informações que não estão no contexto acima.
+- Se não souber responder, seja honesta: "Não tenho essa informação, mas pode perguntar diretamente para a Ediane!"
 
-Retorne APENAS JSON válido sem markdown:
+RETORNE APENAS JSON válido (sem markdown, sem ```):
 {
-  "intencao": "agendar" | "cancelar" | "reagendar" | "confirmar" | "consultar" | "saudacao" | "outro",
-  "confianca": 0.0-1.0,
-  "resposta": "mensagem natural e calorosa para a cliente",
-  "acao": "iniciar_agendamento" | "iniciar_cancelamento" | "iniciar_reagendamento" | "consultar" | "nenhuma"
+  "resposta": "sua mensagem para a cliente — sempre preenchida, nunca vazia",
+  "acao": "nenhuma" | "iniciar_agendamento" | "iniciar_cancelamento" | "iniciar_reagendamento"
 }
 
-Regras:
-- Se quer agendar → acao = "iniciar_agendamento" (NÃO liste serviços na resposta — o sistema fará isso)
-- Se quer cancelar → acao = "iniciar_cancelamento"
-- Se quer reagendar/mudar horário → acao = "iniciar_reagendamento"
-- Em outros casos → acao = "nenhuma" e responda naturalmente baseada no contexto do estúdio
-- Se não cadastrada: oriente a criar conta em beloscilios.com
-- Nunca invente horários ou infos que não estão no contexto
+QUANDO USAR CADA AÇÃO:
+- "iniciar_agendamento" → cliente claramente quer marcar um horário (não responda listando serviços — o sistema faz isso)
+- "iniciar_cancelamento" → cliente quer cancelar um agendamento existente
+- "iniciar_reagendamento" → cliente quer mudar a data/hora de um agendamento
+- "nenhuma" → tudo o mais: dúvidas, bate-papo, informações, cumprimentos
+
+LEMBRE: a "resposta" deve sempre existir. Mesmo quando a acao for iniciar_agendamento, escreva algo como "Claro, vamos lá! 🎀" — não deixe vazio.
 PROMPT;
 
     $usuarioPrompt = "CLIENTE: {$ctxCliente}\n{$ctxAg}{$ctxVisitas}{$ctxHistorico}\nMENSAGEM ATUAL: \"{$mensagem}\"";
@@ -761,11 +762,12 @@ PROMPT;
     $texto  = $gemini['candidates'][0]['content']['parts'][0]['text'] ?? '{}';
     $result = json_decode($texto, true);
 
-    if (!is_array($result) || !isset($result['acao'])) {
+    if (!is_array($result) || !isset($result['resposta'])) {
         error_log("[WebhookIA] JSON inválido do Gemini: " . substr($texto, 0, 300));
-        return ['acao' => 'nenhuma', 'resposta' => _fallback($agendamentos, $cliente)];
+        return ['acao' => 'nenhuma', 'resposta' => ''];
     }
 
+    $result['acao'] ??= 'nenhuma';
     return $result;
 }
 
