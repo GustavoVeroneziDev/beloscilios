@@ -430,24 +430,28 @@ switch ($estadoAtual) {
 
             case 'iniciar_cancelamento':
                 if (!empty($agendamentos)) {
-                    $dadosCtx   = ['ags_para_cancelar' => $agendamentos];
-                    $novoEstado = 'aguardando_cancelamento_escolha';
                     if (count($agendamentos) === 1) {
-                        $ag        = $agendamentos[0];
-                        $srv       = $ag['SubServico'] ?: $ag['Servico'];
-                        $dt        = date('d/m/Y', strtotime($ag['DataHoraAgendamento']));
-                        $hr        = date('H:i',   strtotime($ag['DataHoraAgendamento']));
-                        $resposta  = "Você tem *{$srv}* marcado para *{$dt} às {$hr}*.\n\n";
-                        $resposta .= "Quer cancelar? Responda *1* para confirmar ou *não* para voltar.";
+                        // Intenção já confirmada pelo contexto — cancela direto
+                        $ag   = $agendamentos[0];
+                        $ok   = _cancelarAgId($pdo, $ag['IDAgendamento']);
+                        $srv  = $ag['SubServico'] ?: $ag['Servico'];
+                        $dt   = date('d/m/Y', strtotime($ag['DataHoraAgendamento']));
+                        $hr   = date('H:i',   strtotime($ag['DataHoraAgendamento']));
+                        $novoEstado = 'resolvido';
+                        $resposta   = $ok
+                            ? "Prontinho! 💜 Cancelei seu *{$srv}* de *{$dt} às {$hr}*.\n\nFico te esperando quando quiser remarcar! 🎀"
+                            : "Não consegui cancelar 😓 Fala com a gente pelo Instagram que a gente resolve!";
                     } else {
-                        $resposta = "Qual agendamento deseja cancelar?\n\n";
+                        $dadosCtx   = ['ags_para_cancelar' => $agendamentos];
+                        $novoEstado = 'aguardando_cancelamento_escolha';
+                        $resposta   = "Qual agendamento deseja cancelar?\n\n";
                         foreach ($agendamentos as $i => $ag) {
                             $srv       = $ag['SubServico'] ?: $ag['Servico'];
                             $dt        = date('d/m/Y', strtotime($ag['DataHoraAgendamento']));
                             $hr        = date('H:i',   strtotime($ag['DataHoraAgendamento']));
                             $resposta .= ($i + 1) . ". {$srv} — {$dt} às {$hr}\n";
                         }
-                        $resposta .= "\nOu diga *não* para voltar.";
+                        $resposta .= "\nQual deles? (pode responder o número ou o nome)";
                     }
                 } else {
                     $resposta = "Você não tem agendamentos futuros para cancelar 😊";
@@ -456,27 +460,29 @@ switch ($estadoAtual) {
 
             case 'iniciar_reagendamento':
                 if (!empty($agendamentos)) {
-                    $dadosCtx   = ['ags_para_reagendar' => $agendamentos];
-                    $novoEstado = 'aguardando_reagendamento_escolha';
                     if (count($agendamentos) === 1) {
-                        $ag        = $agendamentos[0];
-                        $srv       = $ag['SubServico'] ?: $ag['Servico'];
-                        $dt        = date('d/m/Y', strtotime($ag['DataHoraAgendamento']));
-                        $hr        = date('H:i',   strtotime($ag['DataHoraAgendamento']));
-                        $resposta  = "Você quer reagendar *{$srv}* do dia *{$dt} às {$hr}*?\n";
-                        $resposta .= "Responda *1* para confirmar ou *não* para voltar.";
+                        // Cancela o atual e já inicia novo agendamento
+                        $ag         = $agendamentos[0];
+                        $srv        = $ag['SubServico'] ?: $ag['Servico'];
+                        $dt         = date('d/m/Y', strtotime($ag['DataHoraAgendamento']));
+                        $hr         = date('H:i',   strtotime($ag['DataHoraAgendamento']));
+                        _cancelarAgId($pdo, $ag['IDAgendamento']);
+                        $lista      = _iniciarFluxoAgendamento($pdo);
+                        $novoEstado = 'aguardando_servico';
+                        $resposta   = "Cancelei seu *{$srv}* de *{$dt} às {$hr}*. Vamos marcar um novo! 🎀\n\n{$lista}";
                     } else {
-                        $resposta = "Qual agendamento deseja reagendar?\n\n";
+                        $dadosCtx   = ['ags_para_reagendar' => $agendamentos];
+                        $novoEstado = 'aguardando_reagendamento_escolha';
+                        $resposta   = "Qual agendamento deseja reagendar?\n\n";
                         foreach ($agendamentos as $i => $ag) {
                             $srv       = $ag['SubServico'] ?: $ag['Servico'];
                             $dt        = date('d/m/Y', strtotime($ag['DataHoraAgendamento']));
                             $hr        = date('H:i',   strtotime($ag['DataHoraAgendamento']));
                             $resposta .= ($i + 1) . ". {$srv} — {$dt} às {$hr}\n";
                         }
-                        $resposta .= "\nOu diga *não* para voltar.";
+                        $resposta .= "\nQual deles? (pode responder o número ou o nome)";
                     }
                 } else {
-                    // Sem agendamentos → iniciar novo agendamento
                     $lista      = _iniciarFluxoAgendamento($pdo);
                     $novoEstado = 'aguardando_servico';
                     $resposta   = "Você não tem agendamentos futuros. Que tal marcar um novo? 🎀\n\n{$lista}";
