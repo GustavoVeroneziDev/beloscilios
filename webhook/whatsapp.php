@@ -7,7 +7,7 @@
  *   - Cancelar agendamento existente
  *   - Reagendar (cancela atual + abre fluxo novo)
  *   - Confirmar agendamento pendente (via lembrete)
- *   - Tirar dúvidas com personalidade da Thainá (via Gemini)
+ *   - Tirar dúvidas com personalidade da Ediane (via Gemini)
  */
 declare(strict_types=1);
 require_once __DIR__ . '/../config/conexao.php';
@@ -402,7 +402,7 @@ switch ($estadoAtual) {
                     }
                 }
             }
-            $resposta = "Oiee! 😊 Não entendi sua resposta. A Thainá vai entrar em contato com você em breve! 💜";
+            $resposta = "Oiee! 😊 Não entendi sua resposta. A Ediane vai entrar em contato com você em breve! 💜";
             $novoEstado = 'resolvido';
         }
         break;
@@ -427,7 +427,7 @@ switch ($estadoAtual) {
             $primeiro = $cliente ? explode(' ', $cliente['Nome'])[0] : null;
             $oi       = $primeiro ? "Oiee, {$primeiro}! 🎀" : "Oiee! 🎀";
             $resultado = ['acao' => 'nenhuma', 'resposta' =>
-                "{$oi} O Belos Cílios é um estúdio especializado em cílios da Thainá! ✨\n\n" .
+                "{$oi} O Belos Cílios é um estúdio especializado em cílios da Ediane! ✨\n\n" .
                 "Você pode agendar aqui mesmo pelo WhatsApp — é só me dizer o serviço e o dia que prefere e eu verifico os horários disponíveis 😊\n\n" .
                 "Trabalhamos com: {$nomesSrv}.\n\nQuer agendar ou tem mais alguma dúvida? 💜"
             ];
@@ -692,8 +692,8 @@ function _geminiNLU(
     $ctxNegocio = getConfig($pdo, 'contexto_negocio', '');
 
     $sistemaPrompt = <<<PROMPT
-Você é a Beli 💜, assistente virtual do estúdio de cílios Belos Cílios da Thainá.
-Atenda com carinho, leveza e naturalidade — como a própria Thainá faria.
+Você é a Beli 💜, assistente virtual do estúdio de cílios Belos Cílios da Ediane.
+Atenda com carinho, leveza e naturalidade — como a própria Ediane faria.
 Tom: amigável, informal, acolhedor. Use "Oiee" ao cumprimentar.
 Emojis com moderação: 💜 🎀 ✨ 💕 🫶🏼 😊
 Responda SEMPRE em português do Brasil.

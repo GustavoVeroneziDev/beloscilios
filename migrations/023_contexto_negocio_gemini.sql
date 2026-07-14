@@ -1,11 +1,11 @@
 -- Migration 023: contexto permanente do negócio para o prompt do Gemini
--- Permite que a Thainá descreva o estúdio e o Gemini use isso para responder dúvidas
+-- Permite que a Ediane descreva o estúdio e o Gemini use isso para responder dúvidas
 
 INSERT INTO ConfiguracoesSistema (IDConfig, Chave, Valor)
 VALUES (
     UUID(),
     'contexto_negocio',
-    'O Belos Cílios é um estúdio especializado em extensão de cílios localizado em Votuporanga-SP, comandado pela Thainá.
+    'O Belos Cílios é um estúdio especializado em extensão de cílios localizado em Votuporanga-SP, comandado pela Ediane.
 
 Trabalhamos com técnicas de extensão de cílios de alta qualidade, usando materiais premium e técnicas que respeitam a saúde dos cílios naturais.
 
@@ -27,6 +27,6 @@ POLÍTICA DE CANCELAMENTO:
 OUTROS:
 - Atendimento individual e personalizado
 - Ambiente aconchegante e climatizado
-- Pagamento: consultar formas disponíveis com a Thainá'
+- Pagamento: consultar formas disponíveis com a Ediane'
 )
 ON DUPLICATE KEY UPDATE Valor = VALUES(Valor);
