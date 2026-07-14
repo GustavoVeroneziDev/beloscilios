@@ -154,7 +154,7 @@ if (in_array($estadoAtual, $estadosMidFlow)) {
     // Mensagem claramente não é uma seleção de serviço/data/horário:
     // contém dúvida, pergunta explícita, ou é longa demais pra ser uma escolha
     $ePerguntaOuDuvida = (bool) preg_match(
-        '/\b(d[uú]vida|pergunta|queria saber|pode me|tem algum|[eé] seguro|posso fazer|tem problema|como func|o que [eé]|me conta|me fala|eu tenho|estou gr[aá]vida|grávida|alergi|sens[íi]vel)\b|\?/u',
+        '/\b(d[uú]vida|pergunta|queria saber|pode me|tem algum|[eé] seguro|posso (?:ir|fazer|usar|chegar)|tem problema|como func|o que [eé]|me conta|me fala|eu tenho|estou gr[aá]vida|grávida|alergi|sens[íi]vel|maquiagem|posso ir)\b|\?/u',
         $tl
     );
 
@@ -1338,8 +1338,9 @@ function _respostaContextual(PDO $pdo, string $texto, array $historico, array $a
         return ['acao' => 'nenhuma', 'resposta' => $resps[array_rand($resps)]];
     }
 
-    // ── Serviços / preços ────────────────────────────────────────────────────
-    if (preg_match('/servi[cç]|pre[cç]o|valor|quanto (?:custa|fica|é|cobr)|tipos?|cat[aá]logo|o que voc[eê]s? faz|cílios|extensão/u', $tl)) {
+    // ── Serviços / preços — só quando perguntando sobre o estúdio ───────────
+    // Evita falso positivo com "serviço" usado como "procedimento/atendimento" em geral
+    if (preg_match('/quais? (?:s[ão]o os )?servi[cç]|tipos? de servi[cç]|pre[cç]o|valor|quanto (?:custa|fica|[eé]|cobr)|cat[aá]logo|o que voc[eê]s? (?:faz|ofere|tem)|que servi[cç]|voc[eê]s? faz|trabalh[ao] com/u', $tl)) {
         try {
             $stmtSrv = $pdo->prepare(
                 "SELECT s.Nome AS NomeServ, s.Preco AS PrecoServ,
