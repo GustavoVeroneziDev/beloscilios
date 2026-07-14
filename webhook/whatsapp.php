@@ -134,80 +134,80 @@ switch ($estadoAtual) {
     // ── aguardando escolha do serviço ─────────────────────────────────────────
     case 'aguardando_servico':
         $servicos = _listarServicos($pdo);
-        $escolha  = _parsearNumero($textoMsg, count($servicos));
+        $match    = _parsearServico($textoMsg, $servicos);
 
-        if ($escolha !== null) {
-            $svc = $servicos[$escolha - 1];
+        if (is_array($match) && isset($match['ambiguo'])) {
+            $tiposStr = implode(', ', array_map(fn($t) => "*{$t}*", $match['tipos']));
+            $resposta = "Qual tipo você faz? {$tiposStr}? 🎀";
+        } elseif ($match) {
             $dadosCtx = [
-                'fk_servico'   => $svc['FKServico'],
-                'fk_sub'       => $svc['FKSub'],
-                'nome_servico' => $svc['Nome'],
-                'duracao'      => $svc['Duracao'],
-                'preco'        => $svc['Preco'],
+                'fk_servico'   => $match['FKServico'],
+                'fk_sub'       => $match['FKSub'],
+                'nome_servico' => $match['Nome'],
+                'duracao'      => $match['Duracao'],
+                'preco'        => $match['Preco'],
             ];
-            $datas = _listarDatasDisponiveis($pdo, $svc['Duracao']);
-            if (empty($datas)) {
-                $resposta   = "Oiee! 😊 Infelizmente não encontrei horários disponíveis nos próximos dias para *{$svc['Nome']}*. Tente de novo em breve ou acesse o link de agendamento! 💜";
-                $novoEstado = 'em_conversa';
-                $dadosCtx   = [];
-            } else {
-                $dadosCtx['datas_disponiveis'] = $datas;
-                $novoEstado = 'aguardando_data';
-                $resposta   = "Ótima escolha! 🎀 Para *{$svc['Nome']}*, esses dias têm horário disponível:\n\n";
-                foreach ($datas as $i => $dt) {
-                    $resposta .= ($i + 1) . ". " . _formatarDataPT($dt) . "\n";
+            $data = _parsearData($textoMsg);
+            if ($data) {
+                $slots = _getSlots($pdo, $data, $match['Duracao']);
+                if (!empty($slots)) {
+                    $dadosCtx['data_escolhida']    = $data;
+                    $dadosCtx['slots_disponiveis'] = $slots;
+                    $novoEstado = 'aguardando_horario';
+                    $resposta   = "Ótima escolha! 🎀 Em " . _formatarDataPT($data) . " tenho: " . implode(', ', $slots) . ". Qual você prefere? ⏰";
+                } else {
+                    $novoEstado = 'aguardando_data';
+                    $resposta   = "Para *{$match['Nome']}* no dia " . _formatarDataPT($data) . " não tenho horários disponíveis 😔 Qual outro dia você prefere? 📅";
                 }
-                $resposta .= "\nQual prefere? Responda com o número 😊";
+            } else {
+                $novoEstado = 'aguardando_data';
+                $resposta   = "Ótima escolha! 🎀 Pra quando você quer marcar *{$match['Nome']}*? Me fala o dia 📅";
             }
         } else {
-            $servicos = _listarServicos($pdo);
-            $resposta = "Não entendi 😅 Por favor, responda com o *número* do serviço:\n\n";
-            $resposta .= _textoListaServicos($servicos);
+            $stmt = $pdo->prepare("SELECT Nome FROM Servicos WHERE Ativo = 1 ORDER BY Nome");
+            $stmt->execute();
+            $nomes    = implode(', ', array_column($stmt->fetchAll(), 'Nome'));
+            $resposta = "Hmm, não entendi qual serviço 😅 Temos: {$nomes}. Qual você quer? 🎀";
         }
         break;
 
     // ── aguardando escolha da data ────────────────────────────────────────────
     case 'aguardando_data':
-        $datas   = $dadosCtx['datas_disponiveis'] ?? [];
-        $escolha = _parsearNumero($textoMsg, count($datas));
+        $duracao  = (int)($dadosCtx['duracao'] ?? 60);
+        $nomeServ = $dadosCtx['nome_servico'] ?? 'o serviço';
+        $data     = _parsearData($textoMsg);
 
-        if ($escolha !== null && isset($datas[$escolha - 1])) {
-            $dataEsc = $datas[$escolha - 1];
-            $duracao = (int)($dadosCtx['duracao'] ?? 60);
-            $slots   = _getSlots($pdo, $dataEsc, $duracao);
-
-            if (empty($slots)) {
-                $resposta = "Ops, esse dia não tem mais horários disponíveis 😅 Escolha outra data:\n\n";
-                foreach ($datas as $i => $dt) {
-                    $resposta .= ($i + 1) . ". " . _formatarDataPT($dt) . "\n";
-                }
-            } else {
-                $dadosCtx['data_escolhida']   = $dataEsc;
+        if ($data) {
+            $slots = _getSlots($pdo, $data, $duracao);
+            if (!empty($slots)) {
+                $dadosCtx['data_escolhida']    = $data;
                 $dadosCtx['slots_disponiveis'] = $slots;
                 $novoEstado = 'aguardando_horario';
-                $resposta   = "Ótimo! Em *" . _formatarDataPT($dataEsc) . "*, esses horários estão disponíveis:\n\n";
-                foreach ($slots as $i => $s) {
-                    $resposta .= ($i + 1) . ". {$s}\n";
+                $resposta   = "Em " . _formatarDataPT($data) . " tenho disponível: " . implode(', ', $slots) . " 🕐\n\nQual você prefere?";
+            } else {
+                $datas   = _listarDatasDisponiveis($pdo, $duracao);
+                if (empty($datas)) {
+                    $novoEstado = 'em_conversa';
+                    $dadosCtx   = [];
+                    $resposta   = "Não tenho horários disponíveis nos próximos dias para *{$nomeServ}* 😔 Tenta de novo em breve ou fala com a gente pelo Instagram! 💜";
+                } else {
+                    $altsFmt  = array_map('_formatarDataPT', array_slice($datas, 0, 3));
+                    $resposta = "Esse dia não tem horário disponível 😔 Os mais próximos são: " . implode(', ', $altsFmt) . ". Algum te atende?";
                 }
-                $resposta .= "\nQual horário prefere? 😊";
             }
         } else {
-            $resposta = "Por favor, responda com o *número* da data desejada:\n\n";
-            foreach ($datas as $i => $dt) {
-                $resposta .= ($i + 1) . ". " . _formatarDataPT($dt) . "\n";
-            }
+            $resposta = "Não entendi o dia 😅 Pode me falar assim: *dia 14*, *terça-feira*, *14 de julho*... Qual dia você prefere? 📅";
         }
         break;
 
     // ── aguardando escolha do horário ─────────────────────────────────────────
     case 'aguardando_horario':
         $slots   = $dadosCtx['slots_disponiveis'] ?? [];
-        $escolha = _parsearNumero($textoMsg, count($slots));
+        $horaEsc = _parsearHora($textoMsg, $slots);
 
-        if ($escolha !== null && isset($slots[$escolha - 1])) {
-            $horaEsc              = $slots[$escolha - 1];
+        if ($horaEsc) {
             $dadosCtx['hora_escolhida'] = $horaEsc;
-            $novoEstado           = 'aguardando_confirmacao_agendamento';
+            $novoEstado = 'aguardando_confirmacao_agendamento';
 
             $dataEsc  = $dadosCtx['data_escolhida'] ?? '';
             $nomeServ = $dadosCtx['nome_servico']   ?? '';
@@ -215,20 +215,11 @@ switch ($estadoAtual) {
             $ts       = strtotime("{$dataEsc} {$horaEsc}");
             $diasPT   = ['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
             $diaSem   = $diasPT[(int) date('w', $ts)];
+            $precoStr = $preco > 0 ? " por *" . _moeda($preco) . "*" : '';
 
-            $resposta  = "Perfeito! 💜 Vou confirmar:\n\n";
-            $resposta .= "📌 *Serviço:* {$nomeServ}\n";
-            $resposta .= "📅 *Data:* {$diaSem}, " . date('d/m/Y', $ts) . "\n";
-            $resposta .= "🕐 *Horário:* {$horaEsc}\n";
-            if ($preco > 0) {
-                $resposta .= "💰 *Valor:* " . _moeda($preco) . "\n";
-            }
-            $resposta .= "\nConfirmo? Responda *SIM* para agendar ou *NÃO* para cancelar 🎀";
+            $resposta = "Posso confirmar *{$nomeServ}* em *{$diaSem}, " . date('d/m', $ts) . " às {$horaEsc}*{$precoStr}? 💜";
         } else {
-            $resposta = "Por favor, responda com o *número* do horário:\n\n";
-            foreach ($slots as $i => $s) {
-                $resposta .= ($i + 1) . ". {$s}\n";
-            }
+            $resposta = "Não encontrei esse horário 😅 Os disponíveis são: " . implode(', ', $slots) . ". Qual você prefere? ⏰";
         }
         break;
 
@@ -278,15 +269,15 @@ switch ($estadoAtual) {
     // ── escolhendo qual agendamento cancelar ──────────────────────────────────
     case 'aguardando_cancelamento_escolha':
         $agsFuturos = $dadosCtx['ags_para_cancelar'] ?? [];
-        $escolha    = _parsearNumero($textoMsg, count($agsFuturos));
         $desistiu   = _eCancelamento(mb_strtolower(trim($textoMsg)));
+        $idxEsc     = _matchAgendamento($textoMsg, $agsFuturos);
 
-        if ($desistiu && $escolha === null) {
+        if ($desistiu && $idxEsc === null) {
             $dadosCtx   = [];
             $novoEstado = 'em_conversa';
             $resposta   = "Tudo bem! 😊 Qualquer coisa, é só chamar! 💜";
-        } elseif ($escolha !== null && isset($agsFuturos[$escolha - 1])) {
-            $ag  = $agsFuturos[$escolha - 1];
+        } elseif ($idxEsc !== null && isset($agsFuturos[$idxEsc])) {
+            $ag         = $agsFuturos[$idxEsc];
             _cancelarAgId($pdo, $ag['IDAgendamento']);
             $fkAgLog    = $ag['IDAgendamento'];
             $tipoLog    = 'ia_cancelou';
@@ -295,47 +286,46 @@ switch ($estadoAtual) {
             $srv        = $ag['SubServico'] ?: $ag['Servico'];
             $dt         = date('d/m/Y', strtotime($ag['DataHoraAgendamento']));
             $hr         = date('H:i',   strtotime($ag['DataHoraAgendamento']));
-            $resposta   = "Agendamento de *{$srv}* do dia *{$dt} às {$hr}* cancelado! 💜\n\nSe quiser remarcar outro horário, é só me chamar! 🎀";
+            $resposta   = "Prontinho! 💜 Cancelei *{$srv}* do dia *{$dt} às {$hr}*. Se quiser remarcar, é só chamar! 🎀";
         } else {
-            $resposta = "Por favor, responda com o *número* do agendamento para cancelar:\n\n";
-            foreach ($agsFuturos as $i => $ag) {
-                $srv       = $ag['SubServico'] ?: $ag['Servico'];
-                $dt        = date('d/m/Y', strtotime($ag['DataHoraAgendamento']));
-                $hr        = date('H:i',   strtotime($ag['DataHoraAgendamento']));
-                $resposta .= ($i + 1) . ". {$srv} — {$dt} às {$hr}\n";
+            $lista = '';
+            foreach ($agsFuturos as $ag) {
+                $srv    = $ag['SubServico'] ?: $ag['Servico'];
+                $dt     = date('d/m/Y', strtotime($ag['DataHoraAgendamento']));
+                $hr     = date('H:i',   strtotime($ag['DataHoraAgendamento']));
+                $lista .= "• {$srv} — {$dt} às {$hr}\n";
             }
-            $resposta .= "\nOu diga *não* para voltar.";
+            $resposta = "Qual desses você quer cancelar?\n\n{$lista}\nPode me falar o serviço ou a data 😊";
         }
         break;
 
     // ── escolhendo qual agendamento reagendar ─────────────────────────────────
     case 'aguardando_reagendamento_escolha':
         $agsFuturos = $dadosCtx['ags_para_reagendar'] ?? [];
-        $escolha    = _parsearNumero($textoMsg, count($agsFuturos));
         $desistiu   = _eCancelamento(mb_strtolower(trim($textoMsg)));
+        $idxEsc     = _matchAgendamento($textoMsg, $agsFuturos);
 
-        if ($desistiu && $escolha === null) {
+        if ($desistiu && $idxEsc === null) {
             $dadosCtx   = [];
             $novoEstado = 'em_conversa';
             $resposta   = "Tudo bem! 😊 Qualquer coisa, é só chamar! 💜";
-        } elseif ($escolha !== null && isset($agsFuturos[$escolha - 1])) {
-            $ag = $agsFuturos[$escolha - 1];
+        } elseif ($idxEsc !== null && isset($agsFuturos[$idxEsc])) {
+            $ag         = $agsFuturos[$idxEsc];
             _cancelarAgId($pdo, $ag['IDAgendamento']);
             $fkAgLog    = $ag['IDAgendamento'];
             $tipoLog    = 'ia_reagendou';
             $dadosCtx   = [];
-            $lista      = _iniciarFluxoAgendamento($pdo);
             $novoEstado = 'aguardando_servico';
-            $resposta   = "Pronto! Agendamento anterior cancelado 💜 Agora vamos marcar um novo:\n\n{$lista}";
+            $resposta   = "Pronto! Agendamento cancelado 💜 Que serviço você quer marcar? Me fala o nome! 🎀";
         } else {
-            $resposta = "Por favor, responda com o *número* do agendamento para reagendar:\n\n";
-            foreach ($agsFuturos as $i => $ag) {
-                $srv       = $ag['SubServico'] ?: $ag['Servico'];
-                $dt        = date('d/m/Y', strtotime($ag['DataHoraAgendamento']));
-                $hr        = date('H:i',   strtotime($ag['DataHoraAgendamento']));
-                $resposta .= ($i + 1) . ". {$srv} — {$dt} às {$hr}\n";
+            $lista = '';
+            foreach ($agsFuturos as $ag) {
+                $srv    = $ag['SubServico'] ?: $ag['Servico'];
+                $dt     = date('d/m/Y', strtotime($ag['DataHoraAgendamento']));
+                $hr     = date('H:i',   strtotime($ag['DataHoraAgendamento']));
+                $lista .= "• {$srv} — {$dt} às {$hr}\n";
             }
-            $resposta .= "\nOu diga *não* para voltar.";
+            $resposta = "Qual desses você quer reagendar?\n\n{$lista}\nPode me falar o serviço ou a data 😊";
         }
         break;
 
@@ -420,11 +410,36 @@ switch ($estadoAtual) {
 
         switch ($acao) {
             case 'iniciar_agendamento':
-                $lista = _iniciarFluxoAgendamento($pdo);
-                if ($lista) {
+                $servicos = _listarServicos($pdo);
+                $svcMatch = _parsearServico($textoMsg, $servicos);
+
+                if ($svcMatch && !isset($svcMatch['ambiguo'])) {
+                    $dadosCtx = [
+                        'fk_servico'   => $svcMatch['FKServico'],
+                        'fk_sub'       => $svcMatch['FKSub'],
+                        'nome_servico' => $svcMatch['Nome'],
+                        'duracao'      => $svcMatch['Duracao'],
+                        'preco'        => $svcMatch['Preco'],
+                    ];
+                    $data = _parsearData($textoMsg);
+                    if ($data) {
+                        $slots = _getSlots($pdo, $data, $svcMatch['Duracao']);
+                        if (!empty($slots)) {
+                            $dadosCtx['data_escolhida']    = $data;
+                            $dadosCtx['slots_disponiveis'] = $slots;
+                            $novoEstado = 'aguardando_horario';
+                            $resposta   = "Ótimo! 🎀 Em " . _formatarDataPT($data) . " tenho: " . implode(', ', $slots) . ". Qual você prefere? ⏰";
+                        } else {
+                            $novoEstado = 'aguardando_data';
+                            $resposta   = "Para *{$svcMatch['Nome']}* no dia " . _formatarDataPT($data) . " não tenho horários 😔 Qual outro dia? 📅";
+                        }
+                    } else {
+                        $novoEstado = 'aguardando_data';
+                        $resposta   = "Ótima escolha! 🎀 Pra quando você quer marcar *{$svcMatch['Nome']}*? Me fala o dia 📅";
+                    }
+                } else {
+                    // Gemini já gerou uma resposta amigável — só muda o estado
                     $novoEstado = 'aguardando_servico';
-                    $saudacao   = $cliente ? "Ótimo, {$cliente['Nome']}! 🎀\n\n" : "Ótimo! 🎀\n\n";
-                    $resposta   = $saudacao . $lista;
                 }
                 break;
 
@@ -695,6 +710,7 @@ function _listarServicos(PDO $pdo): array
                 'FKServico' => $r['IDServico'],
                 'FKSub'     => $r['IDSubServico'],
                 'Nome'      => $r['NomeSub'],
+                'NomePai'   => $r['NomeServ'],
                 'Preco'     => (float)$r['PrecoSub'],
                 'Duracao'   => (int)$r['DurSub'],
             ];
@@ -703,6 +719,7 @@ function _listarServicos(PDO $pdo): array
                 'FKServico' => $r['IDServico'],
                 'FKSub'     => null,
                 'Nome'      => $r['NomeServ'],
+                'NomePai'   => $r['NomeServ'],
                 'Preco'     => (float)$r['PrecoServ'],
                 'Duracao'   => (int)$r['DurServ'],
             ];
@@ -712,24 +729,15 @@ function _listarServicos(PDO $pdo): array
     return $result;
 }
 
-function _textoListaServicos(array $servicos): string
-{
-    $txt = '';
-    foreach ($servicos as $i => $svc) {
-        $txt .= ($i + 1) . ". *{$svc['Nome']}*";
-        if ($svc['Preco'] > 0) $txt .= " — " . _moeda($svc['Preco']);
-        $txt .= " ({$svc['Duracao']}min)\n";
-    }
-    return $txt;
-}
-
 function _iniciarFluxoAgendamento(PDO $pdo): string
 {
-    $servicos = _listarServicos($pdo);
-    if (empty($servicos)) {
-        return "No momento não temos serviços disponíveis. Entre em contato para mais informações! 💜";
-    }
-    return "Qual serviço você gostaria de agendar? 🎀\n\n" . _textoListaServicos($servicos);
+    // Usado apenas como fallback quando reagendamento cancela e não consegue identificar serviço
+    $stmt = $pdo->prepare("SELECT Nome FROM Servicos WHERE Ativo = 1 ORDER BY Nome");
+    $stmt->execute();
+    $nomes = array_column($stmt->fetchAll(), 'Nome');
+    return empty($nomes)
+        ? "No momento não temos serviços disponíveis 😔"
+        : "Que serviço você quer? 🎀 Temos: " . implode(', ', $nomes) . " — pode me falar o nome!";
 }
 
 function _listarDatasDisponiveis(PDO $pdo, int $duracao): array
@@ -890,10 +898,187 @@ function _criarAgendamento(PDO $pdo, string $clienteId, array $ctx): array
     }
 }
 
-function _cancelarAgId(PDO $pdo, string $id): void
+function _cancelarAgId(PDO $pdo, string $id): bool
 {
-    $pdo->prepare("UPDATE Agendamentos SET StatusAgendamento='cancelado', AguardandoConfirmacaoIA=0 WHERE IDAgendamento=:id")
-        ->execute([':id' => $id]);
+    $stmt = $pdo->prepare("UPDATE Agendamentos SET StatusAgendamento='cancelado', AguardandoConfirmacaoIA=0 WHERE IDAgendamento=:id");
+    $stmt->execute([':id' => $id]);
+    return $stmt->rowCount() > 0;
+}
+
+// ── Helpers de linguagem natural ───────────────────────────────────────────────
+
+function _normalizarStr(string $s): string
+{
+    $s = mb_strtolower($s, 'UTF-8');
+    return strtr($s, [
+        'á'=>'a','à'=>'a','ã'=>'a','â'=>'a','ä'=>'a',
+        'é'=>'e','ê'=>'e','ë'=>'e','è'=>'e',
+        'í'=>'i','î'=>'i','ï'=>'i','ì'=>'i',
+        'ó'=>'o','ô'=>'o','õ'=>'o','ö'=>'o','ò'=>'o',
+        'ú'=>'u','û'=>'u','ü'=>'u','ù'=>'u',
+        'ç'=>'c','ñ'=>'n',
+    ]);
+}
+
+function _parsearServico(string $texto, array $servicos): mixed
+{
+    $t = _normalizarStr($texto);
+
+    $candidatos = [];
+    foreach ($servicos as $svc) {
+        $nome    = _normalizarStr($svc['Nome']);
+        $nomePai = _normalizarStr($svc['NomePai'] ?? $svc['Nome']);
+        $score   = 0;
+        foreach (preg_split('/\s+/', $nome) as $p) {
+            if (strlen($p) > 2 && str_contains($t, $p)) $score += 2;
+        }
+        foreach (preg_split('/\s+/', $nomePai) as $p) {
+            if (strlen($p) > 2 && str_contains($t, $p)) $score += 1;
+        }
+        if ($score > 0) $candidatos[] = ['svc' => $svc, 'score' => $score];
+    }
+
+    if (empty($candidatos)) return null;
+
+    usort($candidatos, fn($a, $b) => $b['score'] <=> $a['score']);
+    $melhorScore = $candidatos[0]['score'];
+    $melhores    = array_values(array_filter($candidatos, fn($c) => $c['score'] === $melhorScore));
+
+    if (count($melhores) === 1) return $melhores[0]['svc'];
+
+    // Vários matches: mesmo sub-serviço, pais diferentes → pede qual tipo
+    $nomes = array_unique(array_map(fn($c) => $c['svc']['Nome'], $melhores));
+    if (count($nomes) === 1) {
+        $tipos = array_unique(array_map(fn($c) => $c['svc']['NomePai'], $melhores));
+        return ['ambiguo' => true, 'tipos' => $tipos, 'nome' => $nomes[0]];
+    }
+
+    // Múltiplos sub-serviços distintos com mesmo score → retorna o mais específico (nome mais longo)
+    usort($melhores, fn($a, $b) => strlen($b['svc']['Nome']) <=> strlen($a['svc']['Nome']));
+    return $melhores[0]['svc'];
+}
+
+function _parsearData(string $texto): ?string
+{
+    $texto  = _normalizarStr($texto);
+    $hojeTs = strtotime(date('Y-m-d'));
+
+    if (preg_match('/\bamanh[a]/u', $texto)) return date('Y-m-d', strtotime('+1 day'));
+    if (preg_match('/\bhoje\b/', $texto))     return date('Y-m-d');
+
+    // "14/07" ou "14/07/2026"
+    if (preg_match('/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\b/', $texto, $m)) {
+        $ano  = (int)($m[3] ?? date('Y'));
+        $data = sprintf('%04d-%02d-%02d', $ano, (int)$m[2], (int)$m[1]);
+        return strtotime($data) >= $hojeTs ? $data : null;
+    }
+
+    // "14 de julho" ou "14 julho"
+    $mesesN = ['jan'=>1,'fev'=>2,'mar'=>3,'abr'=>4,'mai'=>5,'jun'=>6,'jul'=>7,'ago'=>8,'set'=>9,'out'=>10,'nov'=>11,'dez'=>12,
+                'janeiro'=>1,'fevereiro'=>2,'marco'=>3,'abril'=>4,'maio'=>5,'junho'=>6,'julho'=>7,'agosto'=>8,'setembro'=>9,'outubro'=>10,'novembro'=>11,'dezembro'=>12];
+    foreach ($mesesN as $nome => $num) {
+        if (preg_match('/\b(\d{1,2})\s+(?:de\s+)?' . preg_quote($nome, '/') . '/', $texto, $m)) {
+            $ano  = (int)date('Y');
+            $data = sprintf('%04d-%02d-%02d', $ano, $num, (int)$m[1]);
+            if (strtotime($data) < $hojeTs) $data = sprintf('%04d-%02d-%02d', $ano + 1, $num, (int)$m[1]);
+            return $data;
+        }
+    }
+
+    // "dia 14" ou "o 14"
+    if (preg_match('/\bdia\s+(\d{1,2})\b|\bo\s+dia\s+(\d{1,2})\b/', $texto, $m)) {
+        $dia = (int)($m[1] ?: $m[2]);
+        $mes = (int)date('m');
+        $ano = (int)date('Y');
+        $data = sprintf('%04d-%02d-%02d', $ano, $mes, $dia);
+        if (strtotime($data) < strtotime('+1 hour')) {
+            if (++$mes > 12) { $mes = 1; $ano++; }
+            $data = sprintf('%04d-%02d-%02d', $ano, $mes, $dia);
+        }
+        return $data;
+    }
+
+    // Dias da semana
+    $diasMap = ['domingo'=>0,'segunda'=>1,'terca'=>2,'terca-feira'=>2,'quarta'=>3,'quarta-feira'=>3,
+                 'quinta'=>4,'quinta-feira'=>4,'sexta'=>5,'sexta-feira'=>5,'sabado'=>6];
+    $diasEng = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+    $proxima = (bool) preg_match('/proxim[ao]|semana que vem|semana prox/', $texto);
+    foreach ($diasMap as $nome => $dow) {
+        if (str_contains($texto, $nome)) {
+            $ts = strtotime('next ' . $diasEng[$dow]);
+            if (!$proxima && (int)date('w') === $dow) $ts = strtotime('today');
+            return date('Y-m-d', $ts);
+        }
+    }
+
+    return null;
+}
+
+function _parsearHora(string $texto, array $slots): ?string
+{
+    if (empty($slots)) return null;
+
+    $t    = mb_strtolower($texto, 'UTF-8');
+    $hora = null;
+    $min  = 0;
+
+    if (preg_match('/\b(\d{1,2})[h:](\d{2})\b/', $t, $m)) {
+        $hora = (int)$m[1]; $min = (int)$m[2];
+    } elseif (preg_match('/\b(\d{1,2})\s*h\b/', $t, $m)) {
+        $hora = (int)$m[1];
+    } elseif (preg_match('/\b(?:as|às|ao?s)\s+(\d{1,2})\b/u', $t, $m)) {
+        $hora = (int)$m[1];
+    }
+
+    if ($hora === null) return null;
+
+    // Ajuste PM: estúdio de cílios → horas < 7 sem "manhã" são tarde
+    if (preg_match('/tarde|noite/', $t) && $hora < 12) $hora += 12;
+    elseif ($hora < 7 && !preg_match('/manh[aã]/u', $t))  $hora += 12;
+
+    $targetSeg = ($hora * 60 + $min) * 60;
+    $bestSlot  = null;
+    $bestDiff  = PHP_INT_MAX;
+    foreach ($slots as $slot) {
+        [$h, $ms] = explode(':', $slot);
+        $slotSeg  = ((int)$h * 60 + (int)$ms) * 60;
+        $diff     = abs($slotSeg - $targetSeg);
+        if ($diff < $bestDiff) { $bestDiff = $diff; $bestSlot = $slot; }
+    }
+
+    return $bestDiff <= 45 * 60 ? $bestSlot : null; // até 45 min de diferença
+}
+
+function _matchAgendamento(string $texto, array $agendamentos): ?int
+{
+    if (empty($agendamentos)) return null;
+    if (count($agendamentos) === 1) return 0;
+
+    $t = _normalizarStr($texto);
+
+    // Tenta casar por nome do serviço
+    foreach ($agendamentos as $i => $ag) {
+        $srv = _normalizarStr($ag['SubServico'] ?: $ag['Servico']);
+        foreach (preg_split('/\s+/', $srv) as $p) {
+            if (strlen($p) > 3 && str_contains($t, $p)) return $i;
+        }
+    }
+
+    // Tenta casar por data mencionada
+    $data = _parsearData($texto);
+    if ($data) {
+        foreach ($agendamentos as $i => $ag) {
+            if (str_starts_with($ag['DataHoraAgendamento'], $data)) return $i;
+        }
+    }
+
+    // Aceita número se o usuário digitou (último recurso)
+    if (preg_match('/\b(\d+)\b/', $texto, $m)) {
+        $n = (int)$m[1] - 1;
+        if ($n >= 0 && $n < count($agendamentos)) return $n;
+    }
+
+    return null;
 }
 
 function _parsearNumero(string $mensagem, int $max): ?int
