@@ -462,7 +462,12 @@ switch ($estadoAtual) {
         break;
 }
 
-// ── 10. Persiste conversa ──────────────────────────────────────────────────────
+// ── 10. Envia resposta (antes do persist, para nunca bloquear o envio) ─────────
+registrarLogWhatsApp($pdo, $telefone, $textoMsg, 'webhook_entrada', 'recebido', $fkAgLog);
+$enviou = enviarWhatsApp($telefone, $resposta);
+registrarLogWhatsApp($pdo, $telefone, $resposta, $tipoLog, $enviou ? 'enviado' : 'erro', $fkAgLog);
+
+// ── 11. Persiste conversa (best-effort: erro de coluna não derruba o envio) ────
 $historico[] = ['role' => 'user',      'text' => $textoMsg, 'ts' => date('c')];
 $historico[] = ['role' => 'assistant', 'text' => $resposta, 'ts' => date('c')];
 if (count($historico) > 40) {
@@ -471,38 +476,37 @@ if (count($historico) > 40) {
 $historicoJson = json_encode($historico, JSON_UNESCAPED_UNICODE);
 $dadosCtxJson  = json_encode($dadosCtx,  JSON_UNESCAPED_UNICODE);
 
-if ($conversa) {
-    $pdo->prepare(
-        "UPDATE ConversasIA
-         SET Estado=:est, Historico=:h, DadosContexto=:ctx, FKAgendamento=:fkag, UltimaMensagemEm=NOW()
-         WHERE IDConversa=:id"
-    )->execute([
-        ':est'  => $novoEstado,
-        ':h'    => $historicoJson,
-        ':ctx'  => $dadosCtxJson,
-        ':fkag' => $novoFkAg,
-        ':id'   => $conversa['IDConversa'],
-    ]);
-} else {
-    $pdo->prepare(
-        "INSERT INTO ConversasIA
-             (IDConversa, Telefone, FKCliente, FKAgendamento, Estado, Historico, DadosContexto, UltimaMensagemEm)
-         VALUES (:id, :tel, :fkc, :fkag, :est, :h, :ctx, NOW())"
-    )->execute([
-        ':id'   => gerarUuid(),
-        ':tel'  => $telefone,
-        ':fkc'  => $cliente['IDUsuario'] ?? null,
-        ':fkag' => $novoFkAg,
-        ':est'  => $novoEstado,
-        ':h'    => $historicoJson,
-        ':ctx'  => $dadosCtxJson,
-    ]);
+try {
+    if ($conversa) {
+        $pdo->prepare(
+            "UPDATE ConversasIA
+             SET Estado=:est, Historico=:h, DadosContexto=:ctx, FKAgendamento=:fkag, UltimaMensagemEm=NOW()
+             WHERE IDConversa=:id"
+        )->execute([
+            ':est'  => $novoEstado,
+            ':h'    => $historicoJson,
+            ':ctx'  => $dadosCtxJson,
+            ':fkag' => $novoFkAg,
+            ':id'   => $conversa['IDConversa'],
+        ]);
+    } else {
+        $pdo->prepare(
+            "INSERT INTO ConversasIA
+                 (IDConversa, Telefone, FKCliente, FKAgendamento, Estado, Historico, DadosContexto, UltimaMensagemEm)
+             VALUES (:id, :tel, :fkc, :fkag, :est, :h, :ctx, NOW())"
+        )->execute([
+            ':id'   => gerarUuid(),
+            ':tel'  => $telefone,
+            ':fkc'  => $cliente['IDUsuario'] ?? null,
+            ':fkag' => $novoFkAg,
+            ':est'  => $novoEstado,
+            ':h'    => $historicoJson,
+            ':ctx'  => $dadosCtxJson,
+        ]);
+    }
+} catch (\Throwable $e) {
+    error_log('[WebhookIA][persist] ' . $e->getMessage());
 }
-
-// ── 11. Envia resposta ─────────────────────────────────────────────────────────
-registrarLogWhatsApp($pdo, $telefone, $textoMsg, 'webhook_entrada', 'recebido', $fkAgLog);
-$enviou = enviarWhatsApp($telefone, $resposta);
-registrarLogWhatsApp($pdo, $telefone, $resposta, $tipoLog, $enviou ? 'enviado' : 'erro', $fkAgLog);
 
 http_response_code(200);
 echo json_encode(['ok' => true]);
