@@ -432,7 +432,7 @@ switch ($estadoAtual) {
                 "Trabalhamos com: {$nomesSrv}.\n\nQuer agendar ou tem mais alguma dúvida? 💜"
             ];
         } else {
-            $resultado = _geminiNLU($textoMsg, $cliente, $agendamentos, $visitas, $historico);
+            $resultado = _geminiNLU($pdo, $textoMsg, $cliente, $agendamentos, $visitas, $historico);
         }
         $acao      = $resultado['acao'] ?? 'nenhuma';
         $resposta  = $resultado['resposta'] ?: _fallback($agendamentos, $cliente);
@@ -591,6 +591,7 @@ exit;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function _geminiNLU(
+    PDO    $pdo,
     string $mensagem,
     ?array $cliente,
     array  $agendamentos,
@@ -641,12 +642,66 @@ function _geminiNLU(
         }
     }
 
+    // Contexto do negócio: serviços (banco) + descrição livre (ConfiguracoesSistema)
+    $ctxServicos = '';
+    try {
+        $stmtSrv = $pdo->prepare(
+            "SELECT s.Nome AS NomeServ, s.Preco AS PrecoServ, s.DuracaoMinutos AS DurServ,
+                    ss.Nome AS NomeSub, ss.Preco AS PrecoSub, ss.DuracaoMinutos AS DurSub
+             FROM Servicos s
+             LEFT JOIN SubServicos ss ON ss.FKServico = s.IDServico AND ss.Ativo = 1
+             WHERE s.Ativo = 1
+             ORDER BY s.Nome, ss.Nome"
+        );
+        $stmtSrv->execute();
+        $linhas = $stmtSrv->fetchAll();
+
+        $agrupados = [];
+        foreach ($linhas as $l) {
+            $agrupados[$l['NomeServ']] ??= ['preco' => $l['PrecoServ'], 'dur' => $l['DurServ'], 'subs' => []];
+            if ($l['NomeSub']) {
+                $agrupados[$l['NomeServ']]['subs'][] = [
+                    'nome'  => $l['NomeSub'],
+                    'preco' => $l['PrecoSub'],
+                    'dur'   => $l['DurSub'],
+                ];
+            }
+        }
+
+        if ($agrupados) {
+            $ctxServicos = "SERVIÇOS DISPONÍVEIS:\n";
+            foreach ($agrupados as $nome => $s) {
+                if ($s['subs']) {
+                    $ctxServicos .= "• {$nome}:\n";
+                    foreach ($s['subs'] as $sub) {
+                        $preco = $sub['preco'] ? 'R$ ' . number_format($sub['preco'], 2, ',', '.') : '';
+                        $dur   = $sub['dur']   ? " ({$sub['dur']} min)" : '';
+                        $ctxServicos .= "  - {$sub['nome']}{$dur}" . ($preco ? " — {$preco}" : '') . "\n";
+                    }
+                } else {
+                    $preco = $s['preco'] ? 'R$ ' . number_format($s['preco'], 2, ',', '.') : '';
+                    $dur   = $s['dur']   ? " ({$s['dur']} min)" : '';
+                    $ctxServicos .= "• {$nome}{$dur}" . ($preco ? " — {$preco}" : '') . "\n";
+                }
+            }
+        }
+    } catch (\Throwable $e) {
+        error_log('[WebhookIA][servicos] ' . $e->getMessage());
+    }
+
+    $ctxNegocio = getConfig($pdo, 'contexto_negocio', '');
+
     $sistemaPrompt = <<<PROMPT
 Você é a Beli 💜, assistente virtual do estúdio de cílios Belos Cílios da Thainá.
 Atenda com carinho, leveza e naturalidade — como a própria Thainá faria.
 Tom: amigável, informal, acolhedor. Use "Oiee" ao cumprimentar.
 Emojis com moderação: 💜 🎀 ✨ 💕 🫶🏼 😊
 Responda SEMPRE em português do Brasil.
+
+SOBRE O ESTÚDIO:
+{$ctxNegocio}
+
+{$ctxServicos}
 
 Você pode:
 • Agendar novo horário
@@ -668,7 +723,7 @@ Regras:
 - Se quer agendar → acao = "iniciar_agendamento" (NÃO liste serviços na resposta — o sistema fará isso)
 - Se quer cancelar → acao = "iniciar_cancelamento"
 - Se quer reagendar/mudar horário → acao = "iniciar_reagendamento"
-- Em outros casos → acao = "nenhuma" e responda naturalmente
+- Em outros casos → acao = "nenhuma" e responda naturalmente baseada no contexto do estúdio
 - Se não cadastrada: oriente a criar conta em beloscilios.com
 - Nunca invente horários ou infos que não estão no contexto
 PROMPT;

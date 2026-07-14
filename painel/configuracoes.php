@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($acao === 'mensagens') {
-        $campos = ['msg_confirmacao', 'msg_lembrete', 'msg_cancelamento', 'msg_followup', 'msg_cobranca'];
+        $campos = ['msg_confirmacao', 'msg_lembrete', 'msg_cancelamento', 'msg_followup', 'msg_cobranca', 'contexto_negocio'];
         try {
             foreach ($campos as $c) {
                 if (isset($_POST[$c])) {
@@ -229,6 +229,7 @@ try {
         'msg_followup',
         'msg_cancelamento',
         'msg_cobranca',
+        'contexto_negocio',
         'telefone_designer',
         'instagram_estudio',
     ];
@@ -555,6 +556,20 @@ require_once __DIR__ . '/../geral/header.php';
                         <textarea name="<?= $m['key'] ?>" class="form-control" rows="5"><?= h($cfg[$m['key']] ?? '') ?></textarea>
                     </div>
                 <?php endforeach ?>
+                <button class="btn btn-accent"><i class="bi bi-save me-1"></i> Salvar mensagens</button>
+
+                <hr class="my-4">
+
+                <!-- Contexto permanente para a IA -->
+                <div class="mb-3">
+                    <label class="form-label fw-medium">
+                        <i class="bi bi-robot me-1"></i> Contexto do estúdio para a IA (Beli)
+                    </label>
+                    <div class="small text-secondary mb-1">
+                        Tudo o que você escrever aqui a Beli vai saber de cor — sobre o estúdio, como funciona, política de cancelamento, cuidados pré-procedimento, formas de pagamento, etc. Mantenha atualizado!
+                    </div>
+                    <textarea name="contexto_negocio" class="form-control font-monospace small" rows="14"><?= h($cfg['contexto_negocio'] ?? '') ?></textarea>
+                </div>
                 <button class="btn btn-accent"><i class="bi bi-save me-1"></i> Salvar mensagens</button>
 
                 <!-- Card de instruções do webhook -->
