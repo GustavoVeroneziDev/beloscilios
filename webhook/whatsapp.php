@@ -48,6 +48,19 @@ $telefoneRaw = preg_replace('/@.*$/', '', $remoteJid);
 $telefone    = sanitizarTelefone($telefoneRaw);
 if (!$telefone) { http_response_code(200); exit; }
 
+// ── 4b. Dedup — ignora mensagem já processada nos últimos 30s ─────────────────
+$stmtDedup = $pdo->prepare(
+    "SELECT 1 FROM LogsWhatsApp
+     WHERE Numero = :tel AND TipoMensagem = 'webhook_entrada'
+       AND MomentoRegistro > DATE_SUB(NOW(), INTERVAL 30 SECOND)
+       AND LEFT(Mensagem, 200) = :msg LIMIT 1"
+);
+$stmtDedup->execute([':tel' => $telefone, ':msg' => mb_substr($textoMsg, 0, 200)]);
+if ($stmtDedup->fetchColumn()) { http_response_code(200); exit; }
+
+// Registra entrada imediatamente (bloqueia reprocessamento concurrent)
+registrarLogWhatsApp($pdo, $telefone, $textoMsg, 'webhook_entrada', 'recebido', null);
+
 // ── 5. Busca cliente ───────────────────────────────────────────────────────────
 $stmtUsr = $pdo->prepare(
     "SELECT IDUsuario, Nome FROM Usuarios
@@ -390,9 +403,20 @@ switch ($estadoAtual) {
 
     // ── conversa livre (estado padrão) ────────────────────────────────────────
     default:
-        $resultado = _geminiNLU($textoMsg, $cliente, $agendamentos, $visitas, $historico);
+        // Detecção rápida por palavras-chave (funciona sem Gemini)
+        $tl = mb_strtolower($textoMsg, 'UTF-8');
+        $kwReagendar  = (bool) preg_match('/reagend|remarc|mud.*horár|troc.*horár/u', $tl);
+        $kwCancelar   = !$kwReagendar && (bool) preg_match('/\bcancelar?\b|\bcancela\b/u', $tl);
+        $kwAgendar    = !$kwReagendar && !$kwCancelar && (bool) preg_match('/\bagendar?\b|\bmarcar\b|\bhorár/u', $tl);
+
+        if ($kwCancelar || $kwAgendar || $kwReagendar) {
+            $kwAcao    = $kwCancelar ? 'iniciar_cancelamento' : ($kwReagendar ? 'iniciar_reagendamento' : 'iniciar_agendamento');
+            $resultado = ['acao' => $kwAcao, 'resposta' => ''];
+        } else {
+            $resultado = _geminiNLU($textoMsg, $cliente, $agendamentos, $visitas, $historico);
+        }
         $acao      = $resultado['acao'] ?? 'nenhuma';
-        $resposta  = $resultado['resposta'] ?? _fallback($agendamentos, $cliente);
+        $resposta  = $resultado['resposta'] ?: _fallback($agendamentos, $cliente);
 
         switch ($acao) {
             case 'iniciar_agendamento':
@@ -462,8 +486,7 @@ switch ($estadoAtual) {
         break;
 }
 
-// ── 10. Envia resposta (antes do persist, para nunca bloquear o envio) ─────────
-registrarLogWhatsApp($pdo, $telefone, $textoMsg, 'webhook_entrada', 'recebido', $fkAgLog);
+// ── 10. Envia resposta ─────────────────────────────────────────────────────────
 $enviou = enviarWhatsApp($telefone, $resposta);
 registrarLogWhatsApp($pdo, $telefone, $resposta, $tipoLog, $enviou ? 'enviado' : 'erro', $fkAgLog);
 
