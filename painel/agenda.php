@@ -439,26 +439,26 @@ $csrfToken = gerarTokenCSRF();
         $temItens = !empty($ags) || !empty($bloqs);
     ?>
         <div class="card mb-3 <?= $eHoje ? 'border-accent' : '' ?>">
-            <div class="card-header d-flex align-items-center gap-2 px-4 py-2"
+            <div class="card-header d-flex flex-wrap align-items-center gap-2 px-3 py-2"
                 style="<?= $eHoje ? 'background:var(--accent-light)' : '' ?>">
                 <span class="fw-semibold <?= $eHoje ? 'text-accent' : '' ?>"><?= $diasSemana[$d] ?></span>
                 <span class="text-secondary small"><?= date('d/m', $ts) ?></span>
-                <?php if ($eHoje): ?><span class="badge ms-1" style="background:var(--accent);">Hoje</span><?php endif ?>
+                <?php if ($eHoje): ?><span class="badge" style="background:var(--accent);">Hoje</span><?php endif ?>
                 <?php if (!empty($bloqs)): ?>
-                    <span class="badge ms-1 bg-danger bg-opacity-75"><i class="bi bi-slash-circle me-1"></i><?= count($bloqs) ?> bloqueio<?= count($bloqs) > 1 ? 's' : '' ?></span>
+                    <span class="badge bg-danger bg-opacity-75"><i class="bi bi-slash-circle me-1"></i><?= count($bloqs) ?> bloqueio<?= count($bloqs) > 1 ? 's' : '' ?></span>
                 <?php endif ?>
                 <?php if (isset($diasEspSemana[$key])): $deL = $diasEspSemana[$key]; ?>
-                    <span class="badge ms-1 rounded-pill" id="tipoBadgeLista_<?= $key ?>"
+                    <span class="badge rounded-pill" id="tipoBadgeLista_<?= $key ?>"
                           style="background:<?= h($deL['Cor']) ?>;">
                         <i class="bi bi-<?= $deL['BloqueiaTotal'] ? 'moon' : 'clock' ?> me-1"></i><?= h($deL['Nome']) ?>
                     </span>
                 <?php else: ?>
-                    <span class="badge ms-1 rounded-pill d-none" id="tipoBadgeLista_<?= $key ?>"></span>
+                    <span class="badge rounded-pill d-none" id="tipoBadgeLista_<?= $key ?>"></span>
                 <?php endif ?>
-                <div class="ms-auto d-flex align-items-center gap-2">
+                <div class="ms-auto d-flex align-items-center gap-2 flex-shrink-0">
                     <?php if (!empty($tiposDia)): ?>
                     <select class="form-select form-select-sm"
-                            style="width:auto;max-width:140px;font-size:.75rem;padding:.15rem .5rem 0.15rem .4rem;"
+                            style="width:auto;max-width:130px;font-size:.75rem;padding:.15rem .5rem .15rem .4rem;"
                             id="sltTipoDiaLista_<?= $key ?>"
                             onchange="alterarTipoDiaLista(this.value, '<?= $key ?>', this)">
                         <option value="">— Tipo —</option>

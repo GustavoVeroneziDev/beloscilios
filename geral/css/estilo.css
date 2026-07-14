@@ -40,12 +40,18 @@
 /* ── 2. Reset & Base ─────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 
+html {
+    overflow-x: hidden;
+    max-width: 100%;
+}
+
 body {
     background-color: var(--bg-main);
     color: var(--text-main);
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     min-height: 100vh;
     overflow-x: hidden;
+    max-width: 100%;
     -webkit-text-size-adjust: 100%;
     display: flex;
     flex-direction: column;
