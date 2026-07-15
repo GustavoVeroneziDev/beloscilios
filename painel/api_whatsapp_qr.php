@@ -61,7 +61,7 @@ if ($acao === 'status') {
 
 // ── Gerar QR / conectar ───────────────────────────────────────
 if ($acao === 'conectar') {
-    // 1) Pega o número registrado na instância
+    // Pega o número registrado na instância para poder gerar o pairing code
     $instRes = evolutionGet('/instance/fetchInstances');
     $numero  = null;
     foreach (($instRes['data'] ?? []) as $inst) {
@@ -72,12 +72,21 @@ if ($acao === 'conectar') {
         }
     }
 
-    // 2) Chamada principal: sem número → retorna base64 do QR
-    $res      = evolutionGet('/instance/connect/' . EVOLUTION_INSTANCE);
-    $d        = $res['data'];
-    $qrBase64 = $d['base64'] ?? $d['qrcode']['base64'] ?? null;
+    // UMA única chamada com número → retorna pairingCode E o campo "code" (dados brutos do QR)
+    // Obs: a chamada SEM número retorna base64 mas invalida o pairing code da chamada anterior,
+    //      por isso usamos apenas esta chamada e geramos o QR no frontend via qrcode.js
+    if ($numero) {
+        $res = evolutionGet('/instance/connect/' . EVOLUTION_INSTANCE . '?number=' . urlencode($numero));
+    } else {
+        $res = evolutionGet('/instance/connect/' . EVOLUTION_INSTANCE);
+    }
 
-    if (!$qrBase64) {
+    $d           = $res['data'];
+    $qrCode      = $d['code']        ?? null; // dados brutos para gerar QR no frontend
+    $qrBase64    = $d['base64']      ?? null; // fallback: imagem já renderizada
+    $pairingCode = $d['pairingCode'] ?? null;
+
+    if (!$qrCode && !$qrBase64) {
         $state = $d['instance']['state'] ?? $d['state'] ?? null;
         if ($state === 'open') {
             echo json_encode(['ok' => true, 'state' => 'open', 'msg' => 'WhatsApp já está conectado!']);
@@ -87,16 +96,10 @@ if ($acao === 'conectar') {
         exit;
     }
 
-    // 3) Chamada com número → retorna pairingCode
-    $pairingCode = null;
-    if ($numero) {
-        $resP        = evolutionGet('/instance/connect/' . EVOLUTION_INSTANCE . '?number=' . urlencode($numero));
-        $pairingCode = $resP['data']['pairingCode'] ?? null;
-    }
-
     echo json_encode([
         'ok'          => true,
         'state'       => 'connecting',
+        'qrCode'      => $qrCode,
         'qr'          => $qrBase64,
         'pairingCode' => $pairingCode,
     ]);

@@ -64,8 +64,11 @@ require_once __DIR__ . '/../geral/header.php';
                     <!-- QR Code -->
                     <div class="mb-4">
                         <div class="fw-semibold small text-secondary mb-2 text-uppercase" style="letter-spacing:.05em;">QR Code</div>
+                        <!-- div renderizado pelo qrcode.js -->
+                        <div id="divQR" style="display:inline-block;background:#fff;padding:10px;border-radius:8px;box-shadow:0 2px 16px rgba(0,0,0,.12);"></div>
+                        <!-- fallback: img base64 quando code não disponível -->
                         <img id="imgQR" src="" alt="QR Code" class="img-fluid rounded"
-                             style="max-width:220px;border:4px solid #fff;box-shadow:0 2px 16px rgba(0,0,0,.12);">
+                             style="display:none;max-width:220px;border:4px solid #fff;box-shadow:0 2px 16px rgba(0,0,0,.12);">
                     </div>
 
                     <!-- Código de pareamento -->
@@ -95,6 +98,7 @@ require_once __DIR__ . '/../geral/header.php';
 
 <input type="hidden" id="csrfToken" value="<?= h($csrfToken) ?>">
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 const API = '<?= BASE ?>/painel/api_whatsapp_qr.php';
 let _pollTimer = null;
@@ -148,10 +152,24 @@ async function conectar() {
             return;
         }
 
-        // Exibe QR
-        if (d.qr) {
+        // Exibe QR — preferência pelo campo "code" (dados brutos) via qrcode.js
+        const divQR = document.getElementById('divQR');
+        const imgQR = document.getElementById('imgQR');
+        divQR.innerHTML = '';
+        if (d.qrCode) {
+            new QRCode(divQR, {
+                text: d.qrCode,
+                width: 220,
+                height: 220,
+                correctLevel: QRCode.CorrectLevel.M,
+            });
+            divQR.style.display = 'inline-block';
+            imgQR.style.display = 'none';
+        } else if (d.qr) {
             const src = d.qr.startsWith('data:') ? d.qr : 'data:image/png;base64,' + d.qr;
-            document.getElementById('imgQR').src = src;
+            imgQR.src = src;
+            imgQR.style.display = '';
+            divQR.style.display = 'none';
         }
 
         // Exibe pairing code
