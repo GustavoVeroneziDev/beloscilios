@@ -61,20 +61,37 @@ if ($acao === 'status') {
 
 // ── Gerar QR / conectar ───────────────────────────────────────
 if ($acao === 'conectar') {
-    $res = evolutionGet('/instance/connect/' . EVOLUTION_INSTANCE);
-    $d   = $res['data'];
+    // 1) Pega o número registrado na instância
+    $instRes = evolutionGet('/instance/fetchInstances');
+    $numero  = null;
+    foreach (($instRes['data'] ?? []) as $inst) {
+        if (($inst['name'] ?? '') === EVOLUTION_INSTANCE) {
+            $jid    = $inst['ownerJid'] ?? '';
+            $numero = $jid ? preg_replace('/@.*/', '', $jid) : null;
+            break;
+        }
+    }
 
-    $qrBase64     = $d['base64']      ?? $d['qrcode']['base64'] ?? null;
-    $pairingCode  = $d['pairingCode'] ?? null;
+    // 2) Chamada principal: sem número → retorna base64 do QR
+    $res      = evolutionGet('/instance/connect/' . EVOLUTION_INSTANCE);
+    $d        = $res['data'];
+    $qrBase64 = $d['base64'] ?? $d['qrcode']['base64'] ?? null;
 
-    if (!$qrBase64 && !$pairingCode) {
+    if (!$qrBase64) {
         $state = $d['instance']['state'] ?? $d['state'] ?? null;
         if ($state === 'open') {
             echo json_encode(['ok' => true, 'state' => 'open', 'msg' => 'WhatsApp já está conectado!']);
             exit;
         }
-        echo json_encode(['ok' => false, 'msg' => 'Não foi possível gerar o QR code. Tente novamente.', 'raw' => $d]);
+        echo json_encode(['ok' => false, 'msg' => 'Não foi possível gerar o QR code. Tente novamente.']);
         exit;
+    }
+
+    // 3) Chamada com número → retorna pairingCode
+    $pairingCode = null;
+    if ($numero) {
+        $resP        = evolutionGet('/instance/connect/' . EVOLUTION_INSTANCE . '?number=' . urlencode($numero));
+        $pairingCode = $resP['data']['pairingCode'] ?? null;
     }
 
     echo json_encode([
