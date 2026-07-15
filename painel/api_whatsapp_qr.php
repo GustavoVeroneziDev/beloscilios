@@ -72,9 +72,11 @@ if ($acao === 'conectar') {
         }
     }
 
-    // UMA única chamada com número → retorna pairingCode E o campo "code" (dados brutos do QR)
-    // Obs: a chamada SEM número retorna base64 mas invalida o pairing code da chamada anterior,
-    //      por isso usamos apenas esta chamada e geramos o QR no frontend via qrcode.js
+    // Logout garante estado limpo — pairing code só vem com instância em "close"
+    evolutionDelete('/instance/logout/' . EVOLUTION_INSTANCE);
+    usleep(800000);
+
+    // Conecta com número → retorna pairingCode + code (dados brutos do QR)
     if ($numero) {
         $res = evolutionGet('/instance/connect/' . EVOLUTION_INSTANCE . '?number=' . urlencode($numero));
     } else {
@@ -82,16 +84,11 @@ if ($acao === 'conectar') {
     }
 
     $d           = $res['data'];
-    $qrCode      = $d['code']        ?? null; // dados brutos para gerar QR no frontend
-    $qrBase64    = $d['base64']      ?? null; // fallback: imagem já renderizada
+    $qrCode      = $d['code']        ?? null;
+    $qrBase64    = $d['base64']      ?? null;
     $pairingCode = $d['pairingCode'] ?? null;
 
     if (!$qrCode && !$qrBase64) {
-        $state = $d['instance']['state'] ?? $d['state'] ?? null;
-        if ($state === 'open') {
-            echo json_encode(['ok' => true, 'state' => 'open', 'msg' => 'WhatsApp já está conectado!']);
-            exit;
-        }
         echo json_encode(['ok' => false, 'msg' => 'Não foi possível gerar o QR code. Tente novamente.']);
         exit;
     }
