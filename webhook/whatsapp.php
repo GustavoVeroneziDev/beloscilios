@@ -168,9 +168,8 @@ if (in_array($estadoAtual, $estadosMidFlow)) {
     $eHorarioInvalido = ($estadoAtual === 'aguardando_horario' && !preg_match('/\d/', $textoMsg));
 
     if ($eSaudacaoOuReset || $ePerguntaOuDuvida || $eReacaoCasual || $eHorarioInvalido) {
-        $estadoAtual = 'em_conversa';
-        $dadosCtx    = [];
-        $historico   = [];
+        $estadoAtual = 'conversa_livre';
+        // Preserva $dadosCtx e $historico: a cliente pode retomar o agendamento logo em seguida
     }
 }
 
@@ -436,10 +435,11 @@ switch ($estadoAtual) {
         }
         break;
 
-    // ── conversa livre (estado padrão) ────────────────────────────────────────
+    // ── conversa livre (estado padrão e pós-escape de fluxo) ─────────────────
+    case 'conversa_livre':
     default:
         // 1. Gemini é o motor principal: conversa natural + classificação de intenção
-        $resultado = _geminiNLU($pdo, $textoMsg, $cliente, $agendamentos, $visitas, $historico);
+        $resultado = _geminiNLU($pdo, $textoMsg, $cliente, $agendamentos, $visitas, $historico, $dadosCtx);
         $acao      = $resultado['acao'] ?? 'nenhuma';
         $resposta  = $resultado['resposta'] ?? '';
 
@@ -657,7 +657,8 @@ function _geminiNLU(
     ?array $cliente,
     array  $agendamentos,
     array  $visitas,
-    array  $historico
+    array  $historico,
+    array  $dadosCtx = []
 ): array {
     if (!defined('GEMINI_API_KEY') || !GEMINI_API_KEY || GEMINI_API_KEY === 'sua-gemini-key-aqui') {
         return ['acao' => 'nenhuma', 'resposta' => _fallback($agendamentos, $cliente)];
@@ -692,15 +693,18 @@ function _geminiNLU(
         }
     }
 
-    // Histórico recente da conversa para contexto
-    $ctxHistorico = '';
-    if (!empty($historico)) {
-        $recentes     = array_slice($historico, -6);
-        $ctxHistorico = "Mensagens anteriores desta conversa:\n";
-        foreach ($recentes as $h) {
-            $quem         = $h['role'] === 'user' ? 'Cliente' : 'Bel';
-            $ctxHistorico .= "{$quem}: {$h['text']}\n";
+    // Agendamento em progresso (preservado quando cliente escapa do fluxo mid-booking)
+    $ctxBooking = '';
+    if (!empty($dadosCtx['nome_servico'])) {
+        $ctxBooking = "\nAGENDAMENTO EM PROGRESSO (a cliente estava no meio de um agendamento):\n";
+        $ctxBooking .= "- Serviço: " . $dadosCtx['nome_servico'] . "\n";
+        if (!empty($dadosCtx['data_escolhida'])) {
+            $ctxBooking .= "- Data: " . date('d/m/Y', strtotime($dadosCtx['data_escolhida'])) . "\n";
         }
+        if (!empty($dadosCtx['hora_escolhida'])) {
+            $ctxBooking .= "- Horário: " . $dadosCtx['hora_escolhida'] . "\n";
+        }
+        $ctxBooking .= "Se a cliente retomar o agendamento, use ação 'iniciar_agendamento' para continuar onde parou.\n";
     }
 
     // Contexto do negócio: serviços (banco) + descrição livre (ConfiguracoesSistema)
@@ -752,54 +756,62 @@ function _geminiNLU(
 
     $ctxNegocio = getConfig($pdo, 'contexto_negocio', '');
 
-    $ctxNegocio = getConfig($pdo, 'contexto_negocio', '');
-
-    // System prompt — parte fixa (~60 linhas) + contexto dinâmico injetado
+    // System prompt — parte fixa + contexto dinâmico injetado
     $sistemaPrompt = <<<PROMPT
-Você é a Bel 💜, assistente virtual do Belos Cílios. Conversa pelo WhatsApp com as clientes.
+Você é a Nina 💜, assistente virtual do Belos Cílios. Você conversa pelo WhatsApp com as clientes.
 
-PERSONALIDADE:
-Pense numa amiga que entende tudo de cílios e adora ajudar — calorosa, descontraída, sem forçar. Converse de forma natural: responda perguntas diretamente, bata papo quando o clima pede, reaja a comentários com leveza. Não redirecione toda mensagem para agendamento; deixe o assunto fluir. Emojis com moderação e só quando fizerem sentido. Português do Brasil, mensagens curtas — sem textão.
-
-SOBRE VOCÊ:
-Sou a Bel, criada especialmente para o Belos Cílios. Sou virtual, mas tenho personalidade própria e adoro conversar 😄 Sei tudo sobre os serviços e adoro cílios. Se perguntarem se sou IA, assumo com bom humor e sigo a conversa normalmente.
+QUEM VOCÊ É:
+Você tem personalidade própria — não é um robô que segue script. É como uma amiga que entende tudo de cílios e está sempre disponível para ajudar. Calorosa, descontraída, com bom humor quando o momento pede. Você se adapta: com a cliente mais formal, você é mais cuidadosa; com a mais despojada, bate papo à vontade. Nunca force agendamento — se a conversa está fluindo de outro jeito, vai com ela. Emojis com moderação e só quando fizerem sentido. Português do Brasil, mensagens curtas — sem textão. Se perguntarem se é IA, assuma com leveza e siga em frente.
 
 SOBRE O ESTÚDIO:
 {$ctxNegocio}
 
 {$ctxServicos}
 
-CONTEXTO DA CLIENTE (pré-calculado — use diretamente, nunca invente):
+CONTEXTO DA CLIENTE (use como base — nunca invente):
 {$ctxCliente}
-{$ctxAg}{$ctxVisitas}
+{$ctxAg}{$ctxVisitas}{$ctxBooking}
+COMO USAR AS INFORMAÇÕES:
+As informações acima são seu conhecimento de base. Use-as para responder com naturalidade — não copie como lista, não recite como manual. Se alguém pergunta sobre preço, mencione o valor de forma natural na conversa. Se perguntar sobre procedimento, explique com suas palavras. O objetivo é parecer que você realmente conhece o estúdio, não que está lendo uma tabela.
 
-REGRAS:
-1. Responda exatamente o que foi perguntado — nunca desvie nem ignore a mensagem.
-2. Curiosidade sobre você ou o estúdio → responda com simpatia, sem forçar agendamento.
-3. Dúvida sobre serviço ou preço → responda com os dados acima, diretamente.
-4. Comentário casual ("que legal!", "nossa!") → reaja de forma natural.
-5. Só use acao "iniciar_agendamento" quando a cliente EXPLICITAMENTE pedir pra marcar/agendar horário.
-6. Nunca invente dados ou informações fora do contexto acima.
-7. Se não souber: "Não tenho essa info, mas pode perguntar direto pra Ediane! 😊"
+COMO RESPONDER:
+- Responda exatamente o que foi perguntado, sem desviar.
+- Comentário casual ("que fofo!", "nossa!") → reaja com leveza, não redirecione para agendamento.
+- Dúvida técnica ou sobre saúde → responda com o que sabe e, se necessário, sugira perguntar à Ediane.
+- Não sabe algo → "Essa eu não sei de cabeça, mas a Ediane te explica melhor! 😊"
+- Nunca invente informações, preços ou datas.
 
-FORMATAÇÃO WHATSAPP (use no campo "resposta" diretamente):
+FORMATAÇÃO WHATSAPP (use no campo "resposta"):
 - *negrito* para serviços, valores e informações importantes
 - _itálico_ para observações secundárias
 - • no início de linha para listas
-- Nunca use sublinhado — não existe no WhatsApp; use *negrito* no lugar
+- Sem sublinhado (não existe no WhatsApp)
+- Sem markdown de código, sem asteriscos duplos
 
 RETORNE APENAS JSON válido (sem markdown, sem ```):
 {"resposta":"mensagem para a cliente — sempre preenchida","acao":"nenhuma"}
 
-AÇÕES (substitua "nenhuma" apenas quando aplicável):
-- "iniciar_agendamento" → cliente pediu explicitamente para marcar/agendar um horário
+AÇÕES (substitua "nenhuma" apenas quando necessário):
+- "iniciar_agendamento" → cliente pediu EXPLICITAMENTE para marcar/agendar horário
 - "iniciar_cancelamento" → cliente quer cancelar agendamento existente
 - "iniciar_reagendamento" → cliente quer mudar data/hora de agendamento existente
-- "escalar_atendimento" → cliente quer falar diretamente com a Ediane, ou tem dúvida específica que só ela pode responder. Na "resposta", diga que já avisou a Ediane e que ela entrará em contato em breve — de forma calorosa.
+- "escalar_atendimento" → cliente quer falar com a Ediane diretamente, ou tem dúvida que só ela resolve
 PROMPT;
 
     // Histórico multi-turn real — formato nativo da API Gemini v1beta
+    // Padrão: summary das mensagens antigas + últimas 10 verbatim (reduz tokens, mantém contexto)
     $contents = [];
+    if (count($historico) > 12) {
+        $antigos = array_slice($historico, 0, count($historico) - 10);
+        $linhasResumo = [];
+        foreach ($antigos as $h) {
+            $quem = $h['role'] === 'user' ? 'Cliente' : 'Nina';
+            $linhasResumo[] = $quem . ': ' . mb_substr($h['text'], 0, 80, 'UTF-8');
+        }
+        $resumoStr = "Resumo do início da conversa:\n" . implode("\n", $linhasResumo);
+        $contents[] = ['role' => 'user',  'parts' => [['text' => $resumoStr]]];
+        $contents[] = ['role' => 'model', 'parts' => [['text' => 'Ok, entendido.']]];
+    }
     foreach (array_slice($historico, -10) as $h) {
         $contents[] = [
             'role'  => $h['role'] === 'user' ? 'user' : 'model',
@@ -812,7 +824,7 @@ PROMPT;
         'system_instruction' => ['parts' => [['text' => $sistemaPrompt]]],
         'contents'           => $contents,
         'generationConfig'   => [
-            'temperature'      => 0.1,   // baixo: classificação + extração, não criatividade
+            'temperature'      => 0.75,  // conversacional: natural sem alucinar
             'maxOutputTokens'  => 500,
             'responseMimeType' => 'application/json',
         ],
@@ -1359,8 +1371,8 @@ function _respostaContextual(PDO $pdo, string $texto, array $historico, array $a
     // ── Saudação ──────────────────────────────────────────────────────────────
     if (preg_match('/^\s*(oi+e*|ol[aá]|hey+|eai|e a[ií]|bom dia|boa tarde|boa noite|tudo bem|tudo bom|salve|opa)\b/u', $tl)) {
         $variações = [
-            "{$oi} Aqui é a Bel, do Belos Cílios 🎀 Como posso te ajudar?",
-            "{$oi} Que ótimo te ver por aqui! Sou a Bel, do Belos Cílios 😊 Posso te ajudar a agendar ou tirar dúvidas 💜",
+            "{$oi} Aqui é a Nina, do Belos Cílios 🎀 Como posso te ajudar?",
+            "{$oi} Que ótimo te ver por aqui! Sou a Nina, do Belos Cílios 😊 Posso te ajudar a agendar ou tirar dúvidas 💜",
             "{$oi} Seja bem-vinda ao Belos Cílios! 🎀 O que posso fazer por você?",
         ];
         return ['acao' => 'nenhuma', 'resposta' => $variações[array_rand($variações)]];
@@ -1369,9 +1381,9 @@ function _respostaContextual(PDO $pdo, string $texto, array $historico, array $a
     // ── Identidade / curiosidade sobre a Bel ────────────────────────────────
     if (preg_match('/quem [eé]|o que [eé] voc|voc[eê] [eé]\b|[eé] (?:uma? )?(?:i\.?a\.?|intelig|robô|bot\b|humana?|pessoa|assistente|real)|se apresente|seu nome|assistente virtual|tem (?:uma? )?(?:assistente|robô|bot|ia\b)|é voc[eê]|quem me|quem t[eé]/u', $tl)) {
         $resps = [
-            "Sou virtual sim, mas converso de verdade! 😄 Me chamo Bel 💜 fui criada especialmente para o Belos Cílios. Posso te ajudar com agendamentos, dúvidas sobre serviços, preços — qualquer coisa! O que você queria saber?",
-            "Isso mesmo, sou a Bel 🎀 a assistente virtual do Belos Cílios! Pode me chamar de Bel. Fico aqui no WhatsApp pra facilitar tudo — agendar, tirar dúvidas, o que precisar 💜 Achou estranha a ideia de falar com uma IA? 😄",
-            "Haha sim, sou eu! 😊 A Bel, assistente virtual do Belos Cílios 💜 Fui feita pra te ajudar aqui no WhatsApp enquanto a Ediane está cuidando das clientes no estúdio. Posso ajudar com agendamentos e dúvidas — o que quiser!",
+            "Sou virtual sim, mas converso de verdade! 😄 Me chamo Nina 💜 fui criada especialmente para o Belos Cílios. Posso te ajudar com agendamentos, dúvidas sobre serviços, preços — qualquer coisa! O que você queria saber?",
+            "Isso mesmo, sou a Nina 🎀 a assistente virtual do Belos Cílios! Fico aqui no WhatsApp pra facilitar tudo — agendar, tirar dúvidas, o que precisar 💜 Achou estranha a ideia de falar com uma IA? 😄",
+            "Haha sim, sou eu! 😊 A Nina, assistente virtual do Belos Cílios 💜 Fui feita pra te ajudar aqui no WhatsApp enquanto a Ediane está cuidando das clientes no estúdio. Posso ajudar com agendamentos e dúvidas — o que quiser!",
         ];
         return ['acao' => 'nenhuma', 'resposta' => $resps[array_rand($resps)]];
     }
@@ -1501,5 +1513,5 @@ function _fallback(array $agendamentos, ?array $cliente): string
         $primeiro = explode(' ', trim($cliente['Nome']))[0];
         return "Oiee, {$primeiro}! 😊 Como posso te ajudar? Quer agendar um horário, tirar uma dúvida ou precisa de outra coisa? 💜";
     }
-    return "Oiee! 😊 Bem-vinda ao Belos Cílios! Para agendar e ter acesso a todos os recursos, crie sua conta em beloscilios.com É rápido! 🎀";
+    return "Oiee! 😊 Bem-vinda ao Belos Cílios! Sou a Nina 💜 Para agendar e ter acesso a todos os recursos, crie sua conta em beloscilios.com É rápido! 🎀";
 }
