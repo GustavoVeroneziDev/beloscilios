@@ -72,6 +72,7 @@ $nivelAcesso   = $_SESSION['nivel_acesso'] ?? '';
                 ['href' => BASE . '/painel/galeria.php',       'icon' => 'bi-images',       'label' => 'Galeria'],
                 ['href' => BASE . '/painel/relatorio.php',     'icon' => 'bi-bar-chart',    'label' => 'Financeiro'],
                 ['href' => BASE . '/painel/configuracoes.php', 'icon' => 'bi-gear',         'label' => 'Configurações'],
+                ['href' => BASE . '/painel/whatsapp.php',      'icon' => 'bi-whatsapp',     'label' => 'WhatsApp'],
                 ['separador' => true],
                 ['href' => BASE . '/agendamento/index.php?designer_preview=1', 'icon' => 'bi-eye', 'label' => 'Ver como Cliente'],
             ];
