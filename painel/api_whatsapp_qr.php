@@ -61,6 +61,15 @@ if ($acao === 'status') {
 
 // ── Gerar QR / conectar ───────────────────────────────────────
 if ($acao === 'conectar') {
+    // Verifica estado atual — nunca derruba sessão que já está ativa
+    $statusRes = evolutionGet('/instance/connectionState/' . EVOLUTION_INSTANCE);
+    $stateNow  = $statusRes['data']['instance']['state'] ?? $statusRes['data']['state'] ?? 'close';
+
+    if ($stateNow === 'open') {
+        echo json_encode(['ok' => true, 'state' => 'open']);
+        exit;
+    }
+
     // Pega o número registrado na instância para poder gerar o pairing code
     $instRes = evolutionGet('/instance/fetchInstances');
     $numero  = null;
@@ -72,11 +81,8 @@ if ($acao === 'conectar') {
         }
     }
 
-    // Logout garante estado limpo — pairing code só vem com instância em "close"
-    evolutionDelete('/instance/logout/' . EVOLUTION_INSTANCE);
-    usleep(800000);
-
-    // Conecta com número → retorna pairingCode + code (dados brutos do QR)
+    // Conecta — sem logout prévio: se já está "close", não há sessão para encerrar;
+    // forçar logout quando conectado causa desconexão desnecessária (bug original)
     if ($numero) {
         $res = evolutionGet('/instance/connect/' . EVOLUTION_INSTANCE . '?number=' . urlencode($numero));
     } else {

@@ -605,19 +605,18 @@ require_once __DIR__ . '/../geral/header.php';
                 <div class="mt-4 p-3 rounded" style="background:rgba(90,24,154,.05);border:1px solid var(--card-border-color);">
                     <div class="d-flex align-items-center gap-2 mb-2">
                         <i class="bi bi-robot text-accent"></i>
-                        <span class="fw-semibold small">Webhook de respostas (IA com Gemini)</span>
+                        <span class="fw-semibold small">Webhook da Nina (IA conversacional)</span>
                     </div>
                     <p class="small text-secondary mb-2">
-                        Configure na Evolution API o seguinte webhook para que as respostas das clientes sejam processadas automaticamente:
+                        Configure na Evolution API o seguinte webhook para que as mensagens das clientes sejam processadas pela Nina:
                     </p>
                     <code class="small d-block p-2 rounded" style="background:rgba(0,0,0,.05);word-break:break-all;">
-                        https://beloscilios.com/webhook_whatsapp.php
+                        <?= h('https://beloscilios.com/webhook/whatsapp.php?token=' . (defined('WEBHOOK_TOKEN') ? WEBHOOK_TOKEN : '{WEBHOOK_TOKEN}')) ?>
                     </code>
                     <ul class="small text-secondary mt-2 mb-0 ps-3">
                         <li>Evento: <strong>messages.upsert</strong></li>
-                        <li>A IA classifica a resposta como <em>confirmado</em>, <em>cancelado</em> ou <em>incerto</em></li>
-                        <li>Respostas incertas são encaminhadas para o WhatsApp pessoal da designer (configure acima)</li>
-                        <li>Se a chave Gemini não estiver configurada, usa classificação por palavras-chave</li>
+                        <li>A Nina responde, agenda, cancela e reagenda usando IA (Gemini)</li>
+                        <li>Conversas de grupo são ignoradas automaticamente</li>
                     </ul>
                 </div>
             </form>

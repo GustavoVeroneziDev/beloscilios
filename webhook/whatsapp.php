@@ -602,8 +602,12 @@ $enviou = enviarWhatsApp($telefone, $resposta);
 registrarLogWhatsApp($pdo, $telefone, $resposta, $tipoLog, $enviou ? 'enviado' : 'erro', $fkAgLog);
 
 // ── 11. Persiste conversa (best-effort: erro de coluna não derruba o envio) ────
-$historico[] = ['role' => 'user',      'text' => $textoMsg, 'ts' => date('c')];
-$historico[] = ['role' => 'assistant', 'text' => $resposta, 'ts' => date('c')];
+$historico[] = ['role' => 'user', 'text' => $textoMsg, 'ts' => date('c')];
+// Só registra a resposta da IA no histórico se o envio teve sucesso —
+// evita que a IA "lembre" de ter dito algo que o cliente nunca recebeu
+if ($enviou) {
+    $historico[] = ['role' => 'assistant', 'text' => $resposta, 'ts' => date('c')];
+}
 if (count($historico) > 40) {
     $historico = array_slice($historico, -40);
 }
