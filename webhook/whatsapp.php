@@ -790,6 +790,7 @@ FORMATAÇÃO WHATSAPP (use no campo "resposta"):
 
 RETORNE APENAS JSON válido (sem markdown, sem ```):
 {"resposta":"mensagem para a cliente — sempre preenchida","acao":"nenhuma"}
+IMPORTANTE: Nunca use aspas duplas (") dentro do campo resposta. Para citações e gírias, use aspas simples (') ou parênteses.
 
 AÇÕES (substitua "nenhuma" apenas quando necessário):
 - "iniciar_agendamento" → cliente pediu EXPLICITAMENTE para marcar/agendar horário
@@ -824,9 +825,26 @@ PROMPT;
         'system_instruction' => ['parts' => [['text' => $sistemaPrompt]]],
         'contents'           => $contents,
         'generationConfig'   => [
-            'temperature'      => 0.75,  // conversacional: natural sem alucinar
+            'temperature'      => 0.75,
             'maxOutputTokens'  => 500,
             'responseMimeType' => 'application/json',
+            'responseSchema'   => [
+                'type'       => 'OBJECT',
+                'properties' => [
+                    'resposta' => ['type' => 'STRING'],
+                    'acao'     => [
+                        'type' => 'STRING',
+                        'enum' => [
+                            'nenhuma',
+                            'iniciar_agendamento',
+                            'iniciar_cancelamento',
+                            'iniciar_reagendamento',
+                            'escalar_atendimento',
+                        ],
+                    ],
+                ],
+                'required' => ['resposta', 'acao'],
+            ],
         ],
     ], JSON_UNESCAPED_UNICODE);
 
@@ -862,9 +880,29 @@ PROMPT;
     $texto  = preg_replace('/^```(?:json)?\s*|\s*```$/s', '', $texto);
     $result = json_decode($texto, true);
 
+    // Fallback: extrai resposta+acao via posição de string quando Gemini inclui
+    // aspas duplas literais não escapadas dentro do valor de "resposta"
     if (!is_array($result) || empty($result['resposta'])) {
-        error_log("[WebhookIA] JSON inválido: " . substr($texto, 0, 300));
-        // Fallback com mensagem visível ao usuário (não silêncio)
+        $splitPos = strrpos($texto, '","acao"');
+        if ($splitPos !== false) {
+            $prefix    = '"resposta":"';
+            $prefixPos = strpos($texto, $prefix);
+            if ($prefixPos !== false) {
+                $respostaRaw = substr($texto, $prefixPos + strlen($prefix), $splitPos - $prefixPos - strlen($prefix));
+                if ($respostaRaw !== '') {
+                    preg_match('/"acao"\s*:\s*"([^"]+)"/', substr($texto, $splitPos), $acaoMatch);
+                    $result = [
+                        'resposta' => $respostaRaw,
+                        'acao'     => $acaoMatch[1] ?? 'nenhuma',
+                    ];
+                    error_log("[WebhookIA] JSON reparado via fallback de string");
+                }
+            }
+        }
+    }
+
+    if (!is_array($result) || empty($result['resposta'])) {
+        error_log("[WebhookIA] JSON inválido irrecuperável: " . substr($texto, 0, 300));
         return ['acao' => 'nenhuma', 'resposta' => '⚠️ Tive um problema técnico aqui, tenta de novo em instantes 😅'];
     }
 

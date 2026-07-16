@@ -52,12 +52,17 @@ function enviarWhatsApp(string $numero, string $mensagem): bool
 
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
 
     if ($httpCode >= 200 && $httpCode < 300) {
+        // Loga o retorno da Evolution para diagnóstico de entrega
+        $dec    = json_decode($response, true);
+        $status = $dec['status'] ?? ($dec[0]['status'] ?? 'sem-status');
+        error_log("[WhatsApp] Enviado para {$numero} — Evolution status={$status}");
         return true;
     }
 
-    error_log("[WhatsApp] HTTP {$httpCode}: {$response}");
+    error_log("[WhatsApp] HTTP {$httpCode} para {$numero}: " . substr($response, 0, 500));
     return false;
 }
 
