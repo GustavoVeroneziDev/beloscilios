@@ -109,6 +109,75 @@
     </div>
 </div>
 
+<!-- Modal de Reagendamento -->
+<div class="modal fade" id="modalReagendar" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius:16px;overflow:hidden;">
+            <div class="modal-header border-bottom" style="background:var(--bg-card,#fff);">
+                <div>
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-calendar-event" style="color:var(--accent);font-size:1.1rem;"></i>
+                        <span class="fw-semibold" style="color:var(--text-main,#111);">Reagendar atendimento</span>
+                    </div>
+                    <div class="small text-secondary mt-1">
+                        Cliente: <strong id="reagNomeCliente" style="color:var(--roxo-principal,#5a189a);"></strong>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body" style="background:var(--bg-card,#fff);">
+                <!-- Estado: picker -->
+                <div id="reagPicker">
+                    <p class="small text-secondary mb-3">
+                        <i class="bi bi-clock me-1"></i>Horário atual:
+                        <strong id="reagDataAtual"></strong>
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label fw-medium">Nova data <span class="text-danger">*</span></label>
+                        <input type="date" id="reagNovaData" class="form-control" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label fw-medium">Novo horário <span class="text-danger">*</span></label>
+                        <input type="time" id="reagNovaHora" class="form-control" step="900" required>
+                    </div>
+                </div>
+                <!-- Estado: loading -->
+                <div id="reagLoading" style="display:none;" class="text-center py-4">
+                    <div class="spinner-border mb-2" style="color:var(--accent);width:1.8rem;height:1.8rem;" role="status"></div>
+                    <div class="small text-secondary">Reagendando…</div>
+                </div>
+                <!-- Estado: sucesso -->
+                <div id="reagSucesso" style="display:none;" class="text-center py-3">
+                    <i class="bi bi-check-circle-fill text-success fs-2 d-block mb-2"></i>
+                    <p class="fw-semibold mb-1">Reagendado!</p>
+                    <p class="text-secondary small mb-3">Novo horário: <strong id="reagSuccessInfo"></strong></p>
+                    <p class="small mb-3">Deseja notificar <strong id="reagNomeNotif"></strong> via WhatsApp?</p>
+                    <div class="d-flex gap-2 justify-content-center">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Não, obrigada</button>
+                        <button type="button" class="btn btn-success" id="reagNotificarBtn">
+                            <i class="bi bi-whatsapp me-1"></i>Sim, notificar
+                        </button>
+                    </div>
+                </div>
+                <!-- Estado: erro -->
+                <div id="reagErro" style="display:none;" class="text-center py-3">
+                    <i class="bi bi-exclamation-circle text-danger fs-2 d-block mb-2"></i>
+                    <p class="small text-secondary mb-3" id="reagErroMsg">Erro ao reagendar.</p>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="reagTentarNovamente">
+                        Tentar novamente
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer border-top gap-2" style="background:var(--bg-card,#fff);">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-accent" id="reagConfirmarBtn">
+                    <i class="bi bi-calendar-check me-1"></i>Confirmar reagendamento
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal de instalação PWA -->
 <div class="modal fade" id="modalPwa" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -216,20 +285,17 @@ function bcPwaDescartar() {
         enviar.disabled       = estado === 'loading';
     }
 
-    document.addEventListener('click', function (e) {
-        var el = e.target.closest('.bc-wa-msg');
-        if (!el) return;
-        e.preventDefault();
-
-        var acao     = el.dataset.acao     || '';
-        var agId     = el.dataset.agId     || '';
-        var cliId    = el.dataset.cliId    || '';
-        var nome     = el.dataset.nome     || '';
-        var label    = el.dataset.label    || 'Mensagem';
-        var tel      = el.dataset.tel      || '';
+    function dispararMensagem(opts) {
+        var acao  = opts.acao  || '';
+        var agId  = opts.agId  || '';
+        var cliId = opts.cliId || '';
+        var nome  = opts.nome  || '';
+        var label = opts.label || 'Mensagem';
+        var tel   = opts.tel   || '';
 
         if (!acao) return;
         if (!modal) init();
+        if (!modal) return;
 
         document.getElementById('bcWaMsgLabel').textContent = label;
         document.getElementById('bcWaMsgNome').textContent  = nome;
@@ -258,12 +324,135 @@ function bcPwaDescartar() {
             }
         })
         .catch(function () {
-            erroMsg.textContent = 'Falha na conexão. Tente novamente.';
+            erroMsg.textContent = 'Falha na conexao. Tente novamente.';
             mostrarEstado('erro');
+        });
+    }
+
+    window.bcAbrirWaMensagem = dispararMensagem;
+
+    document.addEventListener('click', function (e) {
+        var el = e.target.closest('.bc-wa-msg');
+        if (!el) return;
+        e.preventDefault();
+        dispararMensagem({
+            acao:  el.dataset.acao  || '',
+            agId:  el.dataset.agId  || '',
+            cliId: el.dataset.cliId || '',
+            nome:  el.dataset.nome  || '',
+            label: el.dataset.label || 'Mensagem',
+            tel:   el.dataset.tel   || '',
         });
     });
 
     document.addEventListener('DOMContentLoaded', init);
+})();
+// ── Modal de Reagendamento ───────────────────────────────────────────────────
+(function () {
+    var _agId, _cliId, _tel, _nome;
+    var modalEl, mPicker, mLoading, mSucesso, mErro;
+    var dataIn, horaIn, confirmarBtn, erroEl, successInfo;
+
+    function initR() {
+        modalEl     = document.getElementById('modalReagendar');
+        if (!modalEl) return;
+        mPicker     = document.getElementById('reagPicker');
+        mLoading    = document.getElementById('reagLoading');
+        mSucesso    = document.getElementById('reagSucesso');
+        mErro       = document.getElementById('reagErro');
+        dataIn      = document.getElementById('reagNovaData');
+        horaIn      = document.getElementById('reagNovaHora');
+        confirmarBtn = document.getElementById('reagConfirmarBtn');
+        erroEl      = document.getElementById('reagErroMsg');
+        successInfo = document.getElementById('reagSuccessInfo');
+        confirmarBtn.addEventListener('click', submeter);
+    }
+
+    function estado(s) {
+        mPicker.style.display  = s === 'picker'  ? '' : 'none';
+        mLoading.style.display = s === 'loading' ? '' : 'none';
+        mSucesso.style.display = s === 'sucesso' ? '' : 'none';
+        mErro.style.display    = s === 'erro'    ? '' : 'none';
+        confirmarBtn.style.display = s === 'picker' ? '' : 'none';
+    }
+
+    function submeter() {
+        var data = dataIn.value, hora = horaIn.value;
+        if (!data || !hora) { dataIn.reportValidity(); return; }
+        estado('loading');
+        var base = (typeof BASE !== 'undefined' ? BASE : '');
+        fetch(base + '/painel/api_reagendar.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agendamento_id: _agId, nova_data_hora: data + ' ' + hora }),
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (d.ok) {
+                if (d.tel)   _tel   = d.tel;
+                if (d.cliId) _cliId = d.cliId;
+                successInfo.textContent = d.novaData + ' às ' + d.novaHora;
+                var nNotif = document.getElementById('reagNomeNotif');
+                if (nNotif) nNotif.textContent = _nome;
+                estado('sucesso');
+            } else {
+                erroEl.textContent = d.msg || 'Erro ao reagendar.';
+                estado('erro');
+            }
+        })
+        .catch(function () {
+            erroEl.textContent = 'Falha na conexão.';
+            estado('erro');
+        });
+    }
+
+    // Abre o modal ao clicar em .bc-reagendar-btn
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.bc-reagendar-btn');
+        if (!btn) return;
+        _agId  = btn.dataset.agId  || '';
+        _cliId = btn.dataset.cliId || '';
+        _tel   = btn.dataset.tel   || '';
+        _nome  = btn.dataset.nome  || '';
+        var horaAtual   = btn.dataset.hora   || '';
+        var dataAtualBr = btn.dataset.dataBr || '';
+        if (!modalEl) initR();
+        if (!modalEl) return;
+        document.getElementById('reagNomeCliente').textContent = _nome;
+        document.getElementById('reagDataAtual').textContent   =
+            dataAtualBr ? dataAtualBr + ' às ' + horaAtual : horaAtual;
+        dataIn.value = '';
+        dataIn.min   = new Date().toISOString().slice(0, 10);
+        if (horaAtual) horaIn.value = horaAtual;
+        estado('picker');
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    });
+
+    // "Notificar" no estado de sucesso
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('#reagNotificarBtn')) return;
+        bootstrap.Modal.getInstance(modalEl).hide();
+        setTimeout(function () {
+            if (typeof window.bcAbrirWaMensagem === 'function') {
+                window.bcAbrirWaMensagem({
+                    acao:  'reagendar',
+                    agId:  _agId,
+                    cliId: _cliId,
+                    tel:   _tel,
+                    nome:  _nome,
+                    label: 'Reagendamento',
+                });
+            }
+        }, 350);
+    });
+
+    // Botão "Tentar novamente"
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('#reagTentarNovamente')) return;
+        estado('picker');
+    });
+
+    document.addEventListener('DOMContentLoaded', initR);
 })();
 // ─────────────────────────────────────────────────────────────────────────────
 

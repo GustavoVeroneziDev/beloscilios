@@ -156,8 +156,20 @@ $_dataPtBr   = $_diasSemana[date('l')] . ', ' . date('d') . ' de ' . $_meses[dat
                                             <?php endif ?>
                                         </div>
                                     </div>
-                                    <div class="d-flex align-items-center gap-2">
+                                    <div class="d-flex align-items-center gap-2 flex-wrap">
                                         <?= labelStatus($ag['StatusAgendamento']) ?>
+                                        <?php if (in_array($ag['StatusAgendamento'], ['pendente','confirmado'])): ?>
+                                            <button class="btn btn-sm btn-outline-warning bc-reagendar-btn"
+                                                data-ag-id="<?= h($ag['IDAgendamento']) ?>"
+                                                data-cli-id="<?= h($ag['FKCliente']) ?>"
+                                                data-nome="<?= h($ag['NomeCliente']) ?>"
+                                                data-tel="<?= h(waNumero($ag['Telefone'] ?? '')) ?>"
+                                                data-hora="<?= h(date('H:i', strtotime($ag['DataHoraAgendamento']))) ?>"
+                                                data-data-br="<?= h(date('d/m/Y', strtotime($ag['DataHoraAgendamento']))) ?>"
+                                                title="Reagendar">
+                                                <i class="bi bi-calendar-event"></i>
+                                            </button>
+                                        <?php endif ?>
                                         <?php if ($ag['Telefone']): ?>
                                             <?= waBotoesDropdown(
                                                 $ag['Telefone'],

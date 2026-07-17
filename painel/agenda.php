@@ -328,11 +328,24 @@ require_once __DIR__ . '/../geral/header.php';
 function botoesAgendamento(array $ag, string $csrfToken, array $extraGet = []): string
 {
     $out = '<div class="d-flex gap-1 flex-shrink-0">';
+    $hora   = date('H:i', strtotime($ag['DataHoraAgendamento']));
+    $dataBr = date('d/m/Y', strtotime($ag['DataHoraAgendamento']));
     if ($ag['Telefone']) {
-        $hora   = date('H:i', strtotime($ag['DataHoraAgendamento']));
-        $dataBr = date('d/m/Y', strtotime($ag['DataHoraAgendamento']));
-        $serv   = $ag['NomeSubServico'] ?? $ag['NomeServico'] ?? '';
-        $out .= waBotoesDropdown($ag['Telefone'], $ag['NomeCliente'] ?? '', $serv, $hora, $dataBr);
+        $serv = $ag['NomeSubServico'] ?? $ag['NomeServico'] ?? '';
+        $out .= waBotoesDropdown(
+            $ag['Telefone'], $ag['NomeCliente'] ?? '', $serv, $hora, $dataBr,
+            '', true, $ag['IDAgendamento'], $ag['FKCliente'] ?? ''
+        );
+    }
+    if (in_array($ag['StatusAgendamento'], ['pendente', 'confirmado'])) {
+        $out .= '<button class="btn btn-sm btn-outline-warning bc-reagendar-btn"'
+              . ' data-ag-id="'   . h($ag['IDAgendamento'])                      . '"'
+              . ' data-cli-id="'  . h($ag['FKCliente'] ?? '')                    . '"'
+              . ' data-nome="'    . h($ag['NomeCliente'] ?? '')                   . '"'
+              . ' data-tel="'     . h(waNumero($ag['Telefone'] ?? ''))            . '"'
+              . ' data-hora="'    . h($hora)                                      . '"'
+              . ' data-data-br="' . h($dataBr)                                    . '"'
+              . ' title="Reagendar"><i class="bi bi-calendar-event"></i></button>';
     }
     if ($ag['StatusAgendamento'] === 'pendente') {
         $out .= '<form method="POST" class="d-inline">
@@ -990,6 +1003,14 @@ $csrfToken = gerarTokenCSRF();
                     }
                     if (ag.status === 'pendente' || ag.status === 'confirmado') {
                         botoes += '<button class="btn btn-sm btn-outline-danger" onclick="acaoAg(\'cancelar\',\'' + ag.id + '\')" title="Cancelar"><i class="bi bi-x-lg"></i></button>';
+                        botoes += '<button class="btn btn-sm btn-outline-warning bc-reagendar-btn"'
+                                + ' data-ag-id="'   + escHtml(ag.id)    + '"'
+                                + ' data-cli-id="'  + escHtml(ag.cliId || '') + '"'
+                                + ' data-nome="'    + escHtml(ag.nome)  + '"'
+                                + ' data-tel="'     + escHtml(ag.tel)   + '"'
+                                + ' data-hora="'    + escHtml(ag.hora)  + '"'
+                                + ' data-data-br="' + escHtml(ag.dataBr || '') + '"'
+                                + ' title="Reagendar"><i class="bi bi-calendar-event"></i></button>';
                     }
                     if (ag.status === 'confirmado') {
                         botoes += '<button class="btn btn-sm btn-outline-secondary" onclick="acaoAg(\'concluir\',\'' + ag.id + '\')" title="Concluído"><i class="bi bi-check2-all"></i></button>';
