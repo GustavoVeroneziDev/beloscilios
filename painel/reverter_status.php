@@ -15,7 +15,7 @@ $acao  = trim($_POST['acao'] ?? '');
 $id    = trim($_POST['id']   ?? '');
 $volta = trim($_POST['redirect'] ?? BASE . '/painel/relatorio.php');
 // Garante que o redirect é interno
-if (!str_starts_with($volta, BASE . '/painel/')) {
+if (strpos($volta, BASE . '/painel/') !== 0) {
     $volta = BASE . '/painel/relatorio.php';
 }
 
