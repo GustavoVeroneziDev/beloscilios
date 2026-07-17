@@ -69,10 +69,8 @@ require_once __DIR__ . '/../geral/header.php';
                 <dt class="small text-secondary">WhatsApp</dt>
                 <dd>
                     <?php if ($cliente['Telefone']): ?>
-                        <a href="https://wa.me/<?= waNumero($cliente['Telefone']) ?>" target="_blank"
-                            class="btn btn-sm btn-outline-success">
-                            <i class="bi bi-whatsapp me-1"></i><?= h($cliente['Telefone']) ?>
-                        </a>
+                        <?= waBotoesDropdown($cliente['Telefone'], $cliente['Nome'], split: false) ?>
+                        <span class="ms-2 text-secondary small"><?= h($cliente['Telefone']) ?></span>
                     <?php else: ?>
                         <span class="text-secondary">Não informado</span>
                     <?php endif ?>
@@ -84,10 +82,32 @@ require_once __DIR__ . '/../geral/header.php';
             </dl>
 
             <?php if ($cliente['Telefone']): ?>
-                <a href="https://wa.me/<?= waNumero($cliente['Telefone']) ?>" target="_blank"
-                    class="btn btn-outline-success w-100 mb-2">
-                    <i class="bi bi-whatsapp me-1"></i> Abrir conversa
-                </a>
+                <div class="btn-group w-100 mb-2" role="group">
+                    <a href="https://wa.me/<?= waNumero($cliente['Telefone']) ?>" target="_blank"
+                        class="btn btn-outline-success" style="flex:1;">
+                        <i class="bi bi-whatsapp me-1"></i> Abrir conversa
+                    </a>
+                    <button type="button" class="btn btn-outline-success dropdown-toggle dropdown-toggle-split"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                        <span class="visually-hidden">Mensagens rápidas</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                        <?php
+                        $_num = waNumero($cliente['Telefone']);
+                        $nm   = $cliente['Nome'];
+                        $msgs = [
+                            ['bi-cash text-danger',       'Cobrar pagamento',  'Olá '.$nm.'! 💜 Passando para lembrar que temos um pagamento pendente. Pode me pagar assim que puder? Obrigada! 😊'],
+                            ['bi-star text-warning',      'Pedir avaliação',   'Olá '.$nm.'! Foi um prazer te atender! 😍 Ficou satisfeita com o resultado? Amo receber fotos! 💜'],
+                            ['bi-calendar-x text-secondary','Reagendar',       'Olá '.$nm.'! 😊 Precisei reagendar nosso horário. Podemos combinar outro dia?'],
+                        ];
+                        echo '<li><h6 class="dropdown-header px-3 py-1" style="font-size:.72rem;">Para '.h($nm).'</h6></li>';
+                        foreach ($msgs as [$icon, $label, $msg]) {
+                            echo '<li><a class="dropdown-item" href="https://wa.me/'.$_num.'?text='.urlencode($msg).'" target="_blank">'
+                               . '<i class="bi '.$icon.' me-2"></i>'.$label.'</a></li>';
+                        }
+                        ?>
+                    </ul>
+                </div>
             <?php endif ?>
             <a href="<?= BASE ?>/painel/agenda.php?acao=novo" class="btn btn-accent w-100">
                 <i class="bi bi-calendar-plus me-1"></i> Novo agendamento

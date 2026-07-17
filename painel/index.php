@@ -159,10 +159,14 @@ $_dataPtBr   = $_diasSemana[date('l')] . ', ' . date('d') . ' de ' . $_meses[dat
                                     <div class="d-flex align-items-center gap-2">
                                         <?= labelStatus($ag['StatusAgendamento']) ?>
                                         <?php if ($ag['Telefone']): ?>
-                                            <a href="https://wa.me/<?= waNumero($ag['Telefone']) ?>" target="_blank"
-                                                class="btn btn-sm btn-outline-success" title="WhatsApp">
-                                                <i class="bi bi-whatsapp"></i>
-                                            </a>
+                                            <?= waBotoesDropdown(
+                                                $ag['Telefone'],
+                                                $ag['NomeCliente'],
+                                                $ag['NomeSubServico'] ?? $ag['NomeServico'],
+                                                date('H:i', strtotime($ag['DataHoraAgendamento'])),
+                                                date('d/m/Y', strtotime($ag['DataHoraAgendamento'])),
+                                                $ag['ValorCobrado'] ? number_format((float)$ag['ValorCobrado'], 2, ',', '.') : ''
+                                            ) ?>
                                         <?php endif ?>
                                     </div>
                                 </div>

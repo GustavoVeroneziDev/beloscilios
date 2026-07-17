@@ -313,6 +313,8 @@ if ($vista === 'calendario') {
             'status'  => $ag['StatusAgendamento'],
             'pag'     => $ag['StatusPagamento'],
             'tel'     => waNumero($ag['Telefone'] ?? ''),
+            'nome'    => $ag['NomeCliente'] ?? '',
+            'dataBr'  => date('d/m', strtotime($ag['DataHoraAgendamento'])),
             'alerta'  => $ag['AlertaAlto'] ? 'alto' : ($ag['AlertaMedio'] ? 'medio' : ($ag['TemFicha'] ? 'ok' : 'sem_ficha')),
         ], $ags);
     }
@@ -327,9 +329,10 @@ function botoesAgendamento(array $ag, string $csrfToken, array $extraGet = []): 
 {
     $out = '<div class="d-flex gap-1 flex-shrink-0">';
     if ($ag['Telefone']) {
-        $out .= '<a href="https://wa.me/' . waNumero($ag['Telefone']) . '" target="_blank"
-                    class="btn btn-sm btn-outline-success" title="WhatsApp">
-                    <i class="bi bi-whatsapp"></i></a>';
+        $hora   = date('H:i', strtotime($ag['DataHoraAgendamento']));
+        $dataBr = date('d/m/Y', strtotime($ag['DataHoraAgendamento']));
+        $serv   = $ag['NomeSubServico'] ?? $ag['NomeServico'] ?? '';
+        $out .= waBotoesDropdown($ag['Telefone'], $ag['NomeCliente'] ?? '', $serv, $hora, $dataBr);
     }
     if ($ag['StatusAgendamento'] === 'pendente') {
         $out .= '<form method="POST" class="d-inline">
@@ -980,7 +983,7 @@ $csrfToken = gerarTokenCSRF();
 
                     let botoes = '';
                     if (ag.tel) {
-                        botoes += '<a href="https://wa.me/' + escHtml(ag.tel) + '" target="_blank" class="btn btn-sm btn-outline-success" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>';
+                        botoes += waDropdownHtml(ag.tel, ag.nome, ag.servico, ag.hora, ag.dataBr);
                     }
                     if (ag.status === 'pendente') {
                         botoes += '<button class="btn btn-sm btn-outline-success" onclick="acaoAg(\'confirmar\',\'' + ag.id + '\')" title="Confirmar"><i class="bi bi-check-lg"></i></button>';
@@ -1061,6 +1064,38 @@ $csrfToken = gerarTokenCSRF();
             return String(s)
                 .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function waDropdownHtml(tel, nome, servico, hora, dataBr) {
+            const enc = encodeURIComponent;
+            const base = 'https://wa.me/' + tel + '?text=';
+            const pfx  = 'Olá ' + nome + '! ';
+            const sv   = servico ? ' de ' + servico : '';
+            const hr   = hora    ? ' às ' + hora    : '';
+
+            const msgCobrar    = pfx + '💜 Passando para lembrar que o pagamento' + sv + ' está pendente. Pode me pagar assim que puder? Obrigada! 😊';
+            const msgLembrar   = pfx + '💜 Só passando para lembrar do seu horário' + sv + ' amanhã' + hr + '. Te espero! 😊';
+            const msgConfirmar = pfx + '💜 Confirmando seu horário' + sv + ' hoje' + hr + '. Você consegue comparecer? 😊';
+            const msgReagendar = pfx + '😊 Precisei reagendar o horário' + sv + (dataBr ? ' em ' + dataBr : '') + '. Podemos combinar outro dia?';
+            const msgAvaliacao = pfx + 'Foi um prazer te atender! 😍 Ficou satisfeita com o resultado? Amo receber fotos! 💜';
+
+            let li = '<li><h6 class="dropdown-header px-3 py-1" style="font-size:.72rem;">Para ' + escHtml(nome) + '</h6></li>';
+            if (hora) {
+                li += '<li><a class="dropdown-item" href="' + base + enc(msgLembrar)   + '" target="_blank"><i class="bi bi-bell me-2 text-warning"></i>Lembrar horário</a></li>';
+                li += '<li><a class="dropdown-item" href="' + base + enc(msgConfirmar) + '" target="_blank"><i class="bi bi-check-circle me-2 text-success"></i>Confirmar presença</a></li>';
+                li += '<li><a class="dropdown-item" href="' + base + enc(msgReagendar) + '" target="_blank"><i class="bi bi-calendar-x me-2 text-secondary"></i>Reagendar</a></li>';
+                li += '<li><hr class="dropdown-divider"></li>';
+            }
+            li += '<li><a class="dropdown-item" href="' + base + enc(msgCobrar)    + '" target="_blank"><i class="bi bi-cash me-2 text-danger"></i>Cobrar pagamento</a></li>';
+            li += '<li><a class="dropdown-item" href="' + base + enc(msgAvaliacao) + '" target="_blank"><i class="bi bi-star me-2 text-warning"></i>Pedir avaliação</a></li>';
+            li += '<li><hr class="dropdown-divider"></li>';
+            li += '<li><a class="dropdown-item" href="https://wa.me/' + tel + '" target="_blank"><i class="bi bi-whatsapp me-2 text-success"></i>Conversa livre</a></li>';
+
+            return '<div class="btn-group btn-group-sm" role="group">'
+                + '<a href="https://wa.me/' + tel + '" target="_blank" class="btn btn-outline-success" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>'
+                + '<button type="button" class="btn btn-outline-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false"><span class="visually-hidden">Mensagens</span></button>'
+                + '<ul class="dropdown-menu dropdown-menu-end shadow-sm">' + li + '</ul>'
+                + '</div>';
         }
 
         function alterarTipoDia(tipoId) {

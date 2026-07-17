@@ -33,6 +33,84 @@ function waNumero(string $tel): string
     return sanitizarTelefone($tel) ?? preg_replace('/\D/', '', $tel);
 }
 
+/**
+ * Dropdown Bootstrap com mensagens rápidas pré-preenchidas para o WhatsApp.
+ * $split=true → botão dividido (clique abre conversa, setinha abre templates).
+ * $split=false → botão único com dropdown (ideal em espaços compactos).
+ */
+function waBotoesDropdown(
+    string $tel,
+    string $nome,
+    string $servico = '',
+    string $hora    = '',
+    string $dataBr  = '',
+    string $valor   = '',
+    bool   $split   = true
+): string {
+    $num = waNumero($tel);
+    if (!$num) return '';
+
+    $base = 'https://wa.me/' . $num . '?text=';
+
+    $msgCobrar    = 'Olá ' . $nome . '! 💜 Passando para lembrar que o pagamento'
+                  . ($valor   ? ' de R$ ' . $valor : '')
+                  . ($servico ? ' de '    . $servico : '')
+                  . ' está pendente. Pode me pagar assim que puder? Obrigada! 😊';
+
+    $msgLembrar   = 'Olá ' . $nome . '! 💜 Só passando para lembrar do seu horário'
+                  . ($servico ? ' de ' . $servico : '')
+                  . ($hora    ? ' amanhã às ' . $hora : ' amanhã')
+                  . '. Te espero! 😊';
+
+    $msgConfirmar = 'Olá ' . $nome . '! 💜 Confirmando seu horário'
+                  . ($servico ? ' de ' . $servico : '')
+                  . ($hora    ? ' hoje às ' . $hora : ' hoje')
+                  . '. Você consegue comparecer? 😊';
+
+    $msgReagendar = 'Olá ' . $nome . '! 😊 Precisei reagendar o horário'
+                  . ($servico ? ' de ' . $servico : '')
+                  . ($dataBr  ? ' em '  . $dataBr : '')
+                  . '. Podemos combinar outro dia?';
+
+    $msgAvaliacao = 'Olá ' . $nome . '! Foi um prazer te atender! 😍 Ficou satisfeita com o resultado? Amo receber fotos! 💜';
+
+    $li  = '<li><h6 class="dropdown-header px-3 py-1" style="font-size:.72rem;">Para ' . h($nome) . '</h6></li>';
+    if ($hora) {
+        $li .= '<li><a class="dropdown-item" href="' . $base . urlencode($msgLembrar) . '" target="_blank">'
+             . '<i class="bi bi-bell me-2 text-warning"></i>Lembrar horário</a></li>';
+        $li .= '<li><a class="dropdown-item" href="' . $base . urlencode($msgConfirmar) . '" target="_blank">'
+             . '<i class="bi bi-check-circle me-2 text-success"></i>Confirmar presença</a></li>';
+        $li .= '<li><a class="dropdown-item" href="' . $base . urlencode($msgReagendar) . '" target="_blank">'
+             . '<i class="bi bi-calendar-x me-2 text-secondary"></i>Reagendar</a></li>';
+        $li .= '<li><hr class="dropdown-divider"></li>';
+    }
+    $li .= '<li><a class="dropdown-item" href="' . $base . urlencode($msgCobrar) . '" target="_blank">'
+         . '<i class="bi bi-cash me-2 text-danger"></i>Cobrar pagamento</a></li>';
+    $li .= '<li><a class="dropdown-item" href="' . $base . urlencode($msgAvaliacao) . '" target="_blank">'
+         . '<i class="bi bi-star me-2 text-warning"></i>Pedir avaliação</a></li>';
+    $li .= '<li><hr class="dropdown-divider"></li>';
+    $li .= '<li><a class="dropdown-item" href="https://wa.me/' . $num . '" target="_blank">'
+         . '<i class="bi bi-whatsapp me-2 text-success"></i>Conversa livre</a></li>';
+
+    $menu = '<ul class="dropdown-menu dropdown-menu-end shadow-sm">' . $li . '</ul>';
+
+    if ($split) {
+        return '<div class="btn-group btn-group-sm" role="group">'
+             . '<a href="https://wa.me/' . $num . '" target="_blank" class="btn btn-outline-success" title="WhatsApp">'
+             . '<i class="bi bi-whatsapp"></i></a>'
+             . '<button type="button" class="btn btn-outline-success dropdown-toggle dropdown-toggle-split" '
+             . 'data-bs-toggle="dropdown" aria-expanded="false">'
+             . '<span class="visually-hidden">Mensagens rápidas</span></button>'
+             . $menu . '</div>';
+    }
+
+    return '<div class="btn-group btn-group-sm" role="group">'
+         . '<button type="button" class="btn btn-outline-success dropdown-toggle" '
+         . 'data-bs-toggle="dropdown" aria-expanded="false" title="WhatsApp">'
+         . '<i class="bi bi-whatsapp"></i></button>'
+         . $menu . '</div>';
+}
+
 function enviarWhatsApp(string $numero, string $mensagem): bool
 {
     if (!defined('EVOLUTION_URL') || !defined('EVOLUTION_INSTANCE') || !defined('EVOLUTION_KEY')) {
