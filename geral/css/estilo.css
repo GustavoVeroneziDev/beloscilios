@@ -280,44 +280,46 @@ button, a, [role="button"] {
 /* ── 8. Stat Cards (dashboard) ──────────────────────────────── */
 .stat-card {
     border-radius: var(--radius-card);
-    padding: 1.25rem 1.5rem;
-    min-height: 130px;
+    padding: 1.1rem 1.25rem;
+    min-height: 110px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
 }
 .stat-card-top {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: .75rem;
+    gap: .5rem;
+    margin-bottom: .5rem;
 }
 .stat-card-label {
-    font-size: .8rem;
+    font-size: .7rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: .04em;
     color: var(--text-muted);
+    line-height: 1.3;
 }
 .stat-card-valor {
-    font-size: 1.9rem;
+    font-size: 1.5rem;
     font-weight: 700;
-    line-height: 1;
+    line-height: 1.1;
     color: var(--text-main);
 }
 .stat-card-sub {
-    font-size: .72rem;
+    font-size: .68rem;
     color: var(--text-muted);
-    margin-top: .2rem;
+    margin-top: .15rem;
 }
 .stat-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.25rem;
+    font-size: 1.05rem;
     flex-shrink: 0;
 }
 
