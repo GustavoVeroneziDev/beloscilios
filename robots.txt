@@ -1,0 +1,15 @@
+User-agent: *
+# Bloqueia áreas administrativas e internas
+Disallow: /painel/
+Disallow: /config/
+Disallow: /migrations/
+Disallow: /cron/
+Disallow: /webhook/
+Disallow: /usuario/processa_login.php
+Disallow: /usuario/processa_cadastro.php
+Disallow: /usuario/processa_senha.php
+Disallow: /agendamento/reservar_slot.php
+Disallow: /painel/api_whatsapp_qr.php
+# Permite tudo mais (landing page, agendamento público, galeria)
+Allow: /
+Sitemap: https://beloscilios.com/sitemap.xml

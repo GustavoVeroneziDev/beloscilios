@@ -10,6 +10,12 @@ $paginaTitulo  = $paginaTitulo  ?? 'Belos Cílios';
 $areaAtual     = $areaAtual     ?? '';
 $ehPainel      = $areaAtual === 'painel';
 
+// Meta description e Open Graph — páginas podem definir $metaDescricao e $ogImage antes do header
+$_metaDesc  = $metaDescricao ?? 'Extensão de cílios e design de sobrancelhas com atendimento personalizado. Agende online com facilidade.';
+$_ogTitle   = h($paginaTitulo) . ' — Belos Cílios';
+$_ogImage   = $ogImage ?? 'https://beloscilios.com/geral/img/LogoCírculo.png';
+$_ogUrl     = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'beloscilios.com') . ($_SERVER['REQUEST_URI'] ?? '/');
+
 // Auto-login por cookie lembrar-me em páginas públicas (protegidas já tratam em exigirLogin)
 if (!estaLogado() && !empty($_COOKIE['bc_lembrar']) && isset($pdo)) {
     tentarLoginLembrado($pdo);
@@ -35,6 +41,24 @@ $nivelAcesso   = $_SESSION['nivel_acesso'] ?? '';
     <link rel="icon" href="<?= BASE ?>/geral/img/ico.ico" type="image/x-icon">
     <link rel="apple-touch-icon" href="<?= BASE ?>/geral/img/LogoCírculo.png">
     <link rel="manifest" href="<?= BASE ?>/manifest.php">
+
+    <meta name="description" content="<?= h($_metaDesc) ?>">
+    <?php if ($ehPainel): ?>
+    <meta name="robots" content="noindex, nofollow">
+    <?php endif ?>
+
+    <!-- Open Graph / WhatsApp / redes sociais -->
+    <meta property="og:type"        content="website">
+    <meta property="og:site_name"   content="Belos Cílios">
+    <meta property="og:title"       content="<?= $_ogTitle ?>">
+    <meta property="og:description" content="<?= h($_metaDesc) ?>">
+    <meta property="og:url"         content="<?= h($_ogUrl) ?>">
+    <meta property="og:image"       content="<?= h($_ogImage) ?>">
+    <meta property="og:image:alt"   content="Belos Cílios — Studio de Cílios e Sobrancelhas">
+    <meta name="twitter:card"       content="summary">
+    <meta name="twitter:title"      content="<?= $_ogTitle ?>">
+    <meta name="twitter:description" content="<?= h($_metaDesc) ?>">
+    <meta name="twitter:image"      content="<?= h($_ogImage) ?>">
 
     <meta name="theme-color" content="#5a189a">
     <meta name="apple-mobile-web-app-capable" content="yes">

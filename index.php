@@ -37,10 +37,35 @@ if ($instagramUrl) {
     $igHandle = '@' . rtrim(preg_replace('#https?://(www\.)?instagram\.com/#', '', $instagramUrl), '/');
 }
 
-$paginaTitulo = 'Belos Cílios — Extensão de Cílios e Design de Sobrancelhas';
-$areaAtual    = 'publico';
+$paginaTitulo  = 'Belos Cílios — Extensão de Cílios e Design de Sobrancelhas';
+$metaDescricao = 'Studio especializado em extensão de cílios fio a fio, volume russo e design de sobrancelhas. Agende seu horário online com facilidade e rapidez.';
+$areaAtual     = 'publico';
+
+// JSON-LD — rich results no Google (LocalBusiness / BeautySalon)
+$_jsonLd = json_encode([
+    '@context' => 'https://schema.org',
+    '@type'    => 'BeautySalon',
+    'name'     => 'Belos Cílios',
+    'description' => $metaDescricao,
+    'url'      => 'https://beloscilios.com',
+    'telephone' => $telefoneWa ? '+' . $telefoneWa : null,
+    'priceRange' => '$$',
+    'currenciesAccepted' => 'BRL',
+    'paymentAccepted'    => 'Dinheiro, Cartão, Pix',
+    'sameAs' => array_values(array_filter([$instagramUrl ?: null])),
+    'image'  => 'https://beloscilios.com/geral/img/LogoCírculo.png',
+    'hasMap' => null,
+    'openingHoursSpecification' => [],
+    'makesOffer' => [
+        ['@type' => 'Offer', 'itemOffered' => ['@type' => 'Service', 'name' => 'Extensão de Cílios Fio a Fio']],
+        ['@type' => 'Offer', 'itemOffered' => ['@type' => 'Service', 'name' => 'Extensão de Cílios Volume Russo']],
+        ['@type' => 'Offer', 'itemOffered' => ['@type' => 'Service', 'name' => 'Design de Sobrancelhas']],
+    ],
+], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
 require_once __DIR__ . '/geral/header.php';
 ?>
+<script type="application/ld+json"><?= $_jsonLd ?></script>
 <style>
 /* ═══════════════════════════════════════════════
    Landing — estilos inline
