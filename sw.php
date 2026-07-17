@@ -4,17 +4,67 @@ header('Cache-Control: no-cache, no-store, must-revalidate');
 require_once __DIR__ . '/config/conexao.php';
 $b = defined('BASE') ? BASE : '';
 ?>
-// Belos Cílios Service Worker — v1.0
-const CACHE_NAME = 'beloscilios-v1';
+// Belos Cílios Service Worker — v2.0
+const CACHE_NAME = 'beloscilios-v2';
 
-self.addEventListener('install',  () => self.skipWaiting());
-self.addEventListener('activate', e  => e.waitUntil(clients.claim()));
+// Assets estáticos que não mudam entre requisições
+const STATIC_ASSETS = [
+    '<?= $b ?>/geral/vendor/bs/css/bootstrap.min.css',
+    '<?= $b ?>/geral/vendor/bi/font/bootstrap-icons.min.css',
+    '<?= $b ?>/geral/vendor/bs/js/bootstrap.bundle.min.js',
+    '<?= $b ?>/geral/img/LogoCírculo.png',
+    '<?= $b ?>/geral/img/ico.ico',
+];
 
-// Fetch: navegações vão direto ao servidor; assets com fallback gracioso
+// Pré-cache dos assets críticos na instalação
+self.addEventListener('install', e => {
+    e.waitUntil(
+        caches.open(CACHE_NAME)
+            .then(cache => cache.addAll(STATIC_ASSETS).catch(() => {}))
+            .then(() => self.skipWaiting())
+    );
+});
+
+// Remove caches de versões antigas na ativação
+self.addEventListener('activate', e => e.waitUntil(
+    caches.keys()
+        .then(keys => Promise.all(
+            keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+        ))
+        .then(() => clients.claim())
+));
+
 self.addEventListener('fetch', e => {
-    if (e.request.mode === 'navigate') return;
+    const req = e.request;
+    const url = new URL(req.url);
+
+    // Navegações (páginas PHP dinâmicas) → sempre do servidor
+    if (req.mode === 'navigate') return;
+
+    // Assets estáticos (vendor, imagens, fontes, CSS, JS) → cache-first
+    const isStatic = /\.(css|js|png|ico|jpg|jpeg|gif|svg|webp|woff2?|ttf|eot)(\?.*)?$/.test(url.pathname)
+                  || url.pathname.includes('/vendor/')
+                  || url.pathname.includes('/geral/img/');
+
+    if (isStatic && url.origin === self.location.origin) {
+        e.respondWith(
+            caches.match(req).then(cached => {
+                if (cached) return cached;
+                return fetch(req).then(res => {
+                    if (res.ok) {
+                        const clone = res.clone();
+                        caches.open(CACHE_NAME).then(c => c.put(req, clone));
+                    }
+                    return res;
+                }).catch(() => new Response('', { status: 503 }));
+            })
+        );
+        return;
+    }
+
+    // Demais requisições → rede com fallback silencioso
     e.respondWith(
-        fetch(e.request).catch(() => new Response('', { status: 503, statusText: 'Offline' }))
+        fetch(req).catch(() => new Response('', { status: 503, statusText: 'Offline' }))
     );
 });
 

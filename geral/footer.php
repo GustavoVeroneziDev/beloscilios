@@ -45,6 +45,21 @@
     </div>
 </div>
 
+<!-- Overlay de carregamento de página -->
+<style>
+#bcPageLoader{display:none;position:fixed;inset:0;z-index:99999;background:rgba(16,0,43,.84);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);align-items:center;justify-content:center;}
+#bcPageLoader .bc-wrap{position:relative;width:76px;height:76px;}
+#bcPageLoader .bc-ring{position:absolute;inset:0;border-radius:50%;border:3px solid rgba(199,125,255,.18);border-top-color:#c77dff;animation:bcSpin .85s linear infinite;}
+#bcPageLoader .bc-logo{position:absolute;width:54px;height:54px;border-radius:50%;top:50%;left:50%;transform:translate(-50%,-50%);object-fit:cover;box-shadow:0 0 18px rgba(90,24,154,.55);}
+@keyframes bcSpin{to{transform:rotate(360deg);}}
+</style>
+<div id="bcPageLoader" role="status" aria-label="Carregando...">
+    <div class="bc-wrap">
+        <div class="bc-ring"></div>
+        <img src="<?= BASE ?>/geral/img/LogoCírculo.png" class="bc-logo" alt="">
+    </div>
+</div>
+
 <!-- Modal de instalação PWA -->
 <div class="modal fade" id="modalPwa" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -122,6 +137,44 @@ if ('serviceWorker' in navigator) {
             .catch(function (e) { console.warn('SW:', e); });
     });
 }
+
+// ── Overlay de carregamento de página ────────────────────────────────────────
+(function () {
+    var loader = document.getElementById('bcPageLoader');
+    if (!loader) return;
+    function mostrar() { loader.style.display = 'flex'; }
+    function esconder() { loader.style.display = 'none'; }
+    window._bcLoaderMostrar = mostrar;
+
+    // Esconde quando a página carrega (inclui restauração por bfcache no back/forward)
+    window.addEventListener('pageshow', esconder);
+
+    // Clique em links internos (exclui âncoras, modais Bootstrap, data-confirm e externos)
+    document.addEventListener('click', function (e) {
+        var a = e.target.closest('a[href]');
+        if (!a || a.dataset.confirm || e.defaultPrevented) return;
+        if (a.target === '_blank') return;
+        if (a.dataset.bsToggle || a.dataset.bsDismiss || a.dataset.bsTarget) return;
+        var href = a.getAttribute('href') || '';
+        if (!href || href === '#' || href.charAt(0) === '#') return;
+        if (/^(javascript|mailto|tel):/.test(href)) return;
+        mostrar();
+    });
+
+    // Submit de form (só quando a navegação vai mesmo acontecer)
+    document.addEventListener('submit', function (e) {
+        if (e.target.dataset.noLoader) return;
+        var ev = e;
+        setTimeout(function () { if (!ev.defaultPrevented) mostrar(); }, 0);
+    });
+
+    // form.submit() programático não dispara o evento — captura aqui
+    var origSubmit = HTMLFormElement.prototype.submit;
+    HTMLFormElement.prototype.submit = function () {
+        if (!this.dataset.noLoader) mostrar();
+        origSubmit.call(this);
+    };
+})();
 // ─────────────────────────────────────────────────────────────────────────────
 
 function abrirSidebar() {
@@ -190,7 +243,7 @@ document.addEventListener('click', function (e) {
     bcConfirm(el.dataset.confirm, function () {
         var form = el.closest('form');
         if (form) { form.dataset.confirmed = '1'; form.submit(); }
-        else if (el.href) { location.href = el.href; }
+        else if (el.href) { window._bcLoaderMostrar?.(); location.href = el.href; }
     }, el.dataset.confirmLabel);
 });
 </script>

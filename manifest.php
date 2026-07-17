@@ -16,11 +16,24 @@ echo json_encode([
     'theme_color'      => '#5a189a',
     'lang'             => 'pt-BR',
     'icons'            => [
+        // 'any maskable' combinados numa entrada é inválido — entradas separadas
         [
             'src'     => $b . '/geral/img/LogoCírculo.png',
-            'sizes'   => 'any',
+            'sizes'   => '192x192',
             'type'    => 'image/png',
-            'purpose' => 'any maskable',
+            'purpose' => 'any',
+        ],
+        [
+            'src'     => $b . '/geral/img/LogoCírculo.png',
+            'sizes'   => '512x512',
+            'type'    => 'image/png',
+            'purpose' => 'any',
+        ],
+        [
+            'src'     => $b . '/geral/img/LogoCírculo.png',
+            'sizes'   => '512x512',
+            'type'    => 'image/png',
+            'purpose' => 'maskable',
         ],
     ],
 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
