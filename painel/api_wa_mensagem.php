@@ -18,10 +18,11 @@ $in           = json_decode(file_get_contents('php://input'), true) ?? [];
 $acao         = trim($in['acao']          ?? '');
 $agendId      = trim($in['agendamento_id'] ?? '');
 $clienteId    = trim($in['cliente_id']    ?? '');
+$telInput     = preg_replace('/\D/', '', trim($in['tel'] ?? ''));
 
 $acaoValidas = ['cobrar', 'lembrar', 'confirmar', 'reagendar', 'avaliacao'];
-if (!in_array($acao, $acaoValidas, true) || (!$agendId && !$clienteId)) {
-    echo json_encode(['ok' => false, 'msg' => 'Parâmetros inválidos']);
+if (!in_array($acao, $acaoValidas, true)) {
+    echo json_encode(['ok' => false, 'msg' => 'Ação inválida']);
     exit;
 }
 
@@ -34,12 +35,25 @@ if ($agendId) {
           WHERE a.IDAgendamento = :id LIMIT 1'
     );
     $stm->execute([':id' => $agendId]);
-} else {
+} elseif ($clienteId) {
     $stm = $pdo->prepare(
         'SELECT IDUsuario AS IDCliente, Nome, Telefone
            FROM Usuarios WHERE IDUsuario = :id AND NivelAcesso = "cliente" LIMIT 1'
     );
     $stm->execute([':id' => $clienteId]);
+} elseif ($telInput) {
+    // Fallback: localiza pelo número de telefone (remove não-dígitos para comparar)
+    $stm = $pdo->prepare(
+        'SELECT IDUsuario AS IDCliente, Nome, Telefone
+           FROM Usuarios
+          WHERE REGEXP_REPLACE(Telefone, "[^0-9]", "") LIKE :tel
+            AND NivelAcesso = "cliente"
+          LIMIT 1'
+    );
+    $stm->execute([':tel' => '%' . $telInput]);
+} else {
+    echo json_encode(['ok' => false, 'msg' => 'Parâmetros insuficientes']);
+    exit;
 }
 $cli = $stm->fetch();
 if (!$cli) {

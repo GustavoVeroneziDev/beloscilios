@@ -240,7 +240,7 @@ function bcPwaDescartar() {
         fetch(base + '/painel/api_wa_mensagem.php', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ acao: acao, agendamento_id: agId, cliente_id: cliId }),
+            body:    JSON.stringify({ acao: acao, agendamento_id: agId, cliente_id: cliId, tel: tel }),
         })
         .then(function (r) { return r.json(); })
         .then(function (d) {
