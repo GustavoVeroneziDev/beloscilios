@@ -20,6 +20,7 @@
     --bg-hover:         #f3e8ff;
     --text-main:        #10002b;
     --text-secondary:   #6739c7;
+    --text-muted:       #7a6d8e;
     --accent:           #5a189a;
     --accent-hover:     #240046;
     --accent-light:     rgba(179, 140, 255, .15);
@@ -532,4 +533,9 @@ button, a, [role="button"] {
     /* Calendário ultra-compacto em telas muito pequenas */
     .bc-cal-day { min-height: 38px; }
     .bc-cal-dots { display: none; }
+
+    /* Stat cards mais compactos em telas muito pequenas */
+    .stat-card { padding: .85rem 1rem; min-height: 95px; }
+    .stat-card-valor { font-size: 1.25rem; }
+    .stat-icon { width: 30px; height: 30px; font-size: .9rem; border-radius: 8px; }
 }
