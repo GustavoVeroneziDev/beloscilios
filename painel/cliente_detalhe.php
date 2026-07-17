@@ -69,7 +69,7 @@ require_once __DIR__ . '/../geral/header.php';
                 <dt class="small text-secondary">WhatsApp</dt>
                 <dd>
                     <?php if ($cliente['Telefone']): ?>
-                        <a href="https://wa.me/<?= h($cliente['Telefone']) ?>" target="_blank"
+                        <a href="https://wa.me/<?= waNumero($cliente['Telefone']) ?>" target="_blank"
                             class="btn btn-sm btn-outline-success">
                             <i class="bi bi-whatsapp me-1"></i><?= h($cliente['Telefone']) ?>
                         </a>
@@ -84,7 +84,7 @@ require_once __DIR__ . '/../geral/header.php';
             </dl>
 
             <?php if ($cliente['Telefone']): ?>
-                <a href="https://wa.me/<?= h($cliente['Telefone']) ?>" target="_blank"
+                <a href="https://wa.me/<?= waNumero($cliente['Telefone']) ?>" target="_blank"
                     class="btn btn-outline-success w-100 mb-2">
                     <i class="bi bi-whatsapp me-1"></i> Abrir conversa
                 </a>

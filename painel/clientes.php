@@ -188,7 +188,7 @@ require_once __DIR__ . '/../geral/header.php';
                                 </td>
                                 <td class="d-none d-md-table-cell">
                                     <?php if ($c['Telefone']): ?>
-                                        <a href="https://wa.me/<?= h($c['Telefone']) ?>" target="_blank"
+                                        <a href="https://wa.me/<?= waNumero($c['Telefone']) ?>" target="_blank"
                                             class="btn btn-sm btn-outline-success d-inline-flex align-items-center justify-content-center"
                                             style="width:30px;height:30px;padding:0;">
                                             <i class="bi bi-whatsapp"></i>
@@ -227,7 +227,7 @@ require_once __DIR__ . '/../geral/header.php';
                                         <?php if ($c['Telefone']): ?>
                                         <div class="detalhe-item">
                                             <strong>WhatsApp</strong>
-                                            <a href="https://wa.me/<?= h($c['Telefone']) ?>" target="_blank"
+                                            <a href="https://wa.me/<?= waNumero($c['Telefone']) ?>" target="_blank"
                                                class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1 mt-1"
                                                style="height:28px;font-size:.78rem;padding:0 .6rem;">
                                                 <i class="bi bi-whatsapp"></i> Abrir

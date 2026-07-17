@@ -159,7 +159,7 @@ $_dataPtBr   = $_diasSemana[date('l')] . ', ' . date('d') . ' de ' . $_meses[dat
                                     <div class="d-flex align-items-center gap-2">
                                         <?= labelStatus($ag['StatusAgendamento']) ?>
                                         <?php if ($ag['Telefone']): ?>
-                                            <a href="https://wa.me/<?= h($ag['Telefone']) ?>" target="_blank"
+                                            <a href="https://wa.me/<?= waNumero($ag['Telefone']) ?>" target="_blank"
                                                 class="btn btn-sm btn-outline-success" title="WhatsApp">
                                                 <i class="bi bi-whatsapp"></i>
                                             </a>

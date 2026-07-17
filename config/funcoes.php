@@ -28,6 +28,11 @@ function sanitizarTelefone(string $tel): ?string
     return null;
 }
 
+function waNumero(string $tel): string
+{
+    return sanitizarTelefone($tel) ?? preg_replace('/\D/', '', $tel);
+}
+
 function enviarWhatsApp(string $numero, string $mensagem): bool
 {
     if (!defined('EVOLUTION_URL') || !defined('EVOLUTION_INSTANCE') || !defined('EVOLUTION_KEY')) {

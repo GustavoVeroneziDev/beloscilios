@@ -312,7 +312,7 @@ if ($vista === 'calendario') {
             'duracao' => $ag['DuracaoMinutos'],
             'status'  => $ag['StatusAgendamento'],
             'pag'     => $ag['StatusPagamento'],
-            'tel'     => $ag['Telefone'] ?? '',
+            'tel'     => waNumero($ag['Telefone'] ?? ''),
             'alerta'  => $ag['AlertaAlto'] ? 'alto' : ($ag['AlertaMedio'] ? 'medio' : ($ag['TemFicha'] ? 'ok' : 'sem_ficha')),
         ], $ags);
     }
@@ -327,7 +327,7 @@ function botoesAgendamento(array $ag, string $csrfToken, array $extraGet = []): 
 {
     $out = '<div class="d-flex gap-1 flex-shrink-0">';
     if ($ag['Telefone']) {
-        $out .= '<a href="https://wa.me/' . h($ag['Telefone']) . '" target="_blank"
+        $out .= '<a href="https://wa.me/' . waNumero($ag['Telefone']) . '" target="_blank"
                     class="btn btn-sm btn-outline-success" title="WhatsApp">
                     <i class="bi bi-whatsapp"></i></a>';
     }
