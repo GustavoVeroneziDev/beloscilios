@@ -210,7 +210,7 @@ if ($vista === 'calendario') {
 
     try {
         $stmtCal = $pdo->prepare(
-            'SELECT a.IDAgendamento, a.DataHoraAgendamento, a.StatusAgendamento,
+            'SELECT a.IDAgendamento, a.FKCliente, a.DataHoraAgendamento, a.StatusAgendamento,
                     a.StatusPagamento, u.Nome AS NomeCliente, u.Telefone,
                     s.Nome AS NomeServico, s.DuracaoMinutos,
                     ss.Nome AS NomeSubServico,
@@ -306,14 +306,14 @@ if ($vista === 'calendario') {
     foreach ($porDiaCal as $dataKey => $ags) {
         $calJson[$dataKey] = array_map(fn($ag) => [
             'id'      => $ag['IDAgendamento'],
+            'cliId'   => $ag['FKCliente'],
             'hora'    => date('H:i', strtotime($ag['DataHoraAgendamento'])),
-            'nome'    => $ag['NomeCliente'],
+            'nome'    => $ag['NomeCliente'] ?? '',
             'servico' => $ag['NomeSubServico'] ?? $ag['NomeServico'],
             'duracao' => $ag['DuracaoMinutos'],
             'status'  => $ag['StatusAgendamento'],
             'pag'     => $ag['StatusPagamento'],
             'tel'     => waNumero($ag['Telefone'] ?? ''),
-            'nome'    => $ag['NomeCliente'] ?? '',
             'dataBr'  => date('d/m', strtotime($ag['DataHoraAgendamento'])),
             'alerta'  => $ag['AlertaAlto'] ? 'alto' : ($ag['AlertaMedio'] ? 'medio' : ($ag['TemFicha'] ? 'ok' : 'sem_ficha')),
         ], $ags);
@@ -983,7 +983,7 @@ $csrfToken = gerarTokenCSRF();
 
                     let botoes = '';
                     if (ag.tel) {
-                        botoes += waDropdownHtml(ag.tel, ag.nome, ag.servico, ag.hora, ag.dataBr);
+                        botoes += waDropdownHtml(ag.tel, ag.nome, ag.id, ag.cliId);
                     }
                     if (ag.status === 'pendente') {
                         botoes += '<button class="btn btn-sm btn-outline-success" onclick="acaoAg(\'confirmar\',\'' + ag.id + '\')" title="Confirmar"><i class="bi bi-check-lg"></i></button>';
@@ -1066,28 +1066,22 @@ $csrfToken = gerarTokenCSRF();
                 .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
-        function waDropdownHtml(tel, nome, servico, hora, dataBr) {
-            const enc = encodeURIComponent;
-            const base = 'https://wa.me/' + tel + '?text=';
-            const pfx  = 'Olá ' + nome + '! ';
-            const sv   = servico ? ' de ' + servico : '';
-            const hr   = hora    ? ' às ' + hora    : '';
+        function waDropdownHtml(tel, nome, agId, cliId) {
+            const d = 'data-tel="' + escHtml(tel) + '" data-nome="' + escHtml(nome)
+                    + '" data-ag-id="' + escHtml(agId || '') + '" data-cli-id="' + escHtml(cliId || '') + '"';
 
-            const msgCobrar    = pfx + '💜 Passando para lembrar que o pagamento' + sv + ' está pendente. Pode me pagar assim que puder? Obrigada! 😊';
-            const msgLembrar   = pfx + '💜 Só passando para lembrar do seu horário' + sv + ' amanhã' + hr + '. Te espero! 😊';
-            const msgConfirmar = pfx + '💜 Confirmando seu horário' + sv + ' hoje' + hr + '. Você consegue comparecer? 😊';
-            const msgReagendar = pfx + '😊 Precisei reagendar o horário' + sv + (dataBr ? ' em ' + dataBr : '') + '. Podemos combinar outro dia?';
-            const msgAvaliacao = pfx + 'Foi um prazer te atender! 😍 Ficou satisfeita com o resultado? Amo receber fotos! 💜';
+            const item = (icon, label, acao) =>
+                '<li><a class="dropdown-item bc-wa-msg" href="#" ' + d
+                + ' data-acao="' + acao + '" data-label="' + escHtml(label) + '">'
+                + '<i class="bi ' + icon + ' me-2"></i>' + label + '</a></li>';
 
             let li = '<li><h6 class="dropdown-header px-3 py-1" style="font-size:.72rem;">Para ' + escHtml(nome) + '</h6></li>';
-            if (hora) {
-                li += '<li><a class="dropdown-item" href="' + base + enc(msgLembrar)   + '" target="_blank"><i class="bi bi-bell me-2 text-warning"></i>Lembrar horário</a></li>';
-                li += '<li><a class="dropdown-item" href="' + base + enc(msgConfirmar) + '" target="_blank"><i class="bi bi-check-circle me-2 text-success"></i>Confirmar presença</a></li>';
-                li += '<li><a class="dropdown-item" href="' + base + enc(msgReagendar) + '" target="_blank"><i class="bi bi-calendar-x me-2 text-secondary"></i>Reagendar</a></li>';
-                li += '<li><hr class="dropdown-divider"></li>';
-            }
-            li += '<li><a class="dropdown-item" href="' + base + enc(msgCobrar)    + '" target="_blank"><i class="bi bi-cash me-2 text-danger"></i>Cobrar pagamento</a></li>';
-            li += '<li><a class="dropdown-item" href="' + base + enc(msgAvaliacao) + '" target="_blank"><i class="bi bi-star me-2 text-warning"></i>Pedir avaliação</a></li>';
+            li += item('bi-bell text-warning',         'Lembrar horário',    'lembrar');
+            li += item('bi-check-circle text-success',  'Confirmar presença', 'confirmar');
+            li += item('bi-calendar-x text-secondary',  'Reagendar',          'reagendar');
+            li += '<li><hr class="dropdown-divider"></li>';
+            li += item('bi-cash text-danger',  'Cobrar pagamento', 'cobrar');
+            li += item('bi-star text-warning', 'Pedir avaliação',  'avaliacao');
             li += '<li><hr class="dropdown-divider"></li>';
             li += '<li><a class="dropdown-item" href="https://wa.me/' + tel + '" target="_blank"><i class="bi bi-whatsapp me-2 text-success"></i>Conversa livre</a></li>';
 

@@ -188,7 +188,7 @@ require_once __DIR__ . '/../geral/header.php';
                                 </td>
                                 <td class="d-none d-md-table-cell">
                                     <?php if ($c['Telefone']): ?>
-                                        <?= waBotoesDropdown($c['Telefone'], $c['Nome'], split: false) ?>
+                                        <?= waBotoesDropdown($c['Telefone'], $c['Nome'], split: false, clienteId: $c['IDUsuario']) ?>
                                     <?php else: ?>
                                         <span class="text-secondary">—</span>
                                     <?php endif ?>
@@ -223,7 +223,7 @@ require_once __DIR__ . '/../geral/header.php';
                                         <?php if ($c['Telefone']): ?>
                                         <div class="detalhe-item">
                                             <strong>WhatsApp</strong>
-                                            <?= waBotoesDropdown($c['Telefone'], $c['Nome'], split: false) ?>
+                                            <?= waBotoesDropdown($c['Telefone'], $c['Nome'], split: false, clienteId: $c['IDUsuario']) ?>
                                         </div>
                                         <?php endif ?>
                                         <div class="detalhe-item">

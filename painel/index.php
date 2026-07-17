@@ -165,7 +165,10 @@ $_dataPtBr   = $_diasSemana[date('l')] . ', ' . date('d') . ' de ' . $_meses[dat
                                                 $ag['NomeSubServico'] ?? $ag['NomeServico'],
                                                 date('H:i', strtotime($ag['DataHoraAgendamento'])),
                                                 date('d/m/Y', strtotime($ag['DataHoraAgendamento'])),
-                                                $ag['ValorCobrado'] ? number_format((float)$ag['ValorCobrado'], 2, ',', '.') : ''
+                                                $ag['ValorCobrado'] ? number_format((float)$ag['ValorCobrado'], 2, ',', '.') : '',
+                                                true,
+                                                $ag['IDAgendamento'],
+                                                $ag['FKCliente']
                                             ) ?>
                                         <?php endif ?>
                                     </div>

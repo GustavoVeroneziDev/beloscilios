@@ -60,6 +60,55 @@
     </div>
 </div>
 
+<!-- Modal de mensagem WhatsApp — gerada com dados reais + IA (editável antes de enviar) -->
+<div class="modal fade" id="modalWaMensagem" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius:16px;overflow:hidden;">
+            <div class="modal-header border-bottom" style="background:var(--bg-card,#fff);">
+                <div>
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-whatsapp text-success fs-5"></i>
+                        <span class="fw-semibold" id="bcWaMsgLabel" style="color:var(--text-main,#111);"></span>
+                    </div>
+                    <div class="small text-secondary mt-1">Para: <strong id="bcWaMsgNome" style="color:var(--roxo-principal,#5a189a);"></strong></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar" id="bcWaMsgFechar"></button>
+            </div>
+            <div class="modal-body" style="background:var(--bg-card,#fff);min-height:160px;">
+                <!-- Estado: carregando -->
+                <div id="bcWaMsgLoading" class="text-center py-4">
+                    <div class="spinner-border text-success mb-2" role="status" style="width:1.8rem;height:1.8rem;"></div>
+                    <div class="small text-secondary">Gerando mensagem com os dados do cliente…</div>
+                </div>
+                <!-- Estado: pronta -->
+                <div id="bcWaMsgPronta" style="display:none;">
+                    <div class="d-flex align-items-center gap-1 mb-2" style="font-size:.78rem;color:#888;">
+                        <i class="bi bi-stars text-warning"></i>
+                        <span>Gerada com IA — edite à vontade antes de enviar</span>
+                    </div>
+                    <textarea id="bcWaMsgTexto" class="form-control" rows="7"
+                        style="resize:vertical;font-size:.93rem;line-height:1.6;font-family:inherit;"></textarea>
+                    <div class="d-flex justify-content-between mt-1" style="font-size:.72rem;color:#aaa;">
+                        <span id="bcWaMsgCount">0 caracteres</span>
+                        <span>Enter = nova linha</span>
+                    </div>
+                </div>
+                <!-- Estado: erro -->
+                <div id="bcWaMsgErro" style="display:none;" class="text-center py-3">
+                    <i class="bi bi-exclamation-circle text-danger fs-2 d-block mb-2"></i>
+                    <span class="small text-secondary" id="bcWaMsgErroMsg">Erro ao gerar mensagem.</span>
+                </div>
+            </div>
+            <div class="modal-footer border-top gap-2" style="background:var(--bg-card,#fff);">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success px-4" id="bcWaMsgEnviar" disabled>
+                    <i class="bi bi-whatsapp me-1"></i>Abrir no WhatsApp
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal de instalação PWA -->
 <div class="modal fade" id="modalPwa" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -129,6 +178,92 @@ function bcPwaInstalar(fecharModal) {
 function bcPwaDescartar() {
     localStorage.setItem('bc_pwa_ok', '1');
 }
+
+// ── Modal de mensagem WhatsApp com IA ────────────────────────────────────────
+(function () {
+    var _tel = '';
+    var modal, loading, pronta, erro, erroMsg, textarea, count, enviar;
+
+    function init() {
+        modal    = document.getElementById('modalWaMensagem');
+        loading  = document.getElementById('bcWaMsgLoading');
+        pronta   = document.getElementById('bcWaMsgPronta');
+        erro     = document.getElementById('bcWaMsgErro');
+        erroMsg  = document.getElementById('bcWaMsgErroMsg');
+        textarea = document.getElementById('bcWaMsgTexto');
+        count    = document.getElementById('bcWaMsgCount');
+        enviar   = document.getElementById('bcWaMsgEnviar');
+        if (!modal) return;
+
+        textarea.addEventListener('input', function () {
+            count.textContent = textarea.value.length + ' caracteres';
+        });
+
+        enviar.addEventListener('click', function () {
+            var txt = textarea.value.trim();
+            if (!txt || !_tel) return;
+            window.open('https://wa.me/' + _tel + '?text=' + encodeURIComponent(txt), '_blank');
+            bootstrap.Modal.getInstance(modal).hide();
+        });
+    }
+
+    function mostrarEstado(estado) {
+        loading.style.display = estado === 'loading' ? '' : 'none';
+        pronta.style.display  = estado === 'pronta'  ? '' : 'none';
+        erro.style.display    = estado === 'erro'    ? '' : 'none';
+        enviar.disabled       = estado !== 'pronta';
+    }
+
+    document.addEventListener('click', function (e) {
+        var el = e.target.closest('.bc-wa-msg');
+        if (!el) return;
+        e.preventDefault();
+
+        var acao     = el.dataset.acao     || '';
+        var agId     = el.dataset.agId     || '';
+        var cliId    = el.dataset.cliId    || '';
+        var nome     = el.dataset.nome     || '';
+        var label    = el.dataset.label    || 'Mensagem';
+        var tel      = el.dataset.tel      || '';
+
+        if (!acao) return;
+        if (!modal) init();
+
+        document.getElementById('bcWaMsgLabel').textContent = label;
+        document.getElementById('bcWaMsgNome').textContent  = nome;
+        _tel = tel;
+
+        mostrarEstado('loading');
+        bootstrap.Modal.getOrCreateInstance(modal).show();
+
+        var base = (typeof BASE !== 'undefined' ? BASE : '');
+        fetch(base + '/painel/api_wa_mensagem.php', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ acao: acao, agendamento_id: agId, cliente_id: cliId }),
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (d.ok) {
+                _tel = d.tel || _tel;
+                textarea.value = d.mensagem || '';
+                count.textContent = textarea.value.length + ' caracteres';
+                mostrarEstado('pronta');
+                setTimeout(function () { textarea.focus(); }, 200);
+            } else {
+                erroMsg.textContent = d.msg || 'Erro ao gerar mensagem.';
+                mostrarEstado('erro');
+            }
+        })
+        .catch(function () {
+            erroMsg.textContent = 'Falha na conexão. Tente novamente.';
+            mostrarEstado('erro');
+        });
+    });
+
+    document.addEventListener('DOMContentLoaded', init);
+})();
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Registra o Service Worker
 if ('serviceWorker' in navigator) {

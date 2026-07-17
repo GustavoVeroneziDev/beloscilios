@@ -69,6 +69,7 @@ $nivelAcesso   = $_SESSION['nivel_acesso'] ?? '';
     <link rel="stylesheet" href="<?= BASE ?>/geral/vendor/bs/css/bootstrap.min.css">
     <link rel="stylesheet" href="<?= BASE ?>/geral/vendor/bi/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="<?= BASE ?>/geral/css/estilo.css?v=<?= APP_VERSAO ?>">
+    <script>var BASE = '<?= BASE ?>';</script>
 </head>
 
 <body<?= isset($_bcPwaModal) && $_bcPwaModal ? ' data-pwa-modal="1"' : '' ?>>
