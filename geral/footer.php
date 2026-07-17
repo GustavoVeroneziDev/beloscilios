@@ -138,6 +138,33 @@ if ('serviceWorker' in navigator) {
     });
 }
 
+// ── Fix: dropdowns cortados por overflow:auto em .table-responsive / cards ───
+// Bootstrap 5 usa Popper com position:absolute por padrão — dentro de
+// containers com overflow:hidden/auto o menu é clipado. strategy:'fixed'
+// renderiza relativo ao viewport e resolve.
+(function () {
+    function initDropdown(el) {
+        if (!el.matches || !el.matches('[data-bs-toggle="dropdown"]')) return;
+        var old = bootstrap.Dropdown.getInstance(el);
+        if (old) old.dispose();
+        new bootstrap.Dropdown(el, { popperConfig: { strategy: 'fixed' } });
+    }
+    window.addEventListener('load', function () {
+        document.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(initDropdown);
+    });
+    // Cobre dropdowns criados dinamicamente (ex: calendário da agenda)
+    new MutationObserver(function (mutations) {
+        mutations.forEach(function (m) {
+            m.addedNodes.forEach(function (node) {
+                if (node.nodeType !== 1) return;
+                if (node.matches && node.matches('[data-bs-toggle="dropdown"]')) initDropdown(node);
+                node.querySelectorAll && node.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(initDropdown);
+            });
+        });
+    }).observe(document.body, { childList: true, subtree: true });
+})();
+// ─────────────────────────────────────────────────────────────────────────────
+
 // ── Overlay de carregamento de página ────────────────────────────────────────
 (function () {
     var loader = document.getElementById('bcPageLoader');
