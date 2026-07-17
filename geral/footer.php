@@ -1,4 +1,4 @@
-<?php if ($ehPainel ?? false): ?>
+﻿<?php if ($ehPainel ?? false): ?>
 </div><!-- /painel-content -->
 <?php else: ?>
 </main>
@@ -200,9 +200,11 @@ function bcPwaDescartar() {
         });
 
         enviar.addEventListener('click', function () {
+            if (!_tel) return;
             var txt = textarea.value.trim();
-            if (!txt || !_tel) return;
-            window.open('https://wa.me/' + _tel + '?text=' + encodeURIComponent(txt), '_blank');
+            var url = 'https://wa.me/' + _tel;
+            if (txt) url += '?text=' + encodeURIComponent(txt);
+            window.open(url, '_blank');
             bootstrap.Modal.getInstance(modal).hide();
         });
     }
@@ -211,7 +213,7 @@ function bcPwaDescartar() {
         loading.style.display = estado === 'loading' ? '' : 'none';
         pronta.style.display  = estado === 'pronta'  ? '' : 'none';
         erro.style.display    = estado === 'erro'    ? '' : 'none';
-        enviar.disabled       = estado !== 'pronta';
+        enviar.disabled       = estado === 'loading';
     }
 
     document.addEventListener('click', function (e) {

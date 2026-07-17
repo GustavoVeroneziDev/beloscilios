@@ -42,15 +42,17 @@ if ($agendId) {
     );
     $stm->execute([':id' => $clienteId]);
 } elseif ($telInput) {
-    // Fallback: localiza pelo número de telefone (remove não-dígitos para comparar)
+    // Fallback: localiza pelo número usando REPLACE nested (compatível com MySQL 5.x)
+    // Compara pelos últimos 8 dígitos para tolerar DDI/DDD diferentes na base
+    $sufixo = substr($telInput, -8);
     $stm = $pdo->prepare(
-        'SELECT IDUsuario AS IDCliente, Nome, Telefone
+        "SELECT IDUsuario AS IDCliente, Nome, Telefone
            FROM Usuarios
-          WHERE REGEXP_REPLACE(Telefone, "[^0-9]", "") LIKE :tel
-            AND NivelAcesso = "cliente"
-          LIMIT 1'
+          WHERE REPLACE(REPLACE(REPLACE(REPLACE(Telefone,' ',''),'-',''),'(',''),')','') LIKE :suf
+            AND NivelAcesso = 'cliente'
+          LIMIT 1"
     );
-    $stm->execute([':tel' => '%' . $telInput]);
+    $stm->execute([':suf' => '%' . $sufixo]);
 } else {
     echo json_encode(['ok' => false, 'msg' => 'Parâmetros insuficientes']);
     exit;
