@@ -56,6 +56,23 @@ try {
     $porDia->execute([':ini' => $iniMes . ' 00:00:00', ':fim' => $fimMes . ' 23:59:59']);
     $porDia = $porDia->fetchAll(PDO::FETCH_KEY_PAIR);
 
+    // Histórico do mês: concluídos ou com pagamento pago (para permitir reversão)
+    $historico = $pdo->prepare(
+        'SELECT a.IDAgendamento, a.DataHoraAgendamento, a.StatusAgendamento,
+                a.StatusPagamento, a.ValorCobrado,
+                u.Nome AS NomeCliente, s.Nome AS NomeServico
+         FROM Agendamentos a
+         JOIN Usuarios u ON u.IDUsuario = a.FKCliente
+         JOIN Servicos s ON s.IDServico = a.FKServico
+         WHERE a.DataHoraAgendamento BETWEEN :ini AND :fim
+           AND a.StatusAgendamento != \'cancelado\'
+           AND (a.StatusAgendamento = \'concluido\' OR a.StatusPagamento = \'pago\')
+         ORDER BY a.DataHoraAgendamento DESC
+         LIMIT 50'
+    );
+    $historico->execute([':ini' => $iniMes . ' 00:00:00', ':fim' => $fimMes . ' 23:59:59']);
+    $historico = $historico->fetchAll();
+
     // Últimos agendamentos do mês com pagamento pendente
     $pendentes = $pdo->prepare(
         'SELECT a.DataHoraAgendamento, u.Nome AS NomeCliente, u.Telefone,
@@ -73,7 +90,7 @@ try {
     $pendentes = $pendentes->fetchAll();
 } catch (PDOException $e) {
     error_log('[Relatorio] ' . $e->getMessage());
-    $resumo = $porServico = $pendentes = [];
+    $resumo = $porServico = $pendentes = $historico = [];
     $porDia = [];
 }
 
@@ -238,5 +255,92 @@ require_once __DIR__ . '/../geral/header.php';
         </div>
     </div>
 </div>
+
+<?php if (!empty($historico)): ?>
+<!-- Histórico do mês (reversões) -->
+<div class="mt-4">
+    <div class="card">
+        <div class="card-header px-4 py-3 d-flex align-items-center justify-content-between">
+            <span>
+                <i class="bi bi-clock-history me-2 text-accent"></i>Histórico do mês
+                <span class="text-secondary small ms-2 fw-normal">— clique para desfazer ações acidentais</span>
+            </span>
+            <button class="btn btn-sm btn-outline-secondary" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#collapseHistorico" aria-expanded="false">
+                <i class="bi bi-chevron-down"></i>
+            </button>
+        </div>
+        <div class="collapse" id="collapseHistorico">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead style="background:var(--bg-hover);">
+                        <tr>
+                            <th class="px-4 py-2">Data</th>
+                            <th>Cliente</th>
+                            <th>Serviço</th>
+                            <th>Valor</th>
+                            <th>Status</th>
+                            <th>Pagamento</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($historico as $h): ?>
+                            <tr>
+                                <td class="px-4 small"><?= date('d/m', strtotime($h['DataHoraAgendamento'])) ?></td>
+                                <td class="small"><?= h($h['NomeCliente']) ?></td>
+                                <td class="small"><?= h($h['NomeServico']) ?></td>
+                                <td class="small fw-medium text-accent">
+                                    <?= formatarMoeda((float)($h['ValorCobrado'] ?? 0)) ?>
+                                </td>
+                                <td><?= labelStatus($h['StatusAgendamento']) ?></td>
+                                <td>
+                                    <?php if ($h['StatusPagamento'] === 'pago'): ?>
+                                        <span class="badge bg-success">Pago</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-warning text-dark">Pendente</span>
+                                    <?php endif ?>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <?php if ($h['StatusAgendamento'] === 'concluido'): ?>
+                                            <form method="POST" action="<?= BASE ?>/painel/reverter_status.php"
+                                                  data-confirm="Reabrir este atendimento como confirmado?"
+                                                  data-confirm-label="Reabrir">
+                                                <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
+                                                <input type="hidden" name="acao" value="reabrir">
+                                                <input type="hidden" name="id" value="<?= h($h['IDAgendamento']) ?>">
+                                                <input type="hidden" name="redirect"
+                                                       value="<?= BASE ?>/painel/relatorio.php?mes=<?= $mesSel ?>&amp;ano=<?= $anoSel ?>">
+                                                <button class="btn btn-sm btn-outline-primary" title="Reabrir como confirmado">
+                                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                                </button>
+                                            </form>
+                                        <?php endif ?>
+                                        <?php if ($h['StatusPagamento'] === 'pago'): ?>
+                                            <form method="POST" action="<?= BASE ?>/painel/reverter_status.php"
+                                                  data-confirm="Estornar este pagamento para pendente?"
+                                                  data-confirm-label="Estornar">
+                                                <input type="hidden" name="csrf_token" value="<?= gerarTokenCSRF() ?>">
+                                                <input type="hidden" name="acao" value="estornar_pagamento">
+                                                <input type="hidden" name="id" value="<?= h($h['IDAgendamento']) ?>">
+                                                <input type="hidden" name="redirect"
+                                                       value="<?= BASE ?>/painel/relatorio.php?mes=<?= $mesSel ?>&amp;ano=<?= $anoSel ?>">
+                                                <button class="btn btn-sm btn-outline-warning" title="Estornar pagamento">
+                                                    <i class="bi bi-arrow-counterclockwise"></i> Estornar
+                                                </button>
+                                            </form>
+                                        <?php endif ?>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif ?>
 
 <?php require_once __DIR__ . '/../geral/footer.php' ?>

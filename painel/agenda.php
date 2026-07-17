@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id   = $_POST['id']   ?? '';
 
     // Confirmar / cancelar / concluir agendamento
-    $statusMap = ['confirmar' => 'confirmado', 'cancelar' => 'cancelado', 'concluir' => 'concluido'];
+    $statusMap = ['confirmar' => 'confirmado', 'cancelar' => 'cancelado', 'concluir' => 'concluido', 'reabrir' => 'confirmado'];
     if (isset($statusMap[$acao]) && $id) {
         try {
             $pdo->prepare('UPDATE Agendamentos SET StatusAgendamento = :status WHERE IDAgendamento = :id AND StatusAgendamento != \'cancelado\'')
@@ -372,6 +372,16 @@ function botoesAgendamento(array $ag, string $csrfToken, array $extraGet = []): 
                     <input type="hidden" name="id" value="' . h($ag['IDAgendamento']) . '">
                     <button class="btn btn-sm btn-outline-secondary" title="Concluído">
                         <i class="bi bi-check2-all"></i></button></form>';
+    }
+    if ($ag['StatusAgendamento'] === 'concluido') {
+        $out .= '<form method="POST" class="d-inline"
+                      data-confirm="Reabrir este atendimento como confirmado?"
+                      data-confirm-label="Reabrir">
+                    <input type="hidden" name="csrf_token" value="' . $csrfToken . '">
+                    <input type="hidden" name="acao" value="reabrir">
+                    <input type="hidden" name="id" value="' . h($ag['IDAgendamento']) . '">
+                    <button class="btn btn-sm btn-outline-primary" title="Reabrir como confirmado">
+                        <i class="bi bi-arrow-counterclockwise"></i></button></form>';
     }
     $out .= '</div>';
     return $out;
