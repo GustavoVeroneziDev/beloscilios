@@ -38,6 +38,9 @@ self.addEventListener('fetch', e => {
     const req = e.request;
     const url = new URL(req.url);
 
+    // Só intercepta GET — POST/PUT/DELETE vão direto para o servidor
+    if (req.method !== 'GET') return;
+
     // Navegações (páginas PHP dinâmicas) → sempre do servidor
     if (req.mode === 'navigate') return;
 
@@ -56,16 +59,11 @@ self.addEventListener('fetch', e => {
                         caches.open(CACHE_NAME).then(c => c.put(req, clone));
                     }
                     return res;
-                }).catch(() => new Response('', { status: 503 }));
+                }).catch(() => cached || new Response('', { status: 503 }));
             })
         );
-        return;
     }
-
-    // Demais requisições → rede com fallback silencioso
-    e.respondWith(
-        fetch(req).catch(() => new Response('', { status: 503, statusText: 'Offline' }))
-    );
+    // Demais GET (APIs, etc.) → rede direta, sem interceptar
 });
 
 // Push: exibe notificação nativa
