@@ -1,4 +1,4 @@
-﻿<?php if ($ehPainel ?? false): ?>
+<?php if ($ehPainel ?? false): ?>
 </div><!-- /painel-content -->
 <?php else: ?>
 </main>
