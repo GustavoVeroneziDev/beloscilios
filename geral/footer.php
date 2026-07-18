@@ -459,12 +459,8 @@ function bcPwaDescartar() {
 // Registra o Service Worker
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-        navigator.serviceWorker.register('<?= BASE ?>/sw.php', {
-            scope: '<?= BASE ?>/',
-            updateViaCache: 'none'
-        }).then(function (reg) {
-            reg.update(); // força verificação imediata de nova versão
-        }).catch(function (e) { console.warn('SW:', e); });
+        navigator.serviceWorker.register('<?= BASE ?>/sw.php', { scope: '<?= BASE ?>/' })
+            .catch(function (e) { console.warn('SW:', e); });
     });
 }
 

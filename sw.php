@@ -4,8 +4,8 @@ header('Cache-Control: no-cache, no-store, must-revalidate');
 require_once __DIR__ . '/config/conexao.php';
 $b = defined('BASE') ? BASE : '';
 ?>
-// Belos Cílios Service Worker — v3.0
-const CACHE_NAME = 'beloscilios-v3';
+// Belos Cílios Service Worker — v2.0
+const CACHE_NAME = 'beloscilios-v2';
 
 // Assets estáticos que não mudam entre requisições
 const STATIC_ASSETS = [
@@ -38,9 +38,6 @@ self.addEventListener('fetch', e => {
     const req = e.request;
     const url = new URL(req.url);
 
-    // Só intercepta GET — POST/PUT/DELETE vão direto para o servidor
-    if (req.method !== 'GET') return;
-
     // Navegações (páginas PHP dinâmicas) → sempre do servidor
     if (req.mode === 'navigate') return;
 
@@ -59,11 +56,16 @@ self.addEventListener('fetch', e => {
                         caches.open(CACHE_NAME).then(c => c.put(req, clone));
                     }
                     return res;
-                }).catch(() => cached || new Response('', { status: 503 }));
+                }).catch(() => new Response('', { status: 503 }));
             })
         );
+        return;
     }
-    // Demais GET (APIs, etc.) → rede direta, sem interceptar
+
+    // Demais requisições → rede com fallback silencioso
+    e.respondWith(
+        fetch(req).catch(() => new Response('', { status: 503, statusText: 'Offline' }))
+    );
 });
 
 // Push: exibe notificação nativa
