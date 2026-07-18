@@ -4,8 +4,8 @@ header('Cache-Control: no-cache, no-store, must-revalidate');
 require_once __DIR__ . '/config/conexao.php';
 $b = defined('BASE') ? BASE : '';
 ?>
-// Belos Cílios Service Worker — v2.0
-const CACHE_NAME = 'beloscilios-v2';
+// Belos Cílios Service Worker — v3.0
+const CACHE_NAME = 'beloscilios-v3';
 
 // Assets estáticos que não mudam entre requisições
 const STATIC_ASSETS = [
