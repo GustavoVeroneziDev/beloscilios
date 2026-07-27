@@ -57,26 +57,53 @@ try {
     $fim    = $inicio->modify("+{$sv['DuracaoMinutos']} minutes");
 
     // ── 2. Resolve cliente ────────────────────────────────────────
-    $fkCliente = null;
-
-    // Variáveis necessárias dentro da transação
-    $nomeAvulso = $telAvulso = $emailFake = $senhaFake = null;
+    $fkCliente  = null;
+    $nomeAvulso = $telSanitizado = $emailFake = $senhaFake = null;
+    $modoAvulsa = 'nenhum'; // 'criar' | 'atualizar_temp' | 'nenhum'
 
     if ($tipoCliente === 'avulsa') {
-        $nomeAvulso = trim($_POST['nome_avulso'] ?? '');
-        $telAvulso  = trim($_POST['tel_avulso']  ?? '');
+        $nomeAvulso   = trim($_POST['nome_avulso'] ?? '');
+        $telAvulsoRaw = trim($_POST['tel_avulso']  ?? '');
         if (!$nomeAvulso) {
             redirecionarComMensagem($retorno, 'Informe o nome da cliente avulsa.', 'warning');
         }
+        $telSanitizado = $telAvulsoRaw ? sanitizarTelefone($telAvulsoRaw) : null;
 
-        $uuidAvulso = gerarUuid();
-        $emailFake  = 'avulso_' . substr(str_replace('-', '', $uuidAvulso), 0, 8) . '@avulso.internal';
-        $senhaFake  = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
-        $fkCliente  = $uuidAvulso;
+        // 1. Prioridade: usuária real já cadastrada com esse telefone
+        if ($telSanitizado) {
+            $stmReal = $pdo->prepare(
+                'SELECT IDUsuario FROM Usuarios
+                 WHERE Telefone = :tel AND Temporario = 0 AND Ativo = 1 LIMIT 1'
+            );
+            $stmReal->execute([':tel' => $telSanitizado]);
+            $fkCliente = $stmReal->fetchColumn() ?: null;
+        }
 
-        // Anota no campo obs que é cliente avulsa
-        $tagAvulso = '[Avulsa' . ($telAvulso ? " — $telAvulso" : '') . ']';
-        $obs = $tagAvulso . ($obs ? " $obs" : '');
+        // 2. Temporária existente com mesmo telefone — reutiliza e atualiza nome
+        if (!$fkCliente && $telSanitizado) {
+            $stmTemp = $pdo->prepare(
+                'SELECT IDUsuario FROM Usuarios
+                 WHERE Telefone = :tel AND Temporario = 1 LIMIT 1'
+            );
+            $stmTemp->execute([':tel' => $telSanitizado]);
+            $idTemp = $stmTemp->fetchColumn();
+            if ($idTemp) {
+                $fkCliente  = $idTemp;
+                $modoAvulsa = 'atualizar_temp';
+            }
+        }
+
+        // 3. Nenhuma encontrada — cria nova temporária
+        if (!$fkCliente) {
+            $uuid      = gerarUuid();
+            $emailFake = 'avulso_' . substr(str_replace('-', '', $uuid), 0, 8) . '@avulso.internal';
+            $senhaFake = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
+            $fkCliente = $uuid;
+            $modoAvulsa = 'criar';
+        }
+
+        $tagAvulso = '[Avulsa' . ($telSanitizado ? " — $telSanitizado" : '') . ']';
+        $obs       = $tagAvulso . ($obs ? " $obs" : '');
 
     } else {
         $fkCliente = trim($_POST['fk_cliente'] ?? '');
@@ -109,19 +136,21 @@ try {
     // ── 4. Insere agendamento em transação ───────────────────────
     $pdo->beginTransaction();
 
-    if ($tipoCliente === 'avulsa') {
-        // Recria o usuário avulso dentro da transação
-        $insUsr2 = $pdo->prepare(
-            'INSERT INTO Usuarios (IDUsuario, Nome, Email, Senha, Telefone, NivelAcesso, Ativo, MomentoRegistro)
-             VALUES (:id, :nome, :email, :senha, :tel, \'cliente\', 1, NOW())'
-        );
-        $insUsr2->execute([
+    if ($modoAvulsa === 'criar') {
+        $pdo->prepare(
+            'INSERT INTO Usuarios
+                (IDUsuario, Nome, Email, Senha, Telefone, NivelAcesso, Temporario, Ativo, MomentoRegistro)
+             VALUES (:id, :nome, :email, :senha, :tel, \'cliente\', 1, 1, NOW())'
+        )->execute([
             ':id'    => $fkCliente,
             ':nome'  => $nomeAvulso,
             ':email' => $emailFake,
             ':senha' => $senhaFake,
-            ':tel'   => $telAvulso ? sanitizarTelefone($telAvulso) : null,
+            ':tel'   => $telSanitizado,
         ]);
+    } elseif ($modoAvulsa === 'atualizar_temp') {
+        $pdo->prepare('UPDATE Usuarios SET Nome = :nome WHERE IDUsuario = :id')
+            ->execute([':nome' => $nomeAvulso, ':id' => $fkCliente]);
     }
 
     $id   = gerarUuid();

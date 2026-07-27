@@ -70,6 +70,42 @@ try {
         ':expira' => $expira,
     ]);
 
+    // ── Mescla contas temporárias com mesmo telefone ──────────────
+    try {
+        $stmTemps = $pdo->prepare(
+            'SELECT IDUsuario FROM Usuarios WHERE Temporario = 1 AND Telefone = :tel'
+        );
+        $stmTemps->execute([':tel' => $telefoneFmt]);
+        $tempIds = $stmTemps->fetchAll(PDO::FETCH_COLUMN);
+
+        if ($tempIds) {
+            $pdo->beginTransaction();
+            $marks = implode(',', array_fill(0, count($tempIds), '?'));
+            $args  = array_merge([$id], $tempIds);
+
+            // Agendamentos: FK RESTRICT — obrigatório reassociar antes de deletar
+            $pdo->prepare("UPDATE Agendamentos SET FKCliente = ? WHERE FKCliente IN ($marks)")
+                ->execute($args);
+
+            // FichaAnamnese: FK CASCADE — reassociar para preservar dados da ficha
+            $pdo->prepare("UPDATE FichaAnamnese SET FKCliente = ? WHERE FKCliente IN ($marks)")
+                ->execute($args);
+
+            // ConversasIA: FK SET NULL — fica nulo após delete; sem reassociação intencional
+            // TokensLembrarMe: FK CASCADE — temporárias jamais têm tokens; no-op
+
+            $pdo->prepare("DELETE FROM Usuarios WHERE IDUsuario IN ($marks) AND Temporario = 1")
+                ->execute($tempIds);
+
+            $pdo->commit();
+            error_log('[MergeTemp] ' . $id . ': ' . count($tempIds) . ' temp(s) mesclada(s)');
+        }
+    } catch (\Throwable $eMerge) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('[MergeTemp] ' . $eMerge->getMessage());
+        // Falha silenciosa — cadastro continua normalmente
+    }
+
 } catch (PDOException $e) {
     error_log('[Cadastro] ' . $e->getMessage());
     redirecionarComMensagem(BASE . '/usuario/cadastro.php', 'Erro ao criar conta. Tente novamente.', 'danger');
