@@ -114,7 +114,7 @@ function enviarWhatsApp(string $numero, string $mensagem): bool
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT        => 15,
         CURLOPT_HTTPHEADER     => [
-            'Content-Type: application/json',
+            'Content-Type: application/json; charset=UTF-8',
             'apikey: ' . EVOLUTION_KEY,
         ],
     ]);

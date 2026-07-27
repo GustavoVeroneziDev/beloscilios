@@ -36,6 +36,30 @@ try {
         array_filter($historico, fn($a) => $a['StatusPagamento'] === 'pago'),
         'ValorCobrado'
     ));
+
+    // Estado geral da cliente
+    $agora  = new DateTime();
+    $estado = 'em_dia';
+    foreach ($historico as $ag) {
+        if ($ag['StatusAgendamento'] === 'cancelado') continue;
+        if ($ag['StatusPagamento'] === 'pendente'
+            && in_array($ag['StatusAgendamento'], ['concluido', 'confirmado'])
+            && new DateTime($ag['DataHoraAgendamento']) < $agora
+        ) {
+            $estado = 'devendo';
+            break;
+        }
+    }
+    if ($estado !== 'devendo') {
+        foreach ($historico as $ag) {
+            if ($ag['StatusAgendamento'] === 'confirmado'
+                && new DateTime($ag['DataHoraAgendamento']) > $agora
+            ) {
+                $estado = 'agendada';
+                break;
+            }
+        }
+    }
 } catch (PDOException $e) {
     error_log('[ClienteDetalhe] ' . $e->getMessage());
     $historico  = [];
@@ -63,6 +87,20 @@ require_once __DIR__ . '/../geral/header.php';
                 <h5 class="fw-bold mb-0"><?= h($cliente['Nome']) ?></h5>
                 <p class="small text-secondary mb-0">Cliente desde <?= formatarData($cliente['MomentoRegistro']) ?></p>
             </div>
+            <?php
+                [$estadoBg, $estadoIcon, $estadoLabel] = match($estado) {
+                    'devendo'  => ['rgba(220,53,69,.12)',  'bi-exclamation-circle-fill text-danger',  'Devendo'],
+                    'agendada' => ['rgba(25,135,84,.12)',  'bi-calendar-check-fill text-success',     'Agendada'],
+                    default    => ['rgba(108,117,125,.1)', 'bi-check-circle-fill text-secondary',     'Em dia'],
+                };
+            ?>
+            <div class="d-flex justify-content-center mb-3">
+                <span class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill small fw-semibold"
+                      style="background:<?= $estadoBg ?>;">
+                    <i class="bi <?= $estadoIcon ?>"></i><?= $estadoLabel ?>
+                </span>
+            </div>
+
             <dl class="mb-3">
                 <dt class="small text-secondary">E-mail</dt>
                 <dd><?= h($cliente['Email']) ?></dd>
@@ -70,7 +108,7 @@ require_once __DIR__ . '/../geral/header.php';
                 <dd>
                     <?php if ($cliente['Telefone']): ?>
                         <?= waBotoesDropdown($cliente['Telefone'], $cliente['Nome'], split: false, clienteId: $cliente['IDUsuario']) ?>
-                        <span class="ms-2 text-secondary small"><?= h($cliente['Telefone']) ?></span>
+                        <span class="ms-2 text-secondary small"><?= h(formatarTelefoneExibicao($cliente['Telefone'])) ?></span>
                     <?php else: ?>
                         <span class="text-secondary">Não informado</span>
                     <?php endif ?>
@@ -131,7 +169,7 @@ require_once __DIR__ . '/../geral/header.php';
                                         <td class="small"><?= h($h_ag['NomeSubServico'] ?? $h_ag['NomeServico']) ?></td>
                                         <td><?= $h_ag['ValorCobrado'] ? formatarMoeda((float)$h_ag['ValorCobrado']) : '—' ?></td>
                                         <td><?= labelStatus($h_ag['StatusAgendamento']) ?></td>
-                                        <td><?= labelStatusPag($h_ag['StatusPagamento']) ?></td>
+                                        <td><?= $h_ag['StatusAgendamento'] === 'cancelado' ? '<span class="text-secondary">—</span>' : labelStatusPag($h_ag['StatusPagamento']) ?></td>
                                     </tr>
                                 <?php endforeach ?>
                             </tbody>
