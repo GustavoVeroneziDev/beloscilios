@@ -471,8 +471,9 @@ require_once __DIR__ . '/../geral/header.php';
                         <input type="text" name="nome_avulso" class="form-control mb-2"
                                placeholder="Nome da cliente *"
                                oninput="validarForm()">
-                        <input type="tel" name="tel_avulso" class="form-control"
-                               placeholder="Telefone / WhatsApp (opcional)">
+                        <input type="tel" name="tel_avulso" id="inp_tel_avulso" class="form-control"
+                               placeholder="(17) 99999-9999" maxlength="15"
+                               oninput="mascaraTel(this)" autocomplete="tel">
                     </div>
 
                     <!-- Valor -->
@@ -696,6 +697,19 @@ function validarForm() {
         divErro.style.display = '';
     } else {
         divErro.style.display = 'none';
+    }
+}
+
+/* Máscara de telefone brasileiro: (XX) XXXXX-XXXX ou (XX) XXXX-XXXX */
+function mascaraTel(input) {
+    var d = input.value.replace(/\D/g, '').substring(0, 11);
+    if (d.length === 0) { input.value = ''; return; }
+    if (d.length <= 2)  { input.value = '(' + d; return; }
+    if (d.length <= 6)  { input.value = '(' + d.substring(0,2) + ') ' + d.substring(2); return; }
+    if (d.length <= 10) {
+        input.value = '(' + d.substring(0,2) + ') ' + d.substring(2,6) + '-' + d.substring(6);
+    } else {
+        input.value = '(' + d.substring(0,2) + ') ' + d.substring(2,7) + '-' + d.substring(7);
     }
 }
 
