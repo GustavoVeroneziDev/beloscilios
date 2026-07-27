@@ -124,6 +124,20 @@ $nivelAcesso   = $_SESSION['nivel_acesso'] ?? '';
                     <i class="bi bi-download me-1"></i> Instalar app
                 </button>
                 <a href="<?= BASE ?>/usuario/logout.php"><i class="bi bi-box-arrow-right me-1"></i> Sair</a>
+                <?php
+                    $gitVer = null;
+                    $gitOut = [];
+                    @exec('git -C ' . escapeshellarg(__DIR__ . '/..') . ' log -1 --format=%h|||%cd --date=format:"%d/%m/%y %H:%M" 2>&1', $gitOut, $gitRet);
+                    if ($gitRet === 0 && !empty($gitOut[0]) && str_contains($gitOut[0], '|||')) {
+                        [$hash, $date] = explode('|||', $gitOut[0], 2);
+                        $gitVer = trim($hash) . ' · ' . trim($date);
+                    }
+                ?>
+                <?php if ($gitVer): ?>
+                <div class="sidebar-version" title="Versão atual do sistema">
+                    <i class="bi bi-tag-fill me-1 opacity-50"></i><?= h($gitVer) ?>
+                </div>
+                <?php endif ?>
             </div>
         </nav>
 

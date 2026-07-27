@@ -195,6 +195,12 @@ button, a, [role="button"] {
     align-items: center;
 }
 .sidebar-footer a:hover { color: var(--roxo-300); }
+.sidebar-version {
+    margin-top: .6rem;
+    font-size: .68rem;
+    color: rgba(224, 170, 255, .28);
+    letter-spacing: .02em;
+}
 
 /* Overlay do menu mobile */
 .sidebar-overlay {
