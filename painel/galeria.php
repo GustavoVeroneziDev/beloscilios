@@ -331,7 +331,7 @@ require_once __DIR__ . '/../geral/header.php';
                         <i class="bi bi-link-45deg"></i>
                     </button>
                     <button class="btn btn-sm btn-light py-1 px-2"
-                            onclick="abrirEditar('<?= h($img['IDImagem']) ?>','<?= h(addslashes($img['TituloExibicao'] ?? '')) ?>','<?= h($img['Categoria']) ?>','<?= h($img['NomeArquivo']) ?>',<?= (int)$img['TemMaeBackup'] ?>)"
+                            onclick="abrirEditar('<?= h($img['IDImagem']) ?>','<?= h(addslashes($img['TituloExibicao'] ?? '')) ?>','<?= h($img['Categoria']) ?>','<?= h($img['NomeArquivo']) ?>')"
                             title="Editar">
                         <i class="bi bi-pencil"></i>
                     </button>
@@ -503,14 +503,6 @@ require_once __DIR__ . '/../geral/header.php';
 
             <div class="modal-footer border-0 pt-1 gap-2 flex-wrap">
                 <button type="button" class="btn btn-outline-secondary" id="btnCancelarEditar">Cancelar</button>
-                <button type="button" class="btn btn-outline-danger btn-sm" id="btnRestaurarMae"
-                        style="display:none" onclick="restaurarMae()" title="Restaurar imagem original antes de qualquer recorte">
-                    <i class="bi bi-arrow-counterclockwise me-1"></i>Restaurar original
-                </button>
-                <button type="button" class="btn btn-outline-secondary" id="btnEditTratar"
-                        onclick="tratarEditar()">
-                    <i class="bi bi-magic me-1"></i>Tratamento inteligente
-                </button>
                 <button type="button" class="btn btn-outline-accent" id="btnSalvarMeta">
                     <i class="bi bi-check-lg me-1"></i>Salvar sem recortar
                 </button>
@@ -604,10 +596,6 @@ require_once __DIR__ . '/../geral/header.php';
 
             <div class="modal-footer border-0 pt-1 gap-2">
                 <button type="button" class="btn btn-outline-secondary" onclick="fecharModal()">Cancelar</button>
-                <button type="button" class="btn btn-outline-secondary" id="btnTratar"
-                        style="display:none" onclick="tratarUpload()">
-                    <i class="bi bi-magic me-1"></i>Tratamento inteligente
-                </button>
                 <button type="button" class="btn btn-outline-accent" id="btnOriginal"
                         style="display:none" onclick="salvarOriginal()">
                     <i class="bi bi-image me-1"></i>Salvar original
@@ -615,64 +603,6 @@ require_once __DIR__ . '/../geral/header.php';
                 <button type="button" class="btn btn-accent" id="btnCrop"
                         style="display:none" onclick="salvarCrop()">
                     <i class="bi bi-crop me-1"></i>Salvar recortada
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ══════════════════════════════════
-     Modal: Comparação (original vs tratada)
-════════════════════════════════════ -->
-<div class="modal fade" id="modalComparacao" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content border-0" style="border-radius:16px">
-            <div class="modal-header border-0 pb-1">
-                <h5 class="modal-title fw-bold">
-                    <i class="bi bi-magic me-2 text-accent"></i>Tratamento inteligente — escolha a versão
-                </h5>
-            </div>
-            <div class="modal-body">
-                <p class="text-secondary small mb-3">
-                    Compare as duas versões. O <strong>original</strong> fica guardado como backup e pode ser restaurado a qualquer momento.
-                </p>
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <div class="fw-semibold small mb-2 text-secondary text-center">
-                            <i class="bi bi-image me-1"></i>Original
-                        </div>
-                        <img id="compImgOriginal" src="" alt="Original"
-                             style="width:100%;border-radius:10px;border:2px solid var(--card-border-color);display:block;">
-                        <button class="btn btn-outline-secondary w-100 mt-2" id="btnUsarOriginal" onclick="usarOriginal()">
-                            Usar esta versão
-                        </button>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="fw-semibold small mb-2 text-accent text-center">
-                            <i class="bi bi-magic me-1"></i>Tratamento inteligente
-                        </div>
-                        <img id="compImgTratada" src="" alt="Tratada"
-                             style="width:100%;border-radius:10px;border:2px solid var(--accent);display:block;">
-                        <button class="btn btn-accent w-100 mt-2" id="btnUsarTratada" onclick="usarTratada()">
-                            <i class="bi bi-check-lg me-1"></i>Usar esta versão
-                        </button>
-                    </div>
-                </div>
-                <div id="compProg" style="display:none" class="mt-3">
-                    <div class="progress" style="height:5px">
-                        <div class="progress-bar progress-bar-striped progress-bar-animated"
-                             style="width:100%;background:var(--accent)"></div>
-                    </div>
-                    <p class="text-secondary small mt-1 mb-0">Aplicando…</p>
-                </div>
-            </div>
-            <div class="modal-footer border-0 pt-1">
-                <span class="text-secondary small me-auto">
-                    <i class="bi bi-info-circle me-1"></i>
-                    O original sempre fica salvo como backup.
-                </span>
-                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnFecharComp">
-                    Cancelar
                 </button>
             </div>
         </div>
@@ -757,14 +687,6 @@ require_once __DIR__ . '/../geral/header.php';
         if (e.key === 'Enter') { e.preventDefault(); salvarCat(); }
     });
 
-    // ── Estado do tratamento inteligente ─────────────────────────
-    var compCtx = {
-        fromUpload:   false,  // true = veio do modal de upload
-        imageId:      null,
-        tratadaNome:  null,
-        nomeArquivo:  null,
-    };
-
     // ── Upload ───────────────────────────────────────────────────
     var dz = document.getElementById('dropZone');
     dz.addEventListener('dragover',  function(e){ e.preventDefault(); dz.classList.add('dragover'); });
@@ -785,7 +707,6 @@ require_once __DIR__ . '/../geral/header.php';
         reader.onload = function(ev) {
             document.getElementById('stepSelect').style.display  = 'none';
             document.getElementById('stepCrop').style.display    = 'block';
-            document.getElementById('btnTratar').style.display   = 'inline-flex';
             document.getElementById('btnOriginal').style.display = 'inline-flex';
             document.getElementById('btnCrop').style.display     = 'inline-flex';
             var img = document.getElementById('imgCropper');
@@ -866,7 +787,7 @@ require_once __DIR__ . '/../geral/header.php';
     };
 
     function setBotoesUploadDisabled(dis) {
-        ['btnTratar','btnOriginal','btnCrop'].forEach(function(id) {
+        ['btnOriginal','btnCrop'].forEach(function(id) {
             var el = document.getElementById(id);
             if (el) el.disabled = dis;
         });
@@ -877,7 +798,6 @@ require_once __DIR__ . '/../geral/header.php';
         arquivoOrig = null; enviando = false;
         document.getElementById('stepSelect').style.display  = 'block';
         document.getElementById('stepCrop').style.display    = 'none';
-        document.getElementById('btnTratar').style.display   = 'none';
         document.getElementById('btnCrop').style.display     = 'none';
         document.getElementById('btnOriginal').style.display = 'none';
         document.getElementById('uploadProg').style.display  = 'none';
@@ -889,78 +809,10 @@ require_once __DIR__ . '/../geral/header.php';
         document.getElementById('upLabelRot').textContent    = '0°';
     }
 
-    // Tratamento inteligente a partir do modal de upload:
-    // 1. sobe o original → recebe ID → chama Python → mostra comparação
-    window.tratarUpload = function() {
-        if (!arquivoOrig || enviando) return;
-        enviando = true;
-        setBotoesUploadDisabled(true);
-        document.getElementById('uploadProg').style.display = 'block';
-        document.getElementById('uploadProg').querySelector('p').textContent = 'Enviando original…';
-
-        var fd = new FormData();
-        fd.append('csrf_token', CSRF);
-        fd.append('titulo',    document.getElementById('inputTitulo').value.trim());
-        fd.append('categoria', document.getElementById('selectCat').value);
-        fd.append('imagem',    arquivoOrig, arquivoOrig.name);
-
-        fetch(BASE + '/painel/upload_imagem.php', { method: 'POST', body: fd })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (!data.ok) {
-                    enviando = false;
-                    setBotoesUploadDisabled(false);
-                    document.getElementById('uploadProg').style.display = 'none';
-                    bcToast(data.msg || 'Erro ao enviar.', 'danger');
-                    return;
-                }
-
-                // Original salvo — agora chama Python
-                document.getElementById('uploadProg').querySelector('p').textContent = 'Aplicando tratamento inteligente…';
-                compCtx.fromUpload  = true;
-                compCtx.imageId     = data.id;
-                compCtx.nomeArquivo = data.nome;
-
-                var fd2 = new FormData();
-                fd2.append('csrf_token', CSRF);
-                fd2.append('id', data.id);
-
-                fetch(BASE + '/painel/tratar_imagem.php', { method: 'POST', body: fd2 })
-                    .then(function(r) { return r.json(); })
-                    .then(function(t) {
-                        enviando = false;
-                        document.getElementById('uploadProg').style.display = 'none';
-                        if (!t.ok) {
-                            setBotoesUploadDisabled(false);
-                            bcToast(t.msg, 'warning');
-                            // Original já salvo — fecha o modal de upload normalmente
-                            fecharModal();
-                            location.reload();
-                            return;
-                        }
-                        compCtx.tratadaNome = t.tratada_nome;
-                        fecharModal();
-                        abrirComparacao(t.original_url, t.tratada_url);
-                    })
-                    .catch(function() {
-                        enviando = false;
-                        document.getElementById('uploadProg').style.display = 'none';
-                        setBotoesUploadDisabled(false);
-                        bcToast('Falha de conexão no tratamento.', 'danger');
-                        fecharModal();
-                        location.reload();
-                    });
-            })
-            .catch(function() {
-                enviando = false;
-                setBotoesUploadDisabled(false);
-                document.getElementById('uploadProg').style.display = 'none';
-                bcToast('Falha de conexão.', 'danger');
-            });
-    };
     document.getElementById('modalUpload').addEventListener('hidden.bs.modal', resetModal);
 
     // ── Copiar URL ────────────────────────────────────────────────
+
     window.copiarUrl = function(url) {
         navigator.clipboard.writeText(url)
             .then(function() { bcToast('URL copiada!', 'success'); })
@@ -972,108 +824,12 @@ require_once __DIR__ . '/../geral/header.php';
     var editEnviando   = false;
     window.editCropperIns = null;
 
-    window.abrirEditar = function(id, titulo, cat, nomeArquivo, temMae) {
+    window.abrirEditar = function(id, titulo, cat, nomeArquivo) {
         document.getElementById('editImgId').value     = id;
         document.getElementById('editImgTitulo').value = titulo;
         document.getElementById('editImgCat').value    = cat;
         document.getElementById('editImgCropper').src  = BASE + '/geral/img/galeria/' + nomeArquivo + '?v=' + Date.now();
-        // Restaurar original: só mostra se já existe backup
-        document.getElementById('btnRestaurarMae').style.display = temMae ? 'inline-flex' : 'none';
-        compCtx.fromUpload  = false;
-        compCtx.imageId     = id;
-        compCtx.nomeArquivo = nomeArquivo;
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditarImg')).show();
-    };
-
-    // Tratamento inteligente a partir do modal de edição
-    window.tratarEditar = function() {
-        if (editEnviando) return;
-        var id = document.getElementById('editImgId').value;
-        if (!id) return;
-
-        editEnviando = true;
-        document.getElementById('editUploadProg').style.display = 'block';
-        document.getElementById('editUploadProg').querySelector('p').textContent = 'Aplicando tratamento inteligente…';
-        document.getElementById('btnEditTratar').disabled  = true;
-        document.getElementById('btnSalvarMeta').disabled  = true;
-        document.getElementById('btnSalvarCrop').disabled  = true;
-        document.getElementById('btnRestaurarMae').disabled = true;
-
-        var fd = new FormData();
-        fd.append('csrf_token', CSRF);
-        fd.append('id', id);
-
-        fetch(BASE + '/painel/tratar_imagem.php', { method: 'POST', body: fd })
-            .then(function(r) { return r.json(); })
-            .then(function(t) {
-                editEnviando = false;
-                document.getElementById('editUploadProg').style.display = 'none';
-                document.getElementById('btnEditTratar').disabled   = false;
-                document.getElementById('btnSalvarMeta').disabled   = false;
-                document.getElementById('btnSalvarCrop').disabled   = false;
-                document.getElementById('btnRestaurarMae').disabled = false;
-
-                if (!t.ok) { bcToast(t.msg, 'warning'); return; }
-
-                // Backup foi feito → ativa o botão de restaurar
-                document.getElementById('btnRestaurarMae').style.display = 'inline-flex';
-                compCtx.fromUpload  = false;
-                compCtx.imageId     = id;
-                compCtx.tratadaNome = t.tratada_nome;
-                compCtx.nomeArquivo = t.nome_arquivo;
-
-                fecharEditar();
-                abrirComparacao(t.original_url, t.tratada_url);
-            })
-            .catch(function() {
-                editEnviando = false;
-                document.getElementById('editUploadProg').style.display = 'none';
-                document.getElementById('btnEditTratar').disabled   = false;
-                document.getElementById('btnSalvarMeta').disabled   = false;
-                document.getElementById('btnSalvarCrop').disabled   = false;
-                document.getElementById('btnRestaurarMae').disabled = false;
-                bcToast('Falha de conexão.', 'danger');
-            });
-    };
-
-    // Restaurar original (backup mae)
-    window.restaurarMae = function() {
-        var id = document.getElementById('editImgId').value;
-        if (!id) return;
-        bcConfirm('Restaurar a imagem para o estado original (antes de qualquer recorte)?', function() {
-            editEnviando = true;
-            document.getElementById('editUploadProg').style.display = 'block';
-            document.getElementById('editUploadProg').querySelector('p').textContent = 'Restaurando original…';
-            ['btnEditTratar','btnSalvarMeta','btnSalvarCrop','btnRestaurarMae'].forEach(function(b) {
-                document.getElementById(b).disabled = true;
-            });
-
-            var fd = new FormData();
-            fd.append('csrf_token', CSRF);
-            fd.append('id', id);
-
-            fetch(BASE + '/painel/restaurar_mae.php', { method: 'POST', body: fd })
-                .then(function(r) { return r.json(); })
-                .then(function(d) {
-                    editEnviando = false;
-                    document.getElementById('editUploadProg').style.display = 'none';
-                    ['btnEditTratar','btnSalvarMeta','btnSalvarCrop','btnRestaurarMae'].forEach(function(b) {
-                        document.getElementById(b).disabled = false;
-                    });
-                    if (!d.ok) { bcToast(d.msg, 'danger'); return; }
-                    aplicarEdicaoNoCard(id, null, null, d.url);
-                    fecharEditar();
-                    bcToast('Original restaurado com sucesso!', 'success');
-                })
-                .catch(function() {
-                    editEnviando = false;
-                    document.getElementById('editUploadProg').style.display = 'none';
-                    ['btnEditTratar','btnSalvarMeta','btnSalvarCrop','btnRestaurarMae'].forEach(function(b) {
-                        document.getElementById(b).disabled = false;
-                    });
-                    bcToast('Falha de conexão.', 'danger');
-                });
-        }, 'Restaurar');
     };
 
     // Inicia Cropper após modal estar completamente visível (tamanhos calculados)

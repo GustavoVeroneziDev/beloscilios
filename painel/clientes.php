@@ -60,7 +60,10 @@ try {
 
     $stmt = $pdo->prepare(
         "SELECT u.IDUsuario, u.Nome, u.Email, u.Telefone, u.MomentoRegistro, u.EmailVerificado,
-                COUNT(a.IDAgendamento) AS TotalAg
+                u.Temporario,
+                COUNT(a.IDAgendamento) AS TotalAg,
+                MAX(CASE WHEN a.DataHoraAgendamento <= NOW() AND a.Status != 'cancelado' THEN a.DataHoraAgendamento END) AS UltimoAtend,
+                SUM(CASE WHEN a.DataHoraAgendamento > NOW() AND a.Status != 'cancelado' THEN 1 ELSE 0 END) AS ProximoAg
          FROM Usuarios u
          LEFT JOIN Agendamentos a ON a.FKCliente = u.IDUsuario
          {$where}
@@ -82,6 +85,17 @@ try {
 }
 
 $totalPag = max(1, (int) ceil($total / $por));
+
+function estadoCliente(array $c): array {
+    if ($c['Temporario']) return ['Temporária', 'secondary'];
+    if ((int)$c['TotalAg'] === 0) return ['Nova', 'info'];
+    if ((int)$c['ProximoAg'] > 0) return ['Agendada', 'success'];
+    if ($c['UltimoAtend']) {
+        $dias = (int)((time() - strtotime($c['UltimoAtend'])) / 86400);
+        if ($dias <= 60) return ['Ativa', 'primary'];
+    }
+    return ['Inativa', 'warning'];
+}
 
 $paginaTitulo = 'Clientes';
 $areaAtual    = 'painel';
@@ -159,6 +173,7 @@ require_once __DIR__ . '/../geral/header.php';
                     <thead style="background:var(--bg-hover);">
                         <tr>
                             <th class="px-4 py-3">Nome</th>
+                            <th class="d-none d-md-table-cell">Estado</th>
                             <th class="d-none d-md-table-cell email-cell">E-mail</th>
                             <th class="d-none d-md-table-cell">WhatsApp</th>
                             <th class="d-none d-md-table-cell text-center">Atend.</th>
@@ -175,12 +190,18 @@ require_once __DIR__ . '/../geral/header.php';
                                 ? '<i class="bi bi-patch-check-fill text-success" title="' . $verifTip . '"></i>'
                                 : '<i class="bi bi-clock text-warning" title="' . $verifTip . '"></i>';
                             $rid = 'det-' . $i;
+                            [$estadoLabel, $estadoCor] = estadoCliente($c);
                         ?>
                             <tr class="linha-cliente" data-detail="<?= $rid ?>">
                                 <td class="px-4 fw-medium">
                                     <?= h($c['Nome']) ?>
-                                    <!-- status verificação visível só no mobile, abaixo do nome -->
                                     <span class="d-md-none ms-1" style="font-size:.8rem;"><?= $verifIcon ?></span>
+                                    <span class="d-md-none ms-1">
+                                        <span class="badge bg-<?= $estadoCor ?> bg-opacity-75" style="font-size:.65rem;"><?= $estadoLabel ?></span>
+                                    </span>
+                                </td>
+                                <td class="d-none d-md-table-cell">
+                                    <span class="badge bg-<?= $estadoCor ?>"><?= $estadoLabel ?></span>
                                 </td>
                                 <td class="d-none d-md-table-cell text-secondary small email-cell">
                                     <span title="<?= h($c['Email']) ?>"><?= h($c['Email']) ?></span>
@@ -215,6 +236,10 @@ require_once __DIR__ . '/../geral/header.php';
                             <tr class="row-detail" id="<?= $rid ?>">
                                 <td colspan="3">
                                     <div class="detalhe-grid">
+                                        <div class="detalhe-item">
+                                            <strong>Estado</strong>
+                                            <span class="badge bg-<?= $estadoCor ?>"><?= $estadoLabel ?></span>
+                                        </div>
                                         <div class="detalhe-item" style="grid-column:1/-1;">
                                             <strong>E-mail</strong>
                                             <span style="word-break:break-all;"><?= h($c['Email']) ?></span>
