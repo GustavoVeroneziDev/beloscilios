@@ -460,7 +460,7 @@ require_once __DIR__ . '/../geral/header.php';
                             <option value="">Selecione…</option>
                             <?php foreach ($clientes as $c): ?>
                                 <option value="<?= h($c['id']) ?>">
-                                    <?= h($c['nome']) ?><?= $c['telefone'] ? ' — ' . h($c['telefone']) : '' ?>
+                                    <?= h($c['nome']) ?><?= $c['telefone'] ? ' — ' . h(formatarTelefoneExibicao($c['telefone'])) : '' ?>
                                 </option>
                             <?php endforeach ?>
                         </select>

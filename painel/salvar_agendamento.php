@@ -120,7 +120,7 @@ try {
             ':nome'  => $nomeAvulso,
             ':email' => $emailFake,
             ':senha' => $senhaFake,
-            ':tel'   => $telAvulso ?: null,
+            ':tel'   => $telAvulso ? sanitizarTelefone($telAvulso) : null,
         ]);
     }
 
