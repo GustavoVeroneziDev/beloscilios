@@ -105,7 +105,7 @@ function enviarWhatsApp(string $numero, string $mensagem): bool
     }
 
     $url     = rtrim(EVOLUTION_URL, '/') . '/message/sendText/' . EVOLUTION_INSTANCE;
-    $payload = json_encode(['number' => $numero, 'text' => $mensagem]);
+    $payload = json_encode(['number' => $numero, 'text' => $mensagem], JSON_UNESCAPED_UNICODE);
 
     $ch = curl_init($url);
     curl_setopt_array($ch, [
