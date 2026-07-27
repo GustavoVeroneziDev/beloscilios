@@ -45,8 +45,8 @@ try {
         "SELECT u.IDUsuario, u.Nome, u.Email, u.Telefone, u.MomentoRegistro, u.EmailVerificado,
                 0 AS Temporario,
                 COUNT(a.IDAgendamento) AS TotalAg,
-                MAX(CASE WHEN a.DataHoraAgendamento <= NOW() AND a.Status != 'cancelado' THEN a.DataHoraAgendamento END) AS UltimoAtend,
-                SUM(CASE WHEN a.DataHoraAgendamento > NOW() AND a.Status != 'cancelado' THEN 1 ELSE 0 END) AS ProximoAg
+                MAX(CASE WHEN a.DataHoraAgendamento <= NOW() AND a.StatusAgendamento != 'cancelado' THEN a.DataHoraAgendamento END) AS UltimoAtend,
+                SUM(CASE WHEN a.DataHoraAgendamento > NOW() AND a.StatusAgendamento != 'cancelado' THEN 1 ELSE 0 END) AS ProximoAg
          FROM Usuarios u
          LEFT JOIN Agendamentos a ON a.FKCliente = u.IDUsuario
          WHERE u.NivelAcesso = 'cliente' AND u.Ativo = 1
