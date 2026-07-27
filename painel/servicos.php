@@ -20,7 +20,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ativo = isset($_POST['ativo']) ? 1 : 0;
 
     // Upload de foto
-    $fotoUrl = $_POST['foto_atual'] ?? null;
+    $fotoUrl      = $_POST['foto_atual'] ?? null;
+    $uploadedDest = null; // caminho físico do arquivo recém-enviado
+    $uploadedExt  = null;
     if (!empty($_FILES['foto']['name'])) {
         $ext          = strtolower(pathinfo($_FILES['foto']['name'], PATHINFO_EXTENSION));
         $extsPermit   = ['jpg', 'jpeg', 'png', 'webp'];
@@ -36,7 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!is_dir($dir)) mkdir($dir, 0755, true);
         $dest  = $dir . $fname;
         if (move_uploaded_file($_FILES['foto']['tmp_name'], $dest)) {
-            $fotoUrl = BASE . '/geral/img/servicos/' . $fname;
+            $fotoUrl      = BASE . '/geral/img/servicos/' . $fname;
+            $uploadedDest = $dest;
+            $uploadedExt  = $ext;
         }
     }
 
@@ -75,6 +79,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]);
                 $msg = 'Serviço criado com sucesso!';
             }
+
+            // Se enviou arquivo novo e marcou "adicionar na galeria"
+            if ($uploadedDest && isset($_POST['adicionar_galeria'])) {
+                try {
+                    $galeriaDir = __DIR__ . '/../geral/img/galeria/';
+                    if (!is_dir($galeriaDir)) mkdir($galeriaDir, 0755, true);
+                    $gid   = gerarUuid();
+                    $gfile = $gid . '.' . $uploadedExt;
+                    if (@copy($uploadedDest, $galeriaDir . $gfile)) {
+                        $dims = @getimagesize($galeriaDir . $gfile);
+                        $catDef = $pdo->query(
+                            'SELECT IDCategoria FROM CategoriasGaleria ORDER BY Ordem ASC LIMIT 1'
+                        )->fetchColumn();
+                        if ($catDef) {
+                            $pdo->prepare(
+                                'INSERT INTO Imagens
+                                    (IDImagem, NomeArquivo, TituloExibicao, Categoria, Largura, Altura, TamanhoBytes)
+                                 VALUES (:id, :nome, :titulo, :cat, :w, :h, :tam)'
+                            )->execute([
+                                ':id'    => $gid,
+                                ':nome'  => $gfile,
+                                ':titulo' => $nome,
+                                ':cat'   => $catDef,
+                                ':w'     => $dims[0] ?? null,
+                                ':h'     => $dims[1] ?? null,
+                                ':tam'   => @filesize($galeriaDir . $gfile),
+                            ]);
+                        }
+                    }
+                } catch (\Throwable $eGal) {
+                    error_log('[ServicosGaleria] ' . $eGal->getMessage());
+                    // Falha silenciosa — serviço já foi salvo
+                }
+            }
+
             redirecionarComMensagem(BASE . '/painel/servicos.php', $msg, 'success');
         }
 
@@ -421,6 +460,17 @@ require_once __DIR__ . '/../geral/header.php';
                             </button>
                         </div>
 
+                        <!-- Switch: adicionar na galeria (só aparece ao selecionar arquivo local) -->
+                        <div id="svGaleriaSwitch" style="display:none;" class="mt-1">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       name="adicionar_galeria" id="svAdicionarGaleria" checked>
+                                <label class="form-check-label small" for="svAdicionarGaleria">
+                                    Adicionar também na galeria pública
+                                </label>
+                            </div>
+                        </div>
+
                         <!-- Picker inline da galeria -->
                         <div id="svGaleriaPicker" style="display:none">
                             <div style="border:1px solid var(--card-border-color);border-radius:10px;overflow:hidden;">
@@ -569,6 +619,11 @@ require_once __DIR__ . '/../geral/header.php';
             var reader = new FileReader();
             reader.onload = function (e) { setFotoPreview(e.target.result); };
             reader.readAsDataURL(this.files[0]);
+            // Mostra o switch de galeria apenas ao selecionar arquivo local
+            document.getElementById('svGaleriaSwitch').style.display = '';
+            document.getElementById('svAdicionarGaleria').checked = true;
+        } else {
+            document.getElementById('svGaleriaSwitch').style.display = 'none';
         }
     });
 
@@ -580,6 +635,7 @@ require_once __DIR__ . '/../geral/header.php';
         document.getElementById('svFotoPreview').innerHTML = '';
         document.getElementById('svGaleriaPicker').style.display = 'none';
         document.getElementById('svGaleriaFiltro').value = '';
+        document.getElementById('svGaleriaSwitch').style.display = 'none';
         document.querySelectorAll('.picker-img-btn').forEach(function(b){ b.classList.remove('selecionada'); });
         filtrarPickerGaleria('');
     });
@@ -601,6 +657,8 @@ require_once __DIR__ . '/../geral/header.php';
         document.querySelectorAll('.picker-img-btn').forEach(function(b){ b.classList.remove('selecionada'); });
         btn.classList.add('selecionada');
         document.getElementById('svGaleriaPicker').style.display = 'none';
+        // Imagem já está na galeria — esconde o switch
+        document.getElementById('svGaleriaSwitch').style.display = 'none';
     }
 
     function filtrarPickerGaleria(q) {
