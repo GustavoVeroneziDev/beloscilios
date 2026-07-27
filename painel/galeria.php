@@ -460,23 +460,19 @@ require_once __DIR__ . '/../geral/header.php';
                         <button type="button" class="btn btn-outline-secondary" onclick="setEditAspect(16/9)">16:9</button>
                         <button type="button" class="btn btn-outline-secondary" onclick="setEditAspect(3/4)">3:4</button>
                     </div>
-                    <div class="btn-group btn-group-sm ms-auto" role="group">
-                        <button type="button" class="btn btn-outline-secondary"
-                                onclick="editCropperIns&&editCropperIns.rotate(-90)" title="Girar esquerda">
-                            <i class="bi bi-arrow-counterclockwise"></i>
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary"
-                                onclick="editCropperIns&&editCropperIns.rotate(90)" title="Girar direita">
-                            <i class="bi bi-arrow-clockwise"></i>
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary"
-                                onclick="editCropperIns&&editCropperIns.reset()" title="Resetar">
+                    <div class="d-flex align-items-center gap-2 ms-auto">
+                        <button type="button" class="btn btn-sm btn-outline-secondary px-2"
+                                onclick="resetEditRotacao()" title="Resetar rotação">
                             <i class="bi bi-x-lg"></i>
                         </button>
+                        <input type="range" id="editSliderRot" min="-180" max="180" step="1" value="0"
+                               class="form-range" style="width:110px;"
+                               oninput="editRotacionar(this.value)">
+                        <span id="editLabelRot" style="font-size:.75rem;min-width:32px;text-align:right;color:var(--text-muted)">0°</span>
                     </div>
                 </div>
                 <p class="text-secondary" style="font-size:.72rem;margin-top:.4rem;">
-                    Arraste para mover · Scroll para zoom · Ajuste as alças para recortar
+                    Arraste para mover · Scroll para zoom · Ajuste as alças para recortar · Slider para rotacionar
                 </p>
 
                 <!-- Título e categoria -->
@@ -565,23 +561,19 @@ require_once __DIR__ . '/../geral/header.php';
                             <button type="button" class="btn btn-outline-secondary" onclick="setAspect(16/9)">16:9</button>
                             <button type="button" class="btn btn-outline-secondary" onclick="setAspect(3/4)">3:4</button>
                         </div>
-                        <div class="btn-group btn-group-sm ms-auto" role="group">
-                            <button type="button" class="btn btn-outline-secondary"
-                                    onclick="cropperIns&&cropperIns.rotate(-90)" title="Girar esquerda">
-                                <i class="bi bi-arrow-counterclockwise"></i>
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary"
-                                    onclick="cropperIns&&cropperIns.rotate(90)" title="Girar direita">
-                                <i class="bi bi-arrow-clockwise"></i>
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary"
-                                    onclick="cropperIns&&cropperIns.reset()" title="Resetar">
+                        <div class="d-flex align-items-center gap-2 ms-auto">
+                            <button type="button" class="btn btn-sm btn-outline-secondary px-2"
+                                    onclick="resetUpRotacao()" title="Resetar rotação">
                                 <i class="bi bi-x-lg"></i>
                             </button>
+                            <input type="range" id="upSliderRot" min="-180" max="180" step="1" value="0"
+                                   class="form-range" style="width:110px;"
+                                   oninput="upRotacionar(this.value)">
+                            <span id="upLabelRot" style="font-size:.75rem;min-width:32px;text-align:right;color:var(--text-muted)">0°</span>
                         </div>
                     </div>
                     <p class="text-secondary" style="font-size:.72rem;margin-top:.4rem;">
-                        Arraste para mover · Scroll para zoom · Ajuste as alças para recortar
+                        Arraste para mover · Scroll para zoom · Ajuste as alças para recortar · Slider para rotacionar
                     </p>
 
                     <div class="row g-2 mt-1">
@@ -810,6 +802,16 @@ require_once __DIR__ . '/../geral/header.php';
 
     window.setAspect = function(r) { if (cropperIns) cropperIns.setAspectRatio(r); };
 
+    window.upRotacionar = function(graus) {
+        if (cropperIns) cropperIns.rotateTo(parseInt(graus, 10));
+        document.getElementById('upLabelRot').textContent = graus + '°';
+    };
+    window.resetUpRotacao = function() {
+        if (cropperIns) cropperIns.rotateTo(0);
+        document.getElementById('upSliderRot').value = 0;
+        document.getElementById('upLabelRot').textContent = '0°';
+    };
+
     window.salvarCrop = function() {
         if (!cropperIns || enviando) return;
         var canvas = cropperIns.getCroppedCanvas({
@@ -883,6 +885,8 @@ require_once __DIR__ . '/../geral/header.php';
         document.getElementById('inputImg').value    = '';
         document.getElementById('inputTitulo').value = '';
         document.getElementById('imgCropper').src    = '';
+        document.getElementById('upSliderRot').value         = 0;
+        document.getElementById('upLabelRot').textContent    = '0°';
     }
 
     // Tratamento inteligente a partir do modal de upload:
@@ -1085,6 +1089,16 @@ require_once __DIR__ . '/../geral/header.php';
 
     window.setEditAspect = function(r) { if (editCropperIns) editCropperIns.setAspectRatio(r); };
 
+    window.editRotacionar = function(graus) {
+        if (editCropperIns) editCropperIns.rotateTo(parseInt(graus, 10));
+        document.getElementById('editLabelRot').textContent = graus + '°';
+    };
+    window.resetEditRotacao = function() {
+        if (editCropperIns) editCropperIns.rotateTo(0);
+        document.getElementById('editSliderRot').value = 0;
+        document.getElementById('editLabelRot').textContent = '0°';
+    };
+
     function resetEditar() {
         if (editCropperIns) { editCropperIns.destroy(); editCropperIns = null; window.editCropperIns = null; }
         editEnviando = false;
@@ -1094,6 +1108,8 @@ require_once __DIR__ . '/../geral/header.php';
         document.getElementById('editUploadProg').style.display = 'none';
         document.getElementById('btnSalvarMeta').disabled  = false;
         document.getElementById('btnSalvarCrop').disabled  = false;
+        document.getElementById('editSliderRot').value     = 0;
+        document.getElementById('editLabelRot').textContent = '0°';
     }
 
     function fecharEditar() {
