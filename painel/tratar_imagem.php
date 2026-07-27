@@ -42,47 +42,50 @@ if (!file_exists($maePath)) {
     }
 }
 
-// ── Arquivo de saída do Python ────────────────────────────────────
+// ── Arquivo de saída ──────────────────────────────────────────────
 $baseName    = pathinfo($nomeArquivo, PATHINFO_FILENAME);
 $tratadaNome = $baseName . '_tratada.jpg';
 $tratadaPath = $maeDir . $tratadaNome;
 
-// Remove resultado anterior se existir
 if (file_exists($tratadaPath)) @unlink($tratadaPath);
 
-$aspect    = (float)($_POST['aspect'] ?? 0.75);
-$pyScript  = realpath(__DIR__ . '/../tools/smart_crop.py');
-if (!$pyScript) jsonErr('Script Python não encontrado em tools/smart_crop.py.');
+$aspect = (float)($_POST['aspect'] ?? 0.75);
 
-// Testa binários comuns do Python
-$candidates = ['python', 'python3'];
-// Windows: procura em locais típicos
-foreach (['311','310','312','313','39','38'] as $v) {
-    $candidates[] = "C:\\Python{$v}\\python.exe";
-    $candidates[] = "C:\\Users\\Public\\Python\\python.exe";
+// ── Chama microserviço na VPS via curl ────────────────────────────
+$vpsUrl = 'http://143.95.219.124:5001/smart-crop';
+$apiKey = 'bc_crop_k8x2m9p4';
+
+if (!function_exists('curl_init')) jsonErr('cURL não disponível no servidor.');
+if (!file_exists($galeriaPath))   jsonErr('Arquivo de imagem não encontrado.');
+
+$ch = curl_init($vpsUrl);
+curl_setopt_array($ch, [
+    CURLOPT_POST           => true,
+    CURLOPT_HTTPHEADER     => ['X-Api-Key: ' . $apiKey],
+    CURLOPT_POSTFIELDS     => [
+        'image'  => new CURLFile($galeriaPath, 'image/jpeg', $nomeArquivo),
+        'aspect' => (string)$aspect,
+    ],
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_TIMEOUT        => 30,
+]);
+
+$result   = curl_exec($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$curlErr  = curl_error($ch);
+curl_close($ch);
+
+if ($curlErr) {
+    error_log('[TratarImagem] cURL: ' . $curlErr);
+    jsonErr('Não foi possível conectar ao serviço de tratamento. Tente novamente.');
 }
-$pythonBin = null;
-foreach ($candidates as $bin) {
-    $test = @shell_exec(escapeshellcmd($bin) . ' -c "print(1)" 2>&1');
-    if (trim($test) === '1') { $pythonBin = $bin; break; }
+if ($httpCode !== 200) {
+    error_log('[TratarImagem] VPS HTTP ' . $httpCode . ': ' . substr($result, 0, 200));
+    jsonErr('Serviço de tratamento retornou erro (' . $httpCode . '). Tente novamente.');
 }
-if (!$pythonBin) jsonErr('Python não encontrado. Instale Python e Pillow para usar o tratamento inteligente.');
 
-$cmd     = escapeshellcmd($pythonBin)
-         . ' ' . escapeshellarg($pyScript)
-         . ' ' . escapeshellarg($galeriaPath)
-         . ' ' . escapeshellarg($tratadaPath)
-         . ' ' . escapeshellarg((string)$aspect)
-         . ' 2>&1';
-
-$retCode = 0;
-@exec($cmd, $outLines, $retCode);
-
-if ($retCode !== 0 || !file_exists($tratadaPath)) {
-    $err = implode(' | ', $outLines);
-    error_log('[TratarImagem] Python: ' . $err);
-    $hint = str_contains($err, 'Pillow') ? ' Instale com: pip install Pillow' : '';
-    jsonErr('Tratamento inteligente falhou.' . $hint);
+if (!file_put_contents($tratadaPath, $result)) {
+    jsonErr('Falha ao salvar imagem tratada.');
 }
 
 echo json_encode([
