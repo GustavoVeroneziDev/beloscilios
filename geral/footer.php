@@ -271,9 +271,16 @@ function bcPwaDescartar() {
         enviar.addEventListener('click', function () {
             if (!_tel) return;
             var txt = textarea.value.trim();
-            var url = 'https://wa.me/' + _tel;
-            if (txt) url += '?text=' + encodeURIComponent(txt);
-            window.open(url, '_blank');
+            // api.whatsapp.com/send evita o redirect do wa.me que pode corromper emoji
+            var url = 'https://api.whatsapp.com/send/?phone=' + encodeURIComponent(_tel);
+            if (txt) url += '&text=' + encodeURIComponent(txt);
+            var a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
             bootstrap.Modal.getInstance(modal).hide();
         });
     }
