@@ -58,9 +58,18 @@ try {
     $cntStmt->execute($params);
     $total = (int) $cntStmt->fetchColumn();
 
+    // Detecta se a coluna Temporario já existe no banco
+    $temColTemp = false;
+    try {
+        $pdo->query("SELECT Temporario FROM Usuarios LIMIT 0");
+        $temColTemp = true;
+    } catch (\Throwable $e) {}
+
+    $selTemp = $temColTemp ? 'u.Temporario' : '0 AS Temporario';
+
     $stmt = $pdo->prepare(
         "SELECT u.IDUsuario, u.Nome, u.Email, u.Telefone, u.MomentoRegistro, u.EmailVerificado,
-                u.Temporario,
+                {$selTemp},
                 COUNT(a.IDAgendamento) AS TotalAg,
                 MAX(CASE WHEN a.DataHoraAgendamento <= NOW() AND a.Status != 'cancelado' THEN a.DataHoraAgendamento END) AS UltimoAtend,
                 SUM(CASE WHEN a.DataHoraAgendamento > NOW() AND a.Status != 'cancelado' THEN 1 ELSE 0 END) AS ProximoAg
