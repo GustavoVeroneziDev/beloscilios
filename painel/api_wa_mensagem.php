@@ -85,39 +85,54 @@ if ($acao === 'cobrar') {
     $ags = $stm->fetchAll();
 
 } elseif (in_array($acao, ['lembrar', 'confirmar'], true)) {
-    $filtro = $acao === 'confirmar'
-        ? 'DATE(a.DataHoraAgendamento) = CURDATE()'
-        : 'DATE(a.DataHoraAgendamento) = DATE_ADD(CURDATE(), INTERVAL 1 DAY)';
-
-    $stm = $pdo->prepare(
-        "SELECT a.DataHoraAgendamento, a.ValorCobrado,
-                COALESCE(ss.Nome, s.Nome) AS Servico
-           FROM Agendamentos a
-           JOIN Servicos s ON s.IDServico = a.FKServico
-           LEFT JOIN SubServicos ss ON ss.IDSubServico = a.FKSubServico
-          WHERE a.FKCliente = :id
-            AND {$filtro}
-            AND a.StatusAgendamento IN ('pendente','confirmado')
-          ORDER BY a.DataHoraAgendamento ASC LIMIT 1"
-    );
-    $stm->execute([':id' => $clienteId]);
-    $ag = $stm->fetch();
-
-    // fallback: próximo agendamento futuro
-    if (!$ag) {
+    // Prioridade 1: agendamento específico selecionado (ex: botão na agenda)
+    if ($agendId) {
         $stm = $pdo->prepare(
             'SELECT a.DataHoraAgendamento, a.ValorCobrado,
                     COALESCE(ss.Nome, s.Nome) AS Servico
                FROM Agendamentos a
                JOIN Servicos s ON s.IDServico = a.FKServico
                LEFT JOIN SubServicos ss ON ss.IDSubServico = a.FKSubServico
+              WHERE a.IDAgendamento = :id LIMIT 1'
+        );
+        $stm->execute([':id' => $agendId]);
+        $ag = $stm->fetch();
+    } else {
+        // Prioridade 2: agendamento de hoje (confirmar) ou amanhã (lembrar)
+        $filtro = $acao === 'confirmar'
+            ? 'DATE(a.DataHoraAgendamento) = CURDATE()'
+            : 'DATE(a.DataHoraAgendamento) = DATE_ADD(CURDATE(), INTERVAL 1 DAY)';
+
+        $stm = $pdo->prepare(
+            "SELECT a.DataHoraAgendamento, a.ValorCobrado,
+                    COALESCE(ss.Nome, s.Nome) AS Servico
+               FROM Agendamentos a
+               JOIN Servicos s ON s.IDServico = a.FKServico
+               LEFT JOIN SubServicos ss ON ss.IDSubServico = a.FKSubServico
               WHERE a.FKCliente = :id
-                AND a.DataHoraAgendamento >= NOW()
-                AND a.StatusAgendamento IN ("pendente","confirmado")
-              ORDER BY a.DataHoraAgendamento ASC LIMIT 1'
+                AND {$filtro}
+                AND a.StatusAgendamento IN ('pendente','confirmado')
+              ORDER BY a.DataHoraAgendamento ASC LIMIT 1"
         );
         $stm->execute([':id' => $clienteId]);
         $ag = $stm->fetch();
+
+        // Prioridade 3: próximo agendamento futuro
+        if (!$ag) {
+            $stm = $pdo->prepare(
+                'SELECT a.DataHoraAgendamento, a.ValorCobrado,
+                        COALESCE(ss.Nome, s.Nome) AS Servico
+                   FROM Agendamentos a
+                   JOIN Servicos s ON s.IDServico = a.FKServico
+                   LEFT JOIN SubServicos ss ON ss.IDSubServico = a.FKSubServico
+                  WHERE a.FKCliente = :id
+                    AND a.DataHoraAgendamento >= NOW()
+                    AND a.StatusAgendamento IN ("pendente","confirmado")
+                  ORDER BY a.DataHoraAgendamento ASC LIMIT 1'
+            );
+            $stm->execute([':id' => $clienteId]);
+            $ag = $stm->fetch();
+        }
     }
     if ($ag) $ags = [$ag];
 
@@ -250,7 +265,6 @@ PROMPT;
     ]);
     $resp     = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
 
     if ($httpCode === 200 && $resp) {
         $dec = json_decode($resp, true);
