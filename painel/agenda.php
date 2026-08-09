@@ -327,9 +327,31 @@ require_once __DIR__ . '/../geral/header.php';
 // ── Helper: botões de ação do agendamento ─────────────────────
 function botoesAgendamento(array $ag, string $csrfToken, array $extraGet = []): string
 {
-    $out = '<div class="d-flex gap-1 flex-shrink-0">';
+    $out = '<div class="d-flex gap-1 flex-shrink-0 flex-wrap">';
     $hora   = date('H:i', strtotime($ag['DataHoraAgendamento']));
     $dataBr = date('d/m/Y', strtotime($ag['DataHoraAgendamento']));
+    $eHoje  = date('Y-m-d', strtotime($ag['DataHoraAgendamento'])) === date('Y-m-d');
+
+    // Botão dedicado "Confirmar presença" para pendente/confirmado com telefone
+    if ($ag['Telefone'] && in_array($ag['StatusAgendamento'], ['pendente', 'confirmado'])) {
+        $num    = waNumero($ag['Telefone']);
+        $nome   = $ag['NomeCliente'] ?? '';
+        $agId   = $ag['IDAgendamento'];
+        $cliId  = $ag['FKCliente'] ?? '';
+        $pulse  = ($eHoje && $ag['StatusAgendamento'] === 'pendente') ? ' bc-confirmar-pulse' : '';
+        $out .= '<button type="button"'
+              . ' class="btn btn-sm btn-success bc-wa-msg bc-confirmar-btn' . $pulse . '"'
+              . ' data-tel="'    . h($num)    . '"'
+              . ' data-nome="'   . h($nome)   . '"'
+              . ' data-ag-id="'  . h($agId)   . '"'
+              . ' data-cli-id="' . h($cliId)  . '"'
+              . ' data-acao="confirmar"'
+              . ' data-label="Confirmar presença"'
+              . ' title="Confirmar presença via WhatsApp">'
+              . '<i class="bi bi-whatsapp me-1"></i><span class="d-none d-lg-inline">Confirmar</span>'
+              . '</button>';
+    }
+
     if ($ag['Telefone']) {
         $serv = $ag['NomeSubServico'] ?? $ag['NomeServico'] ?? '';
         $out .= waBotoesDropdown(
@@ -1116,11 +1138,20 @@ $csrfToken = gerarTokenCSRF();
             li += '<li><hr class="dropdown-divider"></li>';
             li += '<li><a class="dropdown-item" href="https://wa.me/' + tel + '" target="_blank"><i class="bi bi-whatsapp me-2 text-success"></i>Conversa livre</a></li>';
 
-            return '<div class="btn-group btn-group-sm" role="group">'
+            const confirmarBtn = '<button type="button"'
+                + ' class="btn btn-sm btn-success bc-wa-msg bc-confirmar-btn"'
+                + ' ' + d
+                + ' data-acao="confirmar" data-label="Confirmar presença"'
+                + ' title="Confirmar presença via WhatsApp">'
+                + '<i class="bi bi-whatsapp me-1"></i>Confirmar</button>';
+
+            return '<div class="d-flex gap-1 align-items-center flex-wrap">'
+                + confirmarBtn
+                + '<div class="btn-group btn-group-sm" role="group">'
                 + '<a href="https://wa.me/' + tel + '" target="_blank" class="btn btn-outline-success" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>'
                 + '<button type="button" class="btn btn-outline-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false"><span class="visually-hidden">Mensagens</span></button>'
                 + '<ul class="dropdown-menu dropdown-menu-end shadow-sm">' + li + '</ul>'
-                + '</div>';
+                + '</div></div>';
         }
 
         function alterarTipoDia(tipoId) {
