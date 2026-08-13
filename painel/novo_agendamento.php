@@ -8,6 +8,7 @@ $dataTs     = strtotime($dataSel) ?: time();
 $dataSel    = date('Y-m-d', $dataTs);
 $diaSemana  = (int) date('w', $dataTs);
 $intervalo  = (int) getConfig($pdo, 'intervalo_minutos', '15');
+$forca      = !empty($_GET['forca']);
 
 $horario   = null;
 $agendados = [];
@@ -153,6 +154,25 @@ if ($horario) {
             }
         }
 
+        $slots[] = ['hora' => date('H:i', $ts), 'ts' => $ts, 'status' => $status, 'info' => $info];
+    }
+}
+
+// Inserção forçada: dia sem expediente — gera grade horária das 07h às 20h
+if ($forca && !$horario && empty($slots)) {
+    $fimJornadaTs = strtotime("{$dataSel} 21:00:00");
+    for ($ts = strtotime("{$dataSel} 07:00:00"); $ts < $fimJornadaTs; $ts += 3600) {
+        $status = 'livre';
+        $info   = '';
+        foreach ($agendados as $ag) {
+            $agIni = strtotime($ag['DataHoraAgendamento']);
+            $agFim = strtotime($ag['DataHoraFim']);
+            if ($ts >= $agIni && $ts < $agFim) {
+                $status = 'ocupado';
+                $info   = $ag['NomeCliente'] . ' — ' . $ag['NomeServico'];
+                break;
+            }
+        }
         $slots[] = ['hora' => date('H:i', $ts), 'ts' => $ts, 'status' => $status, 'info' => $info];
     }
 }
@@ -335,10 +355,13 @@ require_once __DIR__ . '/../geral/header.php';
             </div>
 
             <div class="card-body p-4">
-                <?php if (!$horario): ?>
+                <?php if (!$horario && !$forca): ?>
                     <div class="text-center py-5 text-secondary">
                         <i class="bi bi-calendar-x fs-1 d-block mb-2 opacity-25"></i>
-                        <p class="mb-0">Sem expediente neste dia.</p>
+                        <p class="mb-2">Sem expediente neste dia.</p>
+                        <a href="?data=<?= h($dataSel) ?>&forca=1" class="btn btn-sm btn-warning mt-1">
+                            <i class="bi bi-lightning-charge me-1"></i>Inserção forçada
+                        </a>
                     </div>
                 <?php elseif (empty($slots)): ?>
                     <div class="text-center py-5 text-secondary">
@@ -346,6 +369,12 @@ require_once __DIR__ . '/../geral/header.php';
                         <p class="mb-0">Nenhum slot gerado para este dia.</p>
                     </div>
                 <?php else: ?>
+                    <?php if ($forca): ?>
+                    <div class="alert alert-warning py-2 px-3 mb-3 d-flex align-items-center gap-2" role="alert" style="font-size:.85rem;">
+                        <i class="bi bi-lightning-charge-fill flex-shrink-0"></i>
+                        <div><strong>Inserção forçada</strong> — dia fora do expediente normal. Escolha um horário abaixo ou digite o horário exato no campo ao final.</div>
+                    </div>
+                    <?php endif ?>
                     <!-- Legenda -->
                     <div class="d-flex flex-wrap gap-2 mb-3" style="font-size:.76rem;">
                         <span class="slot slot-livre" style="pointer-events:none;">Livre</span>
@@ -384,6 +413,18 @@ require_once __DIR__ . '/../geral/header.php';
                             <?php endif ?>
                         <?php endforeach ?>
                     </div>
+
+                    <?php if ($forca): ?>
+                    <div class="mt-3 p-3 rounded-3" style="background:var(--bg-hover);border:1.5px dashed var(--card-border-color);">
+                        <div class="small fw-medium mb-2 text-secondary"><i class="bi bi-clock me-1"></i>Horário específico (minuto exato)</div>
+                        <div class="d-flex gap-2 align-items-center flex-wrap">
+                            <input type="time" id="inpHoraForca" class="form-control form-control-sm"
+                                   style="max-width:130px;" step="300"
+                                   oninput="aplicarHoraForca(this.value)">
+                            <span class="small text-secondary">Digite se o horário não estiver nos botões acima</span>
+                        </div>
+                    </div>
+                    <?php endif ?>
                 <?php endif ?>
             </div>
         </div>
@@ -401,6 +442,7 @@ require_once __DIR__ . '/../geral/header.php';
                     <input type="hidden" name="data"       value="<?= h($dataSel) ?>">
                     <input type="hidden" name="hora"       id="inp_hora">
                     <input type="hidden" name="fk_sub"     id="inp_fk_sub">
+                    <?php if ($forca): ?><input type="hidden" name="forca" value="1"><?php endif ?>
 
                     <!-- Horário selecionado -->
                     <div class="mb-3 p-3 rounded-3" style="background:var(--bg-hover);">
@@ -507,6 +549,8 @@ var BLOQUEIOS      = <?= $bloqJson ?>;
 var ALMOCO         = <?= $almocoJson ?>;
 var SERVICOS       = <?= $svsJson ?>;
 var FIM_JORNADA_TS = <?= $fimJornadaTs ?>;
+var MODO_FORCA     = <?= $forca ? 'true' : 'false' ?>;
+var DATA_SEL       = '<?= $dataSel ?>';
 
 var slotSelecionadoTs = null;
 var duracaoAtual      = 0;
@@ -548,26 +592,26 @@ function atualizarValidezSlots() {
         var fim   = ts + duracaoAtual * 60;
         var invalido = false;
 
-        // Serviço ultrapassa o fim da jornada
-        if (duracaoAtual > 0 && fim > FIM_JORNADA_TS) invalido = true;
+        // Serviço ultrapassa o fim da jornada (ignorado em modo força)
+        if (!MODO_FORCA && duracaoAtual > 0 && fim > FIM_JORNADA_TS) invalido = true;
 
-        // Conflito com agendamentos
+        // Conflito com agendamentos (sempre verificado — não dá pra sobrepor clientes)
         if (!invalido) {
             invalido = AGENDAMENTOS.some(function (ag) {
                 return ts < ag.fim && fim > ag.ini;
             });
         }
 
-        // Conflito com bloqueios
-        if (!invalido) {
-            invalido = BLOQUEIOS.some(function (b) {
-                return ts < b.fim && fim > b.ini;
-            });
-        }
-
-        // Conflito com intervalos
-        if (!invalido && ALMOCO) {
-            invalido = ALMOCO.some(function(iv) { return ts < iv.fim && fim > iv.ini; });
+        // Conflito com bloqueios e intervalos (ignorados em modo força)
+        if (!MODO_FORCA) {
+            if (!invalido) {
+                invalido = BLOQUEIOS.some(function (b) {
+                    return ts < b.fim && fim > b.ini;
+                });
+            }
+            if (!invalido && ALMOCO) {
+                invalido = ALMOCO.some(function(iv) { return ts < iv.fim && fim > iv.ini; });
+            }
         }
 
         btn.classList.toggle('slot-invalido', invalido && !btn.classList.contains('slot-sel'));
@@ -648,10 +692,10 @@ function aplicarDuracaoPreco(duracao, preco) {
     if (slotSelecionadoTs && duracaoAtual > 0) {
         var fimSel   = slotSelecionadoTs + duracaoAtual * 60;
         var invalSel = false;
-        if (fimSel > FIM_JORNADA_TS) invalSel = true;
+        if (!MODO_FORCA && fimSel > FIM_JORNADA_TS) invalSel = true;
         if (!invalSel) invalSel = AGENDAMENTOS.some(function (ag) { return slotSelecionadoTs < ag.fim && fimSel > ag.ini; });
-        if (!invalSel) invalSel = BLOQUEIOS.some(function (b) { return slotSelecionadoTs < b.fim && fimSel > b.ini; });
-        if (!invalSel && ALMOCO) invalSel = ALMOCO.some(function(iv) { return slotSelecionadoTs < iv.fim && fimSel > iv.ini; });
+        if (!MODO_FORCA && !invalSel) invalSel = BLOQUEIOS.some(function (b) { return slotSelecionadoTs < b.fim && fimSel > b.ini; });
+        if (!MODO_FORCA && !invalSel && ALMOCO) invalSel = ALMOCO.some(function(iv) { return slotSelecionadoTs < iv.fim && fimSel > iv.ini; });
 
         if (invalSel) {
             var btnSel = document.querySelector('.slot-livre.slot-sel');
@@ -711,6 +755,25 @@ function mascaraTel(input) {
     } else {
         input.value = '(' + d.substring(0,2) + ') ' + d.substring(2,7) + '-' + d.substring(7);
     }
+}
+
+/* ── Horário digitado manualmente (modo força) ── */
+function aplicarHoraForca(value) {
+    if (!value) return;
+    var parts = value.split(':');
+    var h = parseInt(parts[0]), m = parseInt(parts[1] || 0);
+    var dateParts = DATA_SEL.split('-');
+    var d = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]), h, m, 0);
+    var ts = Math.floor(d.getTime() / 1000);
+
+    // Desmarca slot da grade se houver
+    document.querySelectorAll('.slot-livre.slot-sel').forEach(function(b) { b.classList.remove('slot-sel'); });
+
+    slotSelecionadoTs = ts;
+    document.getElementById('inp_hora').value = value;
+    document.getElementById('lblHoraSel').textContent = value;
+    atualizarHoraFim();
+    validarForm();
 }
 
 /* Observa campos de texto avulso */

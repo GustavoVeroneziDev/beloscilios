@@ -269,19 +269,23 @@ function tentarLoginLembrado(PDO $pdo): void
         return;
     }
 
-    // Token válido: apaga o atual e emite um novo (rotação)
-    try {
-        $pdo->prepare('DELETE FROM TokensLembrarMe WHERE IDToken = :id')
-            ->execute([':id' => $idToken]);
-    } catch (PDOException) {}
+    // Rotação só quando o token está vencendo (< 15 dias restantes).
+    // Tokens recém-criados não são rotacionados — evita race condition quando
+    // duas requisições concorrentes chegam sem sessão ativa.
+    $deveRotar = strtotime($row['Expira']) < strtotime('+15 days');
+    if ($deveRotar) {
+        try {
+            $pdo->prepare('DELETE FROM TokensLembrarMe WHERE IDToken = :id')
+                ->execute([':id' => $idToken]);
+        } catch (PDOException) {}
+        criarTokenLembrarMe($pdo, $row['FKUsuario']);
+    }
 
     session_regenerate_id(true);
     $_SESSION['usuario_id']       = $row['FKUsuario'];
     $_SESSION['usuario_nome']     = $row['Nome'];
     $_SESSION['nivel_acesso']     = $row['NivelAcesso'];
     $_SESSION['email_verificado'] = (bool) $row['EmailVerificado'];
-
-    criarTokenLembrarMe($pdo, $row['FKUsuario']);
 }
 
 function _limparCookieLembrarMe(): void

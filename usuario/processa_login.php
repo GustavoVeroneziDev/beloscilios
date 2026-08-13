@@ -70,7 +70,8 @@ $_SESSION['usuario_nome']     = $usuario['Nome'];
 $_SESSION['nivel_acesso']     = $usuario['NivelAcesso'];
 $_SESSION['email_verificado'] = (bool) $usuario['EmailVerificado'];
 
-if (!empty($_POST['lembrar_me'])) {
+// Designer sempre fica logada — sem depender do checkbox
+if (!empty($_POST['lembrar_me']) || $usuario['NivelAcesso'] === 'designer') {
     criarTokenLembrarMe($pdo, $usuario['IDUsuario']);
 }
 

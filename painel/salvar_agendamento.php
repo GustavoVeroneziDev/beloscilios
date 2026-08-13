@@ -28,8 +28,11 @@ $tipoCliente = trim($_POST['tipo_cliente'] ?? 'cadastrada');
 $valor       = trim($_POST['valor']       ?? '');
 $obs         = trim($_POST['obs']         ?? '');
 
-// URL de retorno em caso de erro (preserva a data na grade)
-$retorno = BASE . '/painel/novo_agendamento.php' . ($data ? '?data=' . urlencode($data) : '');
+// URL de retorno em caso de erro (preserva data e modo força)
+$forca   = !empty($_POST['forca']);
+$retorno = BASE . '/painel/novo_agendamento.php'
+         . ($data ? '?data=' . urlencode($data) : '')
+         . ($forca ? ($data ? '&' : '?') . 'forca=1' : '');
 
 if (!$fkServico || !$dataHora) {
     redirecionarComMensagem($retorno, 'Preencha o serviço e o horário.', 'warning');
