@@ -181,7 +181,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($usuarioDados) {
             $nomeU    = $usuarioDados['Nome'];
             $emailU   = $usuarioDados['Email'];
-            $dataFmt  = date('d/m/Y (l)', strtotime($data));
+            $diasPt   = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+            $dataFmt  = date('d/m/Y', strtotime($data)) . ' (' . $diasPt[(int)date('w', strtotime($data))] . ')';
             $valorFmt = formatarMoeda($preco);
 
             // WhatsApp — sanitiza número antes de enviar
@@ -261,7 +262,7 @@ require_once __DIR__ . '/../geral/header.php';
                     <dd class="col-7 fw-medium mb-2"><?= h($nome) ?></dd>
 
                     <dt class="col-5 small text-secondary">Data</dt>
-                    <dd class="col-7 fw-medium mb-2"><?= date('d/m/Y (l)', strtotime($data)) ?></dd>
+                    <dd class="col-7 fw-medium mb-2"><?php $diasPtHtml = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado']; echo date('d/m/Y', strtotime($data)) . ' (' . $diasPtHtml[(int)date('w', strtotime($data))] . ')'; ?></dd>
 
                     <dt class="col-5 small text-secondary">Horário</dt>
                     <dd class="col-7 fw-medium mb-2"><?= h($hora) ?></dd>
