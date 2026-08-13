@@ -165,13 +165,15 @@ if ($horario) {
 }
 
 // ── Calendário semanal ────────────────────────────────────────────────────────
-$semanaIni     = date('Y-m-d', $dataTs - $diaSemana * 86400);
+// Semana começa na segunda (ISO 8601 / padrão brasileiro)
+// Fórmula: (diaSemana + 6) % 7 → segundas=0 deslocamentos, domingos=6
+$semanaIni     = date('Y-m-d', $dataTs - (($diaSemana + 6) % 7) * 86400);
 $semanaFim     = date('Y-m-d', strtotime($semanaIni) + 6 * 86400);
 $semanaIniPrev = date('Y-m-d', strtotime($semanaIni) - 7 * 86400);
 $semanaIniNext = date('Y-m-d', strtotime($semanaIni) + 7 * 86400);
 
 $diaHoje      = (int) date('w');
-$semanaMinIni = date('Y-m-d', strtotime('today') - $diaHoje * 86400);
+$semanaMinIni = date('Y-m-d', strtotime('today') - (($diaHoje + 6) % 7) * 86400);
 $podeIrAntes  = $semanaIniPrev >= $semanaMinIni;
 $podeIrDepois = $semanaIniNext <= $dataMax;
 
@@ -239,15 +241,18 @@ for ($di = 0; $di < 7; $di++) {
     $dTs2 = strtotime($semanaIni) + $di * 86400;
     $d2   = date('Y-m-d', $dTs2);
 
+    // Loop $di: 0=Seg, 1=Ter, ..., 5=Sáb, 6=Dom → PHP date('w'): ($di+1)%7
+    $phpDow = ($di + 1) % 7;
+
     // Eliminação rápida por faixas / expediente / bloqueio total
     if ($d2 < $dataMin || $d2 > $dataMax
         || (isset($diasEspeciaisSemana[$d2]) && $diasEspeciaisSemana[$d2])
-        || (!isset($diasEspeciaisSemana[$d2]) && !isset($horariosPorDiaSem[$di]))) {
+        || (!isset($diasEspeciaisSemana[$d2]) && !isset($horariosPorDiaSem[$phpDow]))) {
         $diasTemSlot[$d2] = false;
         continue;
     }
 
-    $hd = $horariosPorDiaSem[$di] ?? null;
+    $hd = $horariosPorDiaSem[$phpDow] ?? null;
     if (!$hd) { $diasTemSlot[$d2] = false; continue; }
 
     // Antecedência: último slot possível do dia já passou?
@@ -299,10 +304,12 @@ $urlBase = BASE . '/agendamento/horarios.php?' . http_build_query([
     'duracao'    => $duracao,
 ]);
 
-$diasNomeCurto = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-$diasNomeCompl = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+// Arrays indexados de 0=Seg a 6=Dom (semana brasileira)
+$diasNomeCurto = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+$diasNomeCompl = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
 $mesesAbrev    = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-$diaExibido    = $diasNomeCompl[$diaSemana] . ', ' . date('d/m/Y', $dataTs);
+// date('w') → 0=Dom,1=Seg,...,6=Sáb; mapeamento para índice de-seg: (w+6)%7
+$diaExibido    = $diasNomeCompl[($diaSemana + 6) % 7] . ', ' . date('d/m/Y', $dataTs);
 
 $paginaTitulo = 'Agendar — Escolha o horário';
 $areaAtual    = 'cliente';
