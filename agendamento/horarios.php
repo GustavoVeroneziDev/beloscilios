@@ -20,7 +20,7 @@ $intervalo   = (int) getConfig($pdo, 'intervalo_minutos', '15');
 $antecMinH   = (int) getConfig($pdo, 'antecedencia_minima_h', '2');
 $diasFuturos = (int) getConfig($pdo, 'dias_agenda_futura', '60');
 
-// Data selecionada (default: hoje ou amanhã se já passou do horário)
+// Data selecionada
 $dataSel = trim($_GET['data'] ?? date('Y-m-d', strtotime("+{$antecMinH} hours")));
 $dataTs  = strtotime($dataSel);
 if (!$dataTs) {
@@ -37,7 +37,7 @@ if ($dataSel < $dataMin) {
     $dataTs  = strtotime($dataMin);
 }
 
-// Dia especial sobrepõe o horário padrão (folga rotacional, academia etc.)
+// Dia especial sobrepõe o horário padrão
 $diaEspecial = null;
 try {
     $deStmt = $pdo->prepare(
@@ -60,7 +60,6 @@ try {
     $horStmt->execute([':d' => $diaSemana]);
     $horario = $horStmt->fetch();
 
-    // Agendamentos existentes neste dia
     $agStmt = $pdo->prepare(
         'SELECT DataHoraAgendamento, DataHoraFim FROM Agendamentos
          WHERE DataHoraAgendamento >= :data AND DataHoraAgendamento < :data_next
@@ -69,7 +68,6 @@ try {
     $agStmt->execute([':data' => $dataSel, ':data_next' => date('Y-m-d', strtotime($dataSel . ' +1 day'))]);
     $agendados = $agStmt->fetchAll();
 
-    // Reservas temporárias de outras sessões
     $minhaSessao = session_id();
     if (random_int(1, 20) === 1) {
         try { $pdo->exec("DELETE FROM ReservasTemporarias WHERE ExpiraEm < NOW()"); } catch (PDOException) {}
@@ -78,13 +76,11 @@ try {
     $tempStmt = $pdo->prepare(
         'SELECT DataHoraSlot, DataHoraFim FROM ReservasTemporarias
          WHERE DataHoraSlot >= :data AND DataHoraSlot < :data_next
-           AND TokenSessao != :sessao
-           AND ExpiraEm > NOW()'
+           AND TokenSessao != :sessao AND ExpiraEm > NOW()'
     );
     $tempStmt->execute([':data' => $dataSel, ':data_next' => $dataSelNext, ':sessao' => $minhaSessao]);
     $reservasTemp = $tempStmt->fetchAll();
 
-    // Bloqueios que interceptam este dia
     $bloqStmt = $pdo->prepare(
         'SELECT DataInicio, DataFim FROM BloqueiosAgenda
          WHERE DATE(DataInicio) <= :data AND DATE(DataFim) >= :data2'
@@ -120,7 +116,7 @@ if ($diaEspecial) {
     }
 }
 
-// Gerar slots disponíveis
+// Gerar slots disponíveis para o dia selecionado
 $slots = [];
 if ($horario) {
     $passo    = $intervalo;
@@ -169,29 +165,27 @@ if ($horario) {
 }
 
 // ── Calendário semanal ────────────────────────────────────────────────────────
-$semanaIni     = date('Y-m-d', $dataTs - $diaSemana * 86400); // Domingo da semana
+$semanaIni     = date('Y-m-d', $dataTs - $diaSemana * 86400);
 $semanaFim     = date('Y-m-d', strtotime($semanaIni) + 6 * 86400);
 $semanaIniPrev = date('Y-m-d', strtotime($semanaIni) - 7 * 86400);
 $semanaIniNext = date('Y-m-d', strtotime($semanaIni) + 7 * 86400);
 
-// Limite mínimo = semana atual (não pode voltar para semanas passadas)
 $diaHoje      = (int) date('w');
 $semanaMinIni = date('Y-m-d', strtotime('today') - $diaHoje * 86400);
-
 $podeIrAntes  = $semanaIniPrev >= $semanaMinIni;
 $podeIrDepois = $semanaIniNext <= $dataMax;
 
-// Horários por dia da semana (inclui HoraFim para checagem de antecedência)
+// Horários regulares por dia da semana (inclui almoço para o check de slot)
 $horariosPorDiaSem = [];
 try {
-    foreach ($pdo->query('SELECT DiaSemana, HoraInicio, HoraFim FROM HorariosAtendimento WHERE Ativo = 1')->fetchAll() as $h) {
+    foreach ($pdo->query('SELECT DiaSemana, HoraInicio, HoraFim, AlmocoInicio, AlmocoFim FROM HorariosAtendimento WHERE Ativo = 1')->fetchAll() as $h) {
         $horariosPorDiaSem[$h['DiaSemana']] = $h;
     }
 } catch (PDOException) {}
-// Limiar de antecedência mínima (mesma lógica dos slots)
+
 $agoraCal = time() + ($antecMinH * 3600);
 
-// Dias especiais da semana (bloqueios totais)
+// Dias especiais da semana
 $diasEspeciaisSemana = [];
 try {
     $dsSmt = $pdo->prepare(
@@ -205,7 +199,98 @@ try {
     }
 } catch (PDOException) {}
 
-// URL base preservando parâmetros do serviço
+// Agendamentos, reservas e bloqueios da semana (batch único para verificação de slots)
+$agsPorData  = [];
+$rtsPorData  = [];
+$bloqsSemana = [];
+$semFimNext  = date('Y-m-d', strtotime($semanaFim . ' +1 day'));
+try {
+    $agsSmt = $pdo->prepare(
+        'SELECT DataHoraAgendamento, DataHoraFim FROM Agendamentos
+         WHERE DataHoraAgendamento >= :ini AND DataHoraAgendamento < :fim
+           AND StatusAgendamento NOT IN (\'cancelado\')'
+    );
+    $agsSmt->execute([':ini' => $semanaIni, ':fim' => $semFimNext]);
+    foreach ($agsSmt->fetchAll() as $ag) {
+        $agsPorData[date('Y-m-d', strtotime($ag['DataHoraAgendamento']))][] = $ag;
+    }
+
+    $rtsSmt = $pdo->prepare(
+        'SELECT DataHoraSlot, DataHoraFim FROM ReservasTemporarias
+         WHERE DataHoraSlot >= :ini AND DataHoraSlot < :fim
+           AND TokenSessao != :sessao AND ExpiraEm > NOW()'
+    );
+    $rtsSmt->execute([':ini' => $semanaIni, ':fim' => $semFimNext, ':sessao' => $minhaSessao]);
+    foreach ($rtsSmt->fetchAll() as $rt) {
+        $rtsPorData[date('Y-m-d', strtotime($rt['DataHoraSlot']))][] = $rt;
+    }
+
+    $bSmt = $pdo->prepare(
+        'SELECT DataInicio, DataFim FROM BloqueiosAgenda
+         WHERE DataInicio < :fim AND DataFim > :ini'
+    );
+    $bSmt->execute([':ini' => $semanaIni, ':fim' => $semFimNext]);
+    $bloqsSemana = $bSmt->fetchAll();
+} catch (PDOException) {}
+
+// Pré-computa se cada dia da semana tem ao menos 1 slot livre
+$diasTemSlot = [];
+for ($di = 0; $di < 7; $di++) {
+    $dTs2 = strtotime($semanaIni) + $di * 86400;
+    $d2   = date('Y-m-d', $dTs2);
+
+    // Eliminação rápida por faixas / expediente / bloqueio total
+    if ($d2 < $dataMin || $d2 > $dataMax
+        || (isset($diasEspeciaisSemana[$d2]) && $diasEspeciaisSemana[$d2])
+        || (!isset($diasEspeciaisSemana[$d2]) && !isset($horariosPorDiaSem[$di]))) {
+        $diasTemSlot[$d2] = false;
+        continue;
+    }
+
+    $hd = $horariosPorDiaSem[$di] ?? null;
+    if (!$hd) { $diasTemSlot[$d2] = false; continue; }
+
+    // Antecedência: último slot possível do dia já passou?
+    if ((strtotime("{$d2} {$hd['HoraFim']}") - $duracao * 60) < $agoraCal) {
+        $diasTemSlot[$d2] = false;
+        continue;
+    }
+
+    // Verifica slot a slot se há ao menos 1 livre
+    $ini2   = strtotime("{$d2} {$hd['HoraInicio']}");
+    $fim2   = strtotime("{$d2} {$hd['HoraFim']}");
+    $ivs2   = (!empty($hd['AlmocoInicio']) && !empty($hd['AlmocoFim']))
+              ? [['Inicio' => $hd['AlmocoInicio'], 'Fim' => $hd['AlmocoFim']]]
+              : [];
+    $agsDia = $agsPorData[$d2] ?? [];
+    $rtsDia = $rtsPorData[$d2] ?? [];
+
+    $temSlot = false;
+    for ($ts2 = $ini2; ($ts2 + $duracao * 60) <= $fim2; $ts2 += $intervalo * 60) {
+        if ($ts2 < $agoraCal) continue;
+        $sf2   = $ts2 + $duracao * 60;
+        $livre = true;
+
+        foreach ($agsDia as $ag) {
+            if ($ts2 < strtotime($ag['DataHoraFim']) && $sf2 > strtotime($ag['DataHoraAgendamento'])) { $livre = false; break; }
+        }
+        if ($livre) foreach ($rtsDia as $rt) {
+            if ($ts2 < strtotime($rt['DataHoraFim']) && $sf2 > strtotime($rt['DataHoraSlot'])) { $livre = false; break; }
+        }
+        if ($livre) foreach ($bloqsSemana as $b) {
+            if ($ts2 < strtotime($b['DataFim']) && $sf2 > strtotime($b['DataInicio'])) { $livre = false; break; }
+        }
+        if ($livre) foreach ($ivs2 as $iv) {
+            $ivIni = strtotime("{$d2} {$iv['Inicio']}");
+            $ivFim = strtotime("{$d2} {$iv['Fim']}");
+            if ($ts2 < $ivFim && $sf2 > $ivIni) { $livre = false; break; }
+        }
+        if ($livre) { $temSlot = true; break; }
+    }
+    $diasTemSlot[$d2] = $temSlot;
+}
+
+// URL base e i18n
 $urlBase = BASE . '/agendamento/horarios.php?' . http_build_query([
     'servico_id' => $servicoId,
     'sub_id'     => $subId,
@@ -214,10 +299,10 @@ $urlBase = BASE . '/agendamento/horarios.php?' . http_build_query([
     'duracao'    => $duracao,
 ]);
 
-$diasNomeCurto  = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-$diasNomeCompl  = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
-$mesesAbrev     = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-$diaExibido     = $diasNomeCompl[$diaSemana] . ', ' . date('d/m/Y', $dataTs);
+$diasNomeCurto = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+$diasNomeCompl = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+$mesesAbrev    = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+$diaExibido    = $diasNomeCompl[$diaSemana] . ', ' . date('d/m/Y', $dataTs);
 
 $paginaTitulo = 'Agendar — Escolha o horário';
 $areaAtual    = 'cliente';
@@ -269,7 +354,7 @@ a.dia-card:hover {
     color: #fff;
 }
 .dia-card.dia-off {
-    opacity: .28;
+    opacity: .22;
     pointer-events: none;
     cursor: default;
 }
@@ -302,7 +387,6 @@ a.dia-card:hover {
     margin-bottom: 1px;
 }
 .dia-card.dia-sel .dia-dot { background: rgba(255,255,255,.75); }
-/* Nav arrows */
 .btn-semana {
     width: 36px;
     height: 36px;
@@ -313,7 +397,6 @@ a.dia-card:hover {
     justify-content: center;
     border-radius: 10px;
 }
-/* Slots */
 .slot-btn {
     border-radius: 10px;
     font-weight: 600;
@@ -361,48 +444,29 @@ a.dia-card:hover {
         <div class="card mb-3 p-3">
             <div class="semana-nav">
 
-                <!-- Semana anterior -->
                 <?php if ($podeIrAntes): ?>
                 <a href="<?= h($urlBase . '&data=' . $semanaIniPrev) ?>"
                    class="btn btn-outline-secondary btn-semana" title="Semana anterior">
                     <i class="bi bi-chevron-left"></i>
                 </a>
                 <?php else: ?>
-                <button class="btn btn-outline-secondary btn-semana" disabled title="Semana mais recente">
+                <button class="btn btn-outline-secondary btn-semana" disabled>
                     <i class="bi bi-chevron-left"></i>
                 </button>
                 <?php endif ?>
 
-                <!-- Dias da semana -->
                 <div class="semana-dias">
                 <?php for ($i = 0; $i < 7; $i++):
-                    $dTs      = strtotime($semanaIni) + $i * 86400;
-                    $d        = date('Y-m-d', $dTs);
-                    $ehHoje   = $d === date('Y-m-d');
-                    $ehSel    = $d === $dataSel;
-
-                    // Determina disponibilidade
-                    if ($d < $dataMin || $d > $dataMax) {
-                        $off = true; // fora do período permitido
-                    } elseif (isset($diasEspeciaisSemana[$d]) && $diasEspeciaisSemana[$d]) {
-                        $off = true; // dia especial com bloqueio total
-                    } elseif (!isset($diasEspeciaisSemana[$d]) && !isset($horariosPorDiaSem[$i])) {
-                        $off = true; // sem expediente neste dia da semana
-                    } else {
-                        // Tem expediente — verifica se ainda há algum slot dentro da antecedência mínima
-                        $off = false;
-                        if (isset($horariosPorDiaSem[$i])) {
-                            $ultimoSlotTs = strtotime("{$d} {$horariosPorDiaSem[$i]['HoraFim']}") - ($duracao * 60);
-                            if ($ultimoSlotTs < $agoraCal) {
-                                $off = true; // todos os slots já passaram da antecedência mínima
-                            }
-                        }
-                    }
+                    $dTs    = strtotime($semanaIni) + $i * 86400;
+                    $d      = date('Y-m-d', $dTs);
+                    $ehHoje = $d === date('Y-m-d');
+                    $ehSel  = $d === $dataSel;
+                    $off    = !($diasTemSlot[$d] ?? false);
 
                     $classes = 'dia-card';
-                    if ($ehSel)  $classes .= ' dia-sel';
-                    if ($ehHoje) $classes .= ' dia-hoje';
-                    if ($off)    $classes .= ' dia-off';
+                    if ($ehSel && !$off) $classes .= ' dia-sel';
+                    if ($ehHoje)         $classes .= ' dia-hoje';
+                    if ($off)            $classes .= ' dia-off';
 
                     $tag  = (!$off && !$ehSel) ? 'a' : 'span';
                     $href = (!$off && !$ehSel) ? ' href="' . h($urlBase . '&data=' . $d) . '"' : '';
@@ -416,19 +480,18 @@ a.dia-card:hover {
                 <?php endfor ?>
                 </div>
 
-                <!-- Próxima semana -->
                 <?php if ($podeIrDepois): ?>
                 <a href="<?= h($urlBase . '&data=' . $semanaIniNext) ?>"
                    class="btn btn-outline-secondary btn-semana" title="Próxima semana">
                     <i class="bi bi-chevron-right"></i>
                 </a>
                 <?php else: ?>
-                <button class="btn btn-outline-secondary btn-semana" disabled title="Limite de agendamento atingido">
+                <button class="btn btn-outline-secondary btn-semana" disabled>
                     <i class="bi bi-chevron-right"></i>
                 </button>
                 <?php endif ?>
 
-            </div><!-- /semana-nav -->
+            </div>
         </div>
 
         <!-- ── Slots de horário ── -->
@@ -441,13 +504,13 @@ a.dia-card:hover {
                 <?php if (!$horario): ?>
                 <div class="text-center py-4 text-secondary">
                     <i class="bi bi-calendar-x fs-2 d-block mb-2 opacity-25"></i>
-                    <p class="mb-0">Não atendemos neste dia. Escolha outra data.</p>
+                    <p class="mb-0">Não atendemos neste dia. Escolha outra data no calendário.</p>
                 </div>
                 <?php else: ?>
                 <?php if ($diaEspecial && !$diaEspecial['BloqueiaTotal']): ?>
                 <div class="alert alert-warning py-2 px-3 mb-3 d-flex align-items-center gap-2 small">
                     <i class="bi bi-clock-history flex-shrink-0"></i>
-                    Horário reduzido: <?= h($diaEspecial['Nome']) ?>
+                    Horário diferente
                     (<?= substr($diaEspecial['HoraInicio'], 0, 5) ?>–<?= substr($diaEspecial['HoraFim'], 0, 5) ?>)
                 </div>
                 <?php endif ?>
@@ -472,9 +535,9 @@ a.dia-card:hover {
             </div>
         </div>
 
-    </div><!-- /col-lg-8 -->
+    </div>
 
-    <!-- Resumo do serviço (desktop) -->
+    <!-- Resumo (desktop) -->
     <div class="col-lg-4">
         <div class="card p-4 sticky-top" style="top:80px;">
             <h6 class="fw-bold mb-3">
@@ -492,7 +555,6 @@ a.dia-card:hover {
                 <dt class="small text-secondary">Horário</dt>
                 <dd id="resumoHora">—</dd>
             </dl>
-            <!-- Countdown de reserva -->
             <div id="boxCountdown" class="d-none alert alert-warning py-2 px-3 mb-3 d-flex align-items-center gap-2" style="font-size:.9rem;">
                 <i class="bi bi-hourglass-split text-warning"></i>
                 <span>Horário reservado por <strong id="textoCountdown">10:00</strong></span>
@@ -504,7 +566,7 @@ a.dia-card:hover {
     </div>
 </div>
 
-<!-- Barra fixa mobile: aparece ao selecionar slot em telas < lg -->
+<!-- Barra mobile -->
 <div id="barraConfirmarMobile"
      class="d-lg-none position-fixed bottom-0 start-0 end-0 p-3"
      style="display:none!important;background:var(--bg-card);border-top:2px solid var(--accent);z-index:1050;box-shadow:0 -4px 24px rgba(0,0,0,.14);">
@@ -540,10 +602,8 @@ function iniciarCountdown(expiraISO) {
     const box = document.getElementById('boxCountdown');
     const txt = document.getElementById('textoCountdown');
     if (!box || !txt) return;
-
     countdownExpira = new Date(expiraISO.replace(' ', 'T'));
     box.classList.remove('d-none');
-
     function tick() {
         const diff = Math.round((countdownExpira - new Date()) / 1000);
         if (diff <= 0) {
@@ -571,12 +631,9 @@ function iniciarCountdown(expiraISO) {
 
 function selecionarSlot(btn) {
     if (btn.disabled) return;
-
     document.querySelectorAll('.slot-btn').forEach(b => b.disabled = true);
-
     const hora = btn.dataset.hora;
     const data = '<?= $dataSel ?>';
-
     fetch('<?= BASE ?>/agendamento/reservar_slot.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -592,7 +649,6 @@ function selecionarSlot(btn) {
     .then(r => r.json())
     .then(res => {
         document.querySelectorAll('.slot-btn').forEach(b => b.disabled = false);
-
         if (!res.ok) {
             btn.disabled = true;
             btn.classList.remove('btn-outline-accent', 'btn-accent');
@@ -600,31 +656,25 @@ function selecionarSlot(btn) {
             bcToast(res.msg || 'Horário indisponível. Tente outro.', 'warning');
             return;
         }
-
         if (slotSelecionado && slotSelecionado !== btn) {
             slotSelecionado.classList.remove('btn-accent');
             slotSelecionado.classList.add('btn-outline-accent');
         }
-
         btn.classList.remove('btn-outline-accent');
         btn.classList.add('btn-accent');
         slotSelecionado = btn;
-
         document.getElementById('inp_hora').value  = hora;
         document.getElementById('inp_token').value = res.token;
         const dataFmt = data.split('-').reverse().join('/');
         document.getElementById('resumoData').textContent = dataFmt;
         document.getElementById('resumoHora').textContent = hora;
-
         const acao = function(e) {
             e.preventDefault();
             document.getElementById('formConfirmar').submit();
         };
-
         const btnConf = document.getElementById('btnConfirmar');
         btnConf.classList.remove('disabled');
         btnConf.onclick = acao;
-
         const barMob = document.getElementById('barraConfirmarMobile');
         if (barMob) {
             barMob.style.setProperty('display', 'block', 'important');
@@ -632,7 +682,6 @@ function selecionarSlot(btn) {
             document.getElementById('mobResumoData').textContent = dataFmt;
             document.getElementById('btnConfirmarMobile').onclick = acao;
         }
-
         iniciarCountdown(res.expira);
     })
     .catch(() => {
