@@ -323,14 +323,14 @@ require_once __DIR__ . '/../geral/header.php';
 </style>
 
 <!-- Cabeçalho da página -->
-<div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
-    <a href="<?= BASE ?>/painel/agenda.php" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-arrow-left me-1"></i>Agenda
-    </a>
-    <div>
+<div class="mb-4">
+    <div class="d-flex align-items-center gap-2 mb-1">
+        <a href="<?= BASE ?>/painel/agenda.php" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1">
+            <i class="bi bi-arrow-left"></i>Agenda
+        </a>
         <h4 class="fw-bold mb-0">Novo agendamento</h4>
-        <p class="text-secondary small mb-0">Criação manual pela designer</p>
     </div>
+    <p class="text-secondary small mb-0 ms-1">Criação manual pela designer</p>
 </div>
 
 <div class="row g-4 align-items-start">
