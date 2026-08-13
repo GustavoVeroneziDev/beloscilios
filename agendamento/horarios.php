@@ -181,13 +181,15 @@ $semanaMinIni = date('Y-m-d', strtotime('today') - $diaHoje * 86400);
 $podeIrAntes  = $semanaIniPrev >= $semanaMinIni;
 $podeIrDepois = $semanaIniNext <= $dataMax;
 
-// Quais dias da semana têm expediente regular
-$diasComExpediente = [];
+// Horários por dia da semana (inclui HoraFim para checagem de antecedência)
+$horariosPorDiaSem = [];
 try {
-    foreach ($pdo->query('SELECT DiaSemana FROM HorariosAtendimento WHERE Ativo = 1')->fetchAll() as $h) {
-        $diasComExpediente[$h['DiaSemana']] = true;
+    foreach ($pdo->query('SELECT DiaSemana, HoraInicio, HoraFim FROM HorariosAtendimento WHERE Ativo = 1')->fetchAll() as $h) {
+        $horariosPorDiaSem[$h['DiaSemana']] = $h;
     }
 } catch (PDOException) {}
+// Limiar de antecedência mínima (mesma lógica dos slots)
+$agoraCal = time() + ($antecMinH * 3600);
 
 // Dias especiais da semana (bloqueios totais)
 $diasEspeciaisSemana = [];
@@ -384,10 +386,17 @@ a.dia-card:hover {
                         $off = true; // fora do período permitido
                     } elseif (isset($diasEspeciaisSemana[$d]) && $diasEspeciaisSemana[$d]) {
                         $off = true; // dia especial com bloqueio total
-                    } elseif (!isset($diasEspeciaisSemana[$d]) && empty($diasComExpediente[$i])) {
+                    } elseif (!isset($diasEspeciaisSemana[$d]) && !isset($horariosPorDiaSem[$i])) {
                         $off = true; // sem expediente neste dia da semana
                     } else {
-                        $off = false; // tem expediente
+                        // Tem expediente — verifica se ainda há algum slot dentro da antecedência mínima
+                        $off = false;
+                        if (isset($horariosPorDiaSem[$i])) {
+                            $ultimoSlotTs = strtotime("{$d} {$horariosPorDiaSem[$i]['HoraFim']}") - ($duracao * 60);
+                            if ($ultimoSlotTs < $agoraCal) {
+                                $off = true; // todos os slots já passaram da antecedência mínima
+                            }
+                        }
                     }
 
                     $classes = 'dia-card';
