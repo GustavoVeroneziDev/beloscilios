@@ -1,13 +1,13 @@
 # Como duplicar este projeto para outra cliente
 
-Guia para quem já entende o sistema e quer replicá-lo do zero para um novo estúdio.  
+Guia para quem já entende o sistema e quer replicá-lo do zero para um novo estúdio.
 Escrito para ser lido por um humano, não por uma IA.
 
 ---
 
 ## A ordem importa
 
-Existe uma sequência lógica. Fazer fora dela significa corrigir coisa errada depois.  
+Existe uma sequência lógica. Fazer fora dela significa corrigir coisa errada depois.
 A sequência é: **infraestrutura → banco → configuração → marca → dados → integrações → deploy → cron → testes**.
 
 ---
@@ -15,17 +15,21 @@ A sequência é: **infraestrutura → banco → configuração → marca → dad
 ## 1. Infraestrutura (15 min)
 
 ### Repositório
+
 - Fork ou cópia do repositório para um novo nome (ex: `studiolucia`)
 - Novo repositório privado no GitHub
 
 ### Servidor local (desenvolvimento)
+
 - XAMPP rodando. Banco de desenvolvimento: `studiolucia_dev`
 - Criar o banco:
-  ```sql
-  CREATE DATABASE studiolucia_dev CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-  ```
+
+```sql
+CREATE DATABASE studiolucia_dev CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
 
 ### Hospedagem (produção)
+
 - HostGator compartilhado funciona — mas tem limitações reais (veja seção 7)
 - Alternativa mais confortável: VPS com PHP 8.2, mesmo padrão da Evolution API
 
@@ -33,7 +37,7 @@ A sequência é: **infraestrutura → banco → configuração → marca → dad
 
 ## 2. Banco de dados — rodar as migrations (20 min)
 
-As migrations ficam em `migrations/` numeradas em ordem (`001_`, `002_`, ...).  
+As migrations ficam em `migrations/` numeradas em ordem (`001_`, `002_`, ...).
 Rodar **todas, em ordem, sem pular**:
 
 ```powershell
@@ -49,10 +53,11 @@ C:\xampp\mysql\bin\mysql.exe -u root studiolucia_dev < migrations\002_...sql
 
 ## 3. Arquivos de configuração — os arquivos que NÃO estão no Git (30 min)
 
-Estes arquivos são **gitignored** e precisam ser criados manualmente em cada ambiente.  
+Estes arquivos são **gitignored** e precisam ser criados manualmente em cada ambiente.
 São os "segredos" do sistema. Sem eles nada funciona.
 
 ### `config/conexao.php`
+
 É o bootstrap de tudo. Detecta ambiente pelo hostname e define `$pdo` e `BASE`.
 
 ```php
@@ -86,6 +91,7 @@ try {
 > **Atenção:** copie o `conexao.php` de produção atual como base e adapte. Nunca commite esse arquivo.
 
 ### `config/evolution_keys.php`
+
 ```php
 <?php
 define('EVOLUTION_API_URL', 'https://sua-evolution-api.com');
@@ -94,12 +100,14 @@ define('EVOLUTION_INSTANCE', 'NomeDaInstancia');
 ```
 
 ### `config/gemini.php`
+
 ```php
 <?php
 define('GEMINI_API_KEY', 'AIza...');
 ```
 
 ### `config/smtp_keys.php`
+
 ```php
 <?php
 define('SMTP_HOST', 'smtp.seuprovedor.com');
@@ -110,6 +118,7 @@ define('SMTP_FROM_NAME', 'Studio Lucia');
 ```
 
 ### `config/google_oauth.php` (opcional — só se usar login Google)
+
 ```php
 <?php
 define('GOOGLE_CLIENT_ID', '123...apps.googleusercontent.com');
@@ -123,6 +132,7 @@ define('GOOGLE_CLIENT_SECRET', 'GOCSPX-...');
 Esta parte define a identidade visual. Vale o tempo — é o que a cliente vê.
 
 ### Cores
+
 Tudo em variáveis CSS em `geral/css/estilo.css`. Procure o bloco de tokens `--roxo-*` e substitua pela paleta da nova cliente. O sistema inteiro segue. Não precisa mexer em HTML.
 
 ```css
@@ -135,10 +145,12 @@ Tudo em variáveis CSS em `geral/css/estilo.css`. Procure o bloco de tokens `--r
 ```
 
 ### Logo
+
 - Substituir `geral/img/LogoTransparente.png` (versão clara, fundo transparente)
 - Substituir `geral/img/mascara.png` (ícone pequeno usado nos cards) se aplicável
 
 ### Nome do estúdio
+
 - `geral/header.php` — nome exibido na navbar e e-mails
 - Título das páginas (`$paginaTitulo` em cada arquivo) — só se quiser personalizar por página
 
@@ -157,7 +169,7 @@ INSERT INTO Usuarios (
   UUID(),
   'Nome da Designer',
   'designer@estudio.com',
-  '$2y$12$HASH_GERADO_PELO_PHP',  -- use password_hash() no PHP para gerar
+  '$2y$12$HASH_GERADO_PELO_PHP',
   'designer',
   1,
   1,
@@ -165,17 +177,20 @@ INSERT INTO Usuarios (
 );
 ```
 
-Para gerar a senha corretamente via PHP:
+Para gerar o hash da senha via PHP:
+
 ```php
 echo password_hash('senhadesejada', PASSWORD_DEFAULT);
 ```
 
 ### Serviços e subserviços
-Cadastrar pelo painel (`/painel/servicos.php`) após logar como designer.  
+
+Cadastrar pelo painel (`/painel/servicos.php`) após logar como designer.
 Ordem sugerida: serviços principais primeiro, subserviços depois.
 
 ### Horários de atendimento
-Cadastrar pelo painel (`/painel/configuracoes.php`) — dia da semana + horário de início/fim + intervalo de almoço.  
+
+Cadastrar pelo painel (`/painel/configuracoes.php`) — dia da semana + horário de início/fim + intervalo de almoço.
 **Atenção:** o sistema só exibe slots se houver entrada em `HorariosAtendimento` para aquele dia da semana. Dias sem entrada ficam bloqueados automaticamente.
 
 ### ConfiguracoesSistema — parâmetros críticos
@@ -191,26 +206,30 @@ Verificar e ajustar via painel ou direto no banco:
 | `msg_wa_confirmacao` | Template de confirmação pós-agendamento | personalizar |
 | `msg_wa_followup` | Template de follow-up pós-atendimento | personalizar |
 
-> **Sobre os templates de WhatsApp:** este é o ponto mais subestimado. A mensagem que a cliente recebe forma a percepção do profissionalismo do estúdio. Vale uma tarde para acertar o tom certo — nem robótico demais, nem informal demais. Use as variáveis `{nome}`, `{servico}`, `{horario}`, `{data}`.
+> **Sobre os templates de WhatsApp:** este é o ponto mais subestimado. A mensagem que a cliente recebe forma a percepção do profissionalismo do estúdio. Vale uma tarde para acertar o tom — nem robótico demais, nem informal demais. Use as variáveis `{nome}`, `{servico}`, `{horario}`, `{data}`.
 
 ---
 
 ## 6. WhatsApp via Evolution API (1–2 horas)
 
 ### Criar a instância
+
 1. Acesse o painel da Evolution API (ou o da VPS se for auto-hospedado)
 2. Crie uma nova instância com o nome do estúdio (ex: `StudioLucia`)
 3. Gere o QR Code e aponte o celular da cliente para conectar
 
 ### Configurar as chaves
+
 Preencher `config/evolution_keys.php` com a URL da API, a API key global e o nome da instância.
 
 ### Testar
-Ir em `/painel/agenda.php`, abrir um agendamento existente e clicar em "Enviar WhatsApp".  
+
+Ir em `/painel/agenda.php`, abrir um agendamento existente e clicar em "Enviar WhatsApp".
 Se aparecer erro de conexão: checar URL da API, instance name e se o número está no formato correto (`5511999999999` — DDI + DDD + número, sem espaços ou símbolos).
 
 ### Reconexão (acontece)
-O WhatsApp desconecta com certa frequência em instâncias compartilhadas.  
+
+O WhatsApp desconecta com certa frequência em instâncias compartilhadas.
 O procedimento: acessar o painel da Evolution API → selecionar instância → reconectar → QR Code → celular da cliente.
 
 ---
@@ -218,7 +237,9 @@ O procedimento: acessar o painel da Evolution API → selecionar instância → 
 ## 7. Deploy — GitHub Actions + FTP (30 min)
 
 ### Configurar secrets no GitHub
+
 No repositório → Settings → Secrets → Actions:
+
 - `FTP_HOST` — host FTP da hospedagem
 - `FTP_USER` — usuário FTP
 - `FTP_PASS` — senha FTP
@@ -226,10 +247,12 @@ No repositório → Settings → Secrets → Actions:
 O arquivo `.github/workflows/deploy.yml` já está configurado. Push na `main` dispara o deploy automaticamente.
 
 ### O que NÃO vai pelo deploy (FTP)
-Os arquivos de `config/` com segredos são excluídos do FTP intencionalmente.  
+
+Os arquivos de `config/` com segredos são excluídos do FTP intencionalmente.
 Eles precisam ser copiados manualmente para o servidor via cPanel → File Manager ou via FTP direto.
 
 Checklist de arquivos a copiar manualmente na primeira vez:
+
 - `config/conexao.php`
 - `config/evolution_keys.php`
 - `config/gemini.php`
@@ -238,7 +261,8 @@ Checklist de arquivos a copiar manualmente na primeira vez:
 - `.user.ini` (na raiz — controla sessões PHP no HostGator)
 
 ### `.user.ini` — obrigatório no HostGator
-Sem este arquivo, as sessões expiram em 24 minutos (padrão do PHP).  
+
+Sem este arquivo, as sessões expiram em 24 minutos (padrão do PHP).
 Criar na raiz do projeto (junto com `index.php`):
 
 ```ini
@@ -247,6 +271,7 @@ session.cookie_lifetime = 86400
 ```
 
 ### Gotchas do HostGator
+
 - **Não use `SecRuleEngine` no `.htaccess`** — causa erro 500 em hospedagem compartilhada
 - PHP 8.2 precisa estar selecionado no cPanel (Multi PHP Manager)
 - MySQL: criar o banco e o usuário pelo cPanel antes de rodar as migrations em produção
@@ -256,10 +281,11 @@ session.cookie_lifetime = 86400
 
 ## 8. Cron jobs (15 min)
 
-Os scripts em `cron/` recusam acesso web (retornam 403 se chamados via navegador).  
+Os scripts em `cron/` recusam acesso web (retornam 403 se chamados via navegador).
 Precisam ser agendados no servidor.
 
 ### No cPanel (HostGator)
+
 Cron Jobs → adicionar:
 
 | Frequência | Comando |
@@ -271,10 +297,12 @@ Cron Jobs → adicionar:
 > Os scripts usam flags no banco (`NotificacaoLembreteEnviada`, etc.) para não reenviar. Rodar de hora em hora é seguro.
 
 ### Testar manualmente
+
 ```powershell
 C:\xampp\php\php.exe cron\whatsapp_lembretes.php
 ```
-Ou em produção via SSH (se disponível) ou simplesmente verificar os logs em `LogsWhatsApp`.
+
+Ou em produção via SSH (se disponível) ou verificar os logs em `LogsWhatsApp`.
 
 ---
 
@@ -283,6 +311,7 @@ Ou em produção via SSH (se disponível) ou simplesmente verificar os logs em `
 Não pule esta etapa. É onde os problemas aparecem antes de virarem problemas reais.
 
 **Fluxo completo do cliente:**
+
 - [ ] Criar conta com e-mail real (verificar chegada do e-mail de confirmação)
 - [ ] Login normal e via Google (se configurado)
 - [ ] Escolher serviço → ver calendário semanal
@@ -291,6 +320,7 @@ Não pule esta etapa. É onde os problemas aparecem antes de virarem problemas r
 - [ ] Receber WhatsApp de confirmação
 
 **Painel da designer:**
+
 - [ ] Agenda carregando corretamente
 - [ ] Criar agendamento manual (novo_agendamento.php)
 - [ ] Enviar mensagem WhatsApp manualmente para um agendamento
@@ -298,6 +328,7 @@ Não pule esta etapa. É onde os problemas aparecem antes de virarem problemas r
 - [ ] Inserção forçada em dia sem expediente (parâmetro `?forca=1`)
 
 **Cron:**
+
 - [ ] Rodar `whatsapp_lembretes.php` manualmente e verificar log em `LogsWhatsApp`
 
 ---
@@ -307,20 +338,23 @@ Não pule esta etapa. É onde os problemas aparecem antes de virarem problemas r
 Três coisas que definem se o sistema vai ter "alma" para a nova cliente, ou vai parecer genérico:
 
 ### 1. Os templates de WhatsApp
-São o ponto de contato mais direto entre o sistema e a cliente final.  
+
+São o ponto de contato mais direto entre o sistema e a cliente final.
 Escreva com a voz do estúdio — se o estúdio é descontraído, a mensagem pode ser. Se é sofisticado, que a mensagem reflita. Teste enviando para você mesmo antes de passar para a cliente.
 
 ### 2. Os horários e as regras de agendamento
-`antecedencia_minima_h`, `intervalo_minutos`, dias de folga em `DiasEspeciais` — conversas com a designer antes de configurar. Esses parâmetros determinam a experiência real de agendamento.
+
+`antecedencia_minima_h`, `intervalo_minutos`, dias de folga em `DiasEspeciais` — converse com a designer antes de configurar. Esses parâmetros determinam a experiência real de agendamento.
 
 ### 3. A paleta de cores
+
 Cinco minutos trocando as variáveis CSS transformam o sistema. Peça o brand guide ou pelo menos o Instagram do estúdio para pegar as cores. Um sistema que parece "da dela" tem um valor percebido muito maior.
 
 ---
 
 ## Estrutura de arquivos para referência rápida
 
-```
+```text
 /
 ├── agendamento/        # Fluxo de agendamento do cliente
 │   ├── index.php       # Escolha do serviço
@@ -341,7 +375,7 @@ Cinco minutos trocando as variáveis CSS transformam o sistema. Peça o brand gu
 │
 ├── cron/               # Scripts de envio automático de WA
 │
-├── config/             # Bootstrap (gitignored os segredos)
+├── config/             # Bootstrap (segredos são gitignored)
 │   ├── conexao.php     # ← criar manualmente em cada ambiente
 │   ├── funcoes.php     # Helpers globais
 │   └── *.php           # Segredos — nunca commitar
