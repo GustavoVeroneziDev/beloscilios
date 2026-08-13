@@ -89,6 +89,7 @@ button, a, [role="button"] {
     background: var(--roxo-900);
     border-bottom: 1px solid rgba(224, 170, 255, .15);
     box-shadow: 0 2px 12px rgba(16, 0, 43, .2);
+    z-index: 1030;
 }
 .topnav .navbar-brand {
     font-weight: 700;
