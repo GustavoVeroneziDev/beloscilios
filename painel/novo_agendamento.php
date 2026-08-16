@@ -26,7 +26,6 @@ try {
     $horario = $horStmt->fetch() ?: null;
 } catch (PDOException $e) {
     error_log('[NovoAg] horario: ' . $e->getMessage());
-    // Fallback sem almoço se a coluna não existir
     try {
         $horStmt2 = $pdo->prepare(
             'SELECT HoraInicio, HoraFim FROM HorariosAtendimento WHERE DiaSemana = :d AND Ativo = 1 LIMIT 1'
@@ -87,7 +86,7 @@ try {
     error_log('[NovoAg] agendados: ' . $e->getMessage());
 }
 
-// Serviços e clientes — try independente para sempre carregar os dropdowns
+// Serviços e clientes
 $clientes = [];
 try {
     $servicos = $pdo->query(
@@ -158,7 +157,7 @@ if ($horario) {
     }
 }
 
-// Inserção forçada: dia sem expediente — gera grade horária das 07h às 20h
+// Inserção forçada: dia sem expediente — gera grade horária das 07h às 21h
 if ($forca && !$horario && empty($slots)) {
     $fimJornadaTs = strtotime("{$dataSel} 21:00:00");
     for ($ts = strtotime("{$dataSel} 07:00:00"); $ts < $fimJornadaTs; $ts += 3600) {
@@ -190,7 +189,6 @@ $bloqJson = json_encode(array_map(fn($b) => [
     'info'   => $b['Motivo'] ?: 'Bloqueado',
 ], $bloqueios));
 
-// Serializa todos os intervalos para o JS da grade do painel
 $_ivsJs = $intervalosEspeciais ?: (
     ($horario && !empty($horario['AlmocoInicio']) && !empty($horario['AlmocoFim']))
     ? [['Inicio' => $horario['AlmocoInicio'], 'Fim' => $horario['AlmocoFim']]]
@@ -216,11 +214,23 @@ $svsJson = json_encode(array_map(fn($s) => [
     ], $subsPorSv[$s['IDServico']] ?? []),
 ], $servicos));
 
+$clientesJson = json_encode(array_map(fn($c) => [
+    'id'   => $c['id'],
+    'nome' => $c['nome'],
+    'tel'  => $c['telefone'] ? formatarTelefoneExibicao($c['telefone']) : '',
+], $clientes));
+
 // Semana corrente (segunda=0 … domingo=6, padrão brasileiro ISO 8601)
 $semanaIni     = date('Y-m-d', $dataTs - (($diaSemana + 6) % 7) * 86400);
 $semanaFim     = date('Y-m-d', strtotime($semanaIni) + 6 * 86400);
 $semanaIniPrev = date('Y-m-d', strtotime($semanaIni) - 7 * 86400);
 $semanaIniNext = date('Y-m-d', strtotime($semanaIni) + 7 * 86400);
+
+$hoje         = date('Y-m-d');
+$diaHoje      = (int) date('w');
+$semanaMinIni = date('Y-m-d', strtotime('today') - (($diaHoje + 6) % 7) * 86400);
+$podeIrAntes  = $semanaIniPrev >= $semanaMinIni;
+$podeIrDepois = true;
 
 // Dias com expediente regular (para marcar no calendário)
 $horariosPorDiaSem = [];
@@ -270,8 +280,6 @@ require_once __DIR__ . '/../geral/header.php';
     white-space: nowrap;
     position: relative;
 }
-
-/* livre */
 .slot-livre {
     border-color: var(--card-border-color);
     color: var(--text-main);
@@ -279,46 +287,34 @@ require_once __DIR__ . '/../geral/header.php';
     background: var(--bg-card);
 }
 .slot-livre:hover { border-color: var(--accent); background: var(--accent-light); }
-
-/* livre mas o serviço selecionado transbordaria/conflitaria aqui */
 .slot-livre.slot-invalido {
     opacity: .38;
     cursor: not-allowed;
     border-color: var(--card-border-color);
 }
 .slot-livre.slot-invalido:hover { border-color: var(--card-border-color); background: var(--bg-card); }
-
-/* selecionado */
 .slot-livre.slot-sel {
     background: var(--accent);
     border-color: var(--accent);
     color: #fff;
     transform: scale(1.06);
 }
-
-/* ocupado */
 .slot-ocupado {
     background: var(--bg-hover);
     color: var(--text-secondary);
     border-color: var(--card-border-color);
     opacity: .7;
 }
-
-/* bloqueado */
 .slot-bloqueado {
     background: rgba(192,96,74,.12);
     color: #C0604A;
     border-color: rgba(192,96,74,.3);
 }
-
-/* almoço */
 .slot-almoco {
     background: rgba(212,150,58,.1);
     color: #D4963A;
     border-color: rgba(212,150,58,.3);
 }
-
-/* tooltip */
 .slot[data-info]:hover::after {
     content: attr(data-info);
     position: absolute;
@@ -338,8 +334,6 @@ require_once __DIR__ . '/../geral/header.php';
     text-overflow: ellipsis;
     overflow: hidden;
 }
-
-/* badge de hora final */
 #badgeHoraFim {
     font-size: .78rem;
     padding: .25rem .6rem;
@@ -348,7 +342,7 @@ require_once __DIR__ . '/../geral/header.php';
     color: var(--accent);
 }
 
-/* ── Calendário semanal ────────────────────────── */
+/* ── Calendário semanal ──────────────────────── */
 .semana-nav { display:flex; align-items:center; gap:.5rem; }
 .semana-dias { display:flex; gap:.35rem; flex:1; justify-content:space-between; }
 .dia-card {
@@ -377,17 +371,81 @@ a.dia-card:hover {
     width:36px; height:36px; padding:0; flex-shrink:0;
     display:flex; align-items:center; justify-content:center; border-radius:10px;
 }
+
+/* ── Custom client picker ────────────────────── */
+.cliente-picker { position:relative; }
+.cp-trigger {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:.45rem .75rem;
+    border:1px solid var(--card-border-color);
+    border-radius:8px;
+    background:var(--bg-card);
+    cursor:pointer;
+    transition:border-color .15s, box-shadow .15s;
+    min-height:42px;
+    user-select:none;
+    gap:.5rem;
+}
+.cp-trigger:hover  { border-color:var(--accent); }
+.cp-trigger.open   { border-color:var(--accent); border-radius:8px 8px 0 0; box-shadow:0 0 0 3px rgba(var(--accent-rgb),.1); }
+.cp-placeholder    { color:var(--text-secondary); font-size:.9rem; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cp-selected       { color:var(--text-main); font-size:.9rem; font-weight:500; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cp-caret          { color:var(--text-secondary); transition:transform .2s; flex-shrink:0; }
+.cp-trigger.open .cp-caret { transform:rotate(180deg); }
+.cp-dropdown {
+    position:absolute; top:100%; left:0; right:0;
+    background:var(--bg-card);
+    border:1px solid var(--accent);
+    border-top:none;
+    border-radius:0 0 10px 10px;
+    z-index:300;
+    box-shadow:0 8px 28px rgba(0,0,0,.18);
+    max-height:260px;
+    display:flex; flex-direction:column;
+}
+.cp-search-wrap {
+    padding:.5rem .75rem;
+    border-bottom:1px solid var(--card-border-color);
+    display:flex; align-items:center; gap:.5rem;
+    flex-shrink:0;
+    background:var(--bg-hover);
+    border-radius:0;
+}
+.cp-search-icon { color:var(--text-secondary); font-size:.82rem; flex-shrink:0; }
+.cp-search {
+    border:none; outline:none; background:transparent;
+    color:var(--text-main); font-size:.875rem; width:100%; min-width:0;
+}
+.cp-list { overflow-y:auto; flex:1; }
+.cp-item {
+    padding:.55rem .9rem;
+    cursor:pointer;
+    font-size:.875rem;
+    transition:background .1s;
+    border-bottom:1px solid var(--card-border-color);
+}
+.cp-item:last-child { border-bottom:none; }
+.cp-item:hover, .cp-item.cp-active { background:var(--accent-light); }
+.cp-item-nome { font-weight:600; color:var(--text-main); line-height:1.3; }
+.cp-item-tel  { font-size:.78rem; color:var(--text-secondary); margin-top:.1rem; }
+.cp-item:hover .cp-item-nome, .cp-item.cp-active .cp-item-nome { color:var(--accent); }
+.cp-empty { padding:.9rem; text-align:center; color:var(--text-secondary); font-size:.85rem; }
+.cp-clear {
+    flex-shrink:0; width:18px; height:18px; border-radius:50%;
+    background:var(--text-secondary); color:var(--bg-card);
+    border:none; cursor:pointer; font-size:.65rem;
+    display:flex; align-items:center; justify-content:center;
+    opacity:.6; transition:opacity .15s;
+}
+.cp-clear:hover { opacity:1; }
 </style>
 
-<!-- Cabeçalho da página -->
-<div class="mb-4">
-    <div class="d-flex align-items-center gap-2 mb-1">
-        <a href="<?= BASE ?>/painel/agenda.php" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1">
-            <i class="bi bi-arrow-left"></i>Agenda
-        </a>
-        <h4 class="fw-bold mb-0">Novo agendamento</h4>
-    </div>
-    <p class="text-secondary small mb-0 ms-1">Criação manual pela designer</p>
+<!-- Cabeçalho -->
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="<?= BASE ?>/painel/agenda.php" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1">
+        <i class="bi bi-arrow-left"></i>Agenda
+    </a>
+    <h4 class="fw-bold mb-0">Novo agendamento</h4>
 </div>
 
 <div class="row g-4 align-items-start">
@@ -397,26 +455,48 @@ a.dia-card:hover {
 
         <!-- Calendário semanal -->
         <div class="card mb-3 p-3">
+
+            <!-- Barra de atalhos -->
+            <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+                <a href="?data=<?= h($hoje) ?>" class="btn btn-sm btn-outline-accent">
+                    <i class="bi bi-calendar-event me-1"></i>Hoje
+                </a>
+                <div class="ms-auto d-flex align-items-center gap-2">
+                    <label for="saltarData" class="small text-secondary mb-0 flex-shrink-0">Ir para:</label>
+                    <input type="date" id="saltarData"
+                           class="form-control form-control-sm"
+                           style="max-width:145px;"
+                           value="<?= h($dataSel) ?>">
+                </div>
+            </div>
+
             <div class="semana-nav">
+                <?php if ($podeIrAntes): ?>
                 <a href="?data=<?= h($semanaIniPrev) ?>" class="btn btn-outline-secondary btn-semana" title="Semana anterior">
                     <i class="bi bi-chevron-left"></i>
                 </a>
+                <?php else: ?>
+                <button class="btn btn-outline-secondary btn-semana" disabled title="Semana mais antiga disponível">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+                <?php endif ?>
+
                 <div class="semana-dias">
                 <?php for ($i = 0; $i < 7; $i++):
                     $dTs    = strtotime($semanaIni) + $i * 86400;
                     $d      = date('Y-m-d', $dTs);
-                    $ehHoje = $d === date('Y-m-d');
+                    $ehHoje = $d === $hoje;
                     $ehSel  = $d === $dataSel;
                     $phpDow = ($i + 1) % 7;
-                    $bloqTotal     = isset($diasEspeciaisSemana[$d]) && $diasEspeciaisSemana[$d];
-                    $temExpBase    = isset($horariosPorDiaSem[$phpDow]);
+                    $bloqTotal      = isset($diasEspeciaisSemana[$d]) && $diasEspeciaisSemana[$d];
+                    $temExpBase     = isset($horariosPorDiaSem[$phpDow]);
                     $temExpEspecial = isset($diasEspeciaisSemana[$d]) && !$diasEspeciaisSemana[$d];
-                    $semExp        = $bloqTotal || (!$temExpBase && !$temExpEspecial);
+                    $semExp         = $bloqTotal || (!$temExpBase && !$temExpEspecial);
 
                     $classes = 'dia-card';
-                    if ($ehSel)               $classes .= ' dia-sel';
-                    if ($ehHoje)              $classes .= ' dia-hoje';
-                    if ($semExp && !$ehSel)   $classes .= ' dia-fora';
+                    if ($ehSel)             $classes .= ' dia-sel';
+                    if ($ehHoje)            $classes .= ' dia-hoje';
+                    if ($semExp && !$ehSel) $classes .= ' dia-fora';
 
                     $tag  = !$ehSel ? 'a' : 'span';
                     $href = !$ehSel ? ' href="?data=' . h($d) . '"' : '';
@@ -429,16 +509,41 @@ a.dia-card:hover {
                     </<?= $tag ?>>
                 <?php endfor ?>
                 </div>
+
+                <?php if ($podeIrDepois): ?>
                 <a href="?data=<?= h($semanaIniNext) ?>" class="btn btn-outline-secondary btn-semana" title="Próxima semana">
                     <i class="bi bi-chevron-right"></i>
                 </a>
+                <?php else: ?>
+                <button class="btn btn-outline-secondary btn-semana" disabled>
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+                <?php endif ?>
             </div>
         </div>
 
+        <!-- Grade de slots -->
         <div class="card">
             <div class="card-header px-4 py-3 d-flex align-items-center gap-2">
                 <i class="bi bi-clock text-accent"></i>
-                <span class="fw-medium"><?= h($dataExibida) ?></span>
+                <span class="fw-medium flex-grow-1"><?= h($dataExibida) ?></span>
+                <button type="button" id="btnLegenda"
+                        class="btn btn-sm btn-outline-secondary"
+                        onclick="toggleLegenda()" title="Legenda dos horários">
+                    <i class="bi bi-info-circle me-1"></i>Legenda
+                </button>
+            </div>
+
+            <!-- Legenda (oculta por padrão) -->
+            <div id="legendaBox" class="px-4 pt-3 pb-1 d-none border-bottom" style="border-color:var(--card-border-color)!important;">
+                <div class="d-flex flex-wrap gap-2 mb-3" style="font-size:.76rem;">
+                    <span class="slot slot-livre" style="pointer-events:none;">Livre</span>
+                    <span class="slot slot-ocupado" style="pointer-events:none;">Ocupado</span>
+                    <span class="slot slot-bloqueado" style="pointer-events:none;">Bloqueado</span>
+                    <span class="slot slot-almoco" style="pointer-events:none;">Almoço</span>
+                    <span class="slot slot-livre slot-sel" style="pointer-events:none;transform:none;">Selecionado</span>
+                    <span class="slot slot-livre slot-invalido" style="pointer-events:none;">Serviço não cabe</span>
+                </div>
             </div>
 
             <div class="card-body p-4">
@@ -462,15 +567,6 @@ a.dia-card:hover {
                         <div><strong>Inserção forçada</strong> — dia fora do expediente normal. Escolha um horário abaixo ou digite o horário exato no campo ao final.</div>
                     </div>
                     <?php endif ?>
-                    <!-- Legenda -->
-                    <div class="d-flex flex-wrap gap-2 mb-3" style="font-size:.76rem;">
-                        <span class="slot slot-livre" style="pointer-events:none;">Livre</span>
-                        <span class="slot slot-ocupado" style="pointer-events:none;">Ocupado</span>
-                        <span class="slot slot-bloqueado" style="pointer-events:none;">Bloqueado</span>
-                        <span class="slot slot-almoco" style="pointer-events:none;">Almoço</span>
-                        <span class="slot slot-livre slot-sel" style="pointer-events:none;transform:none;">Selecionado</span>
-                        <span class="slot slot-livre slot-invalido" style="pointer-events:none;">Serviço não cabe</span>
-                    </div>
 
                     <div class="slot-grid" id="slotGrid">
                         <?php foreach ($slots as $s): ?>
@@ -483,18 +579,15 @@ a.dia-card:hover {
                                     <?= h($s['hora']) ?>
                                 </button>
                             <?php elseif ($s['status'] === 'ocupado'): ?>
-                                <span class="slot slot-ocupado"
-                                      data-info="<?= h($s['info']) ?>">
+                                <span class="slot slot-ocupado" data-info="<?= h($s['info']) ?>">
                                     <?= h($s['hora']) ?>
                                 </span>
                             <?php elseif ($s['status'] === 'bloqueado'): ?>
-                                <span class="slot slot-bloqueado"
-                                      data-info="<?= h($s['info']) ?>">
+                                <span class="slot slot-bloqueado" data-info="<?= h($s['info']) ?>">
                                     <?= h($s['hora']) ?>
                                 </span>
                             <?php else: ?>
-                                <span class="slot slot-almoco"
-                                      data-info="<?= h($s['info']) ?>">
+                                <span class="slot slot-almoco" data-info="<?= h($s['info']) ?>">
                                     <?= h($s['hora']) ?>
                                 </span>
                             <?php endif ?>
@@ -555,7 +648,7 @@ a.dia-card:hover {
                         </select>
                     </div>
 
-                    <!-- Sub-serviço (aparece quando há manutenções) -->
+                    <!-- Sub-serviço -->
                     <div class="mb-3 d-none" id="wrapSub">
                         <label class="form-label fw-medium">Manutenção / variante</label>
                         <select name="fk_sub_sel" id="selSub" class="form-select" onchange="onSubChange()">
@@ -563,7 +656,7 @@ a.dia-card:hover {
                         </select>
                     </div>
 
-                    <!-- Duração resumida -->
+                    <!-- Duração -->
                     <div class="mb-3 small text-secondary" id="resumoDuracao" style="display:none;">
                         <i class="bi bi-clock me-1"></i><span id="txtDuracao"></span> min de duração
                     </div>
@@ -583,16 +676,26 @@ a.dia-card:hover {
                         </label>
                     </div>
 
-                    <!-- Cliente cadastrada -->
+                    <!-- Picker de cliente cadastrada -->
                     <div id="secCadastrada" class="mb-3">
-                        <select name="fk_cliente" id="selCliente" class="form-select" onchange="validarForm()">
-                            <option value="">Selecione…</option>
-                            <?php foreach ($clientes as $c): ?>
-                                <option value="<?= h($c['id']) ?>">
-                                    <?= h($c['nome']) ?><?= $c['telefone'] ? ' — ' . h(formatarTelefoneExibicao($c['telefone'])) : '' ?>
-                                </option>
-                            <?php endforeach ?>
-                        </select>
+                        <input type="hidden" name="fk_cliente" id="inpClienteId">
+                        <div class="cliente-picker" id="clientePicker">
+                            <div class="cp-trigger" id="cpTrigger" tabindex="0"
+                                 onclick="cpToggle()" onkeydown="if(event.key==='Enter'||event.key===' ')cpToggle()">
+                                <span id="cpLabel" class="cp-placeholder">Buscar cliente…</span>
+                                <span class="cp-caret"><i class="bi bi-chevron-down"></i></span>
+                            </div>
+                            <div class="cp-dropdown d-none" id="cpDropdown">
+                                <div class="cp-search-wrap">
+                                    <i class="bi bi-search cp-search-icon"></i>
+                                    <input type="text" class="cp-search" id="cpSearch"
+                                           placeholder="Nome ou telefone…"
+                                           autocomplete="off"
+                                           oninput="cpFiltrar(this.value)">
+                                </div>
+                                <div class="cp-list" id="cpList"></div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Dados de cliente avulsa -->
@@ -635,6 +738,7 @@ var AGENDAMENTOS   = <?= $agJson ?>;
 var BLOQUEIOS      = <?= $bloqJson ?>;
 var ALMOCO         = <?= $almocoJson ?>;
 var SERVICOS       = <?= $svsJson ?>;
+var CP_CLIENTES    = <?= $clientesJson ?>;
 var FIM_JORNADA_TS = <?= $fimJornadaTs ?>;
 var MODO_FORCA     = <?= $forca ? 'true' : 'false' ?>;
 var DATA_SEL       = '<?= $dataSel ?>';
@@ -643,17 +747,28 @@ var slotSelecionadoTs = null;
 var duracaoAtual      = 0;
 var tipoCliente       = 'cadastrada';
 
+/* ── "Ir para" date jump ──────────────────────── */
+document.getElementById('saltarData').addEventListener('change', function () {
+    if (this.value) location.href = '?data=' + this.value;
+});
+
+/* ── Legenda toggle ───────────────────────────── */
+function toggleLegenda() {
+    var box = document.getElementById('legendaBox');
+    var btn = document.getElementById('btnLegenda');
+    var hidden = box.classList.toggle('d-none');
+    btn.classList.toggle('btn-outline-secondary', hidden);
+    btn.classList.toggle('btn-accent', !hidden);
+}
+
 /* ── Seleção de slot ──────────────────────────── */
 function selecionarSlot(btn) {
     if (btn.classList.contains('slot-invalido')) return;
-
     document.querySelectorAll('.slot-livre.slot-sel').forEach(b => b.classList.remove('slot-sel'));
     btn.classList.add('slot-sel');
-
     slotSelecionadoTs = parseInt(btn.dataset.ts);
     document.getElementById('inp_hora').value = btn.dataset.hora;
     document.getElementById('lblHoraSel').textContent = btn.dataset.hora;
-
     atualizarHoraFim();
     atualizarValidezSlots();
     validarForm();
@@ -667,35 +782,19 @@ function atualizarHoraFim() {
     document.getElementById('badgeHoraFim').classList.remove('d-none');
 }
 
-/* ── Marca slots inválidos com o serviço atual ── */
+/* ── Slots inválidos ──────────────────────────── */
 function atualizarValidezSlots() {
     document.querySelectorAll('.slot-livre').forEach(function (btn) {
-        var ts    = parseInt(btn.dataset.ts);
-        var fim   = ts + duracaoAtual * 60;
+        var ts  = parseInt(btn.dataset.ts);
+        var fim = ts + duracaoAtual * 60;
         var invalido = false;
 
-        // Serviço ultrapassa o fim da jornada (ignorado em modo força)
         if (!MODO_FORCA && duracaoAtual > 0 && fim > FIM_JORNADA_TS) invalido = true;
-
-        // Conflito com agendamentos (sempre verificado — não dá pra sobrepor clientes)
-        if (!invalido) {
-            invalido = AGENDAMENTOS.some(function (ag) {
-                return ts < ag.fim && fim > ag.ini;
-            });
-        }
-
-        // Conflito com bloqueios e intervalos (ignorados em modo força)
+        if (!invalido) invalido = AGENDAMENTOS.some(function (ag) { return ts < ag.fim && fim > ag.ini; });
         if (!MODO_FORCA) {
-            if (!invalido) {
-                invalido = BLOQUEIOS.some(function (b) {
-                    return ts < b.fim && fim > b.ini;
-                });
-            }
-            if (!invalido && ALMOCO) {
-                invalido = ALMOCO.some(function(iv) { return ts < iv.fim && fim > iv.ini; });
-            }
+            if (!invalido) invalido = BLOQUEIOS.some(function (b) { return ts < b.fim && fim > b.ini; });
+            if (!invalido && ALMOCO) invalido = ALMOCO.some(function(iv) { return ts < iv.fim && fim > iv.ini; });
         }
-
         btn.classList.toggle('slot-invalido', invalido && !btn.classList.contains('slot-sel'));
     });
 }
@@ -708,7 +807,6 @@ function onServicoChange() {
     var durac = svId ? parseInt(opt.dataset.duracao) : 0;
     var preco = svId ? parseFloat(opt.dataset.preco)  : 0;
 
-    // Sub-serviços
     var wrapSub = document.getElementById('wrapSub');
     var selSub  = document.getElementById('selSub');
     var sv      = SERVICOS.find(function (s) { return s.id === svId; });
@@ -719,7 +817,7 @@ function onServicoChange() {
     if (sv && sv.subs.length > 0) {
         sv.subs.forEach(function (ss) {
             var o = document.createElement('option');
-            o.value       = ss.id;
+            o.value = ss.id;
             o.textContent = ss.nome + ' (' + ss.duracao + 'min)';
             o.dataset.duracao = ss.duracao;
             o.dataset.preco   = ss.preco;
@@ -729,31 +827,25 @@ function onServicoChange() {
     } else {
         wrapSub.classList.add('d-none');
     }
-
     aplicarDuracaoPreco(durac, preco);
 }
 
 function onSubChange() {
     var selSub = document.getElementById('selSub');
     var opt    = selSub.options[selSub.selectedIndex];
-
     if (selSub.value) {
         document.getElementById('inp_fk_sub').value = selSub.value;
         aplicarDuracaoPreco(parseInt(opt.dataset.duracao), parseFloat(opt.dataset.preco));
     } else {
         document.getElementById('inp_fk_sub').value = '';
-        // Volta para o serviço pai
-        var selSv  = document.getElementById('selServico');
-        var optSv  = selSv.options[selSv.selectedIndex];
-        if (selSv.value) {
-            aplicarDuracaoPreco(parseInt(optSv.dataset.duracao), parseFloat(optSv.dataset.preco));
-        }
+        var selSv = document.getElementById('selServico');
+        var optSv = selSv.options[selSv.selectedIndex];
+        if (selSv.value) aplicarDuracaoPreco(parseInt(optSv.dataset.duracao), parseFloat(optSv.dataset.preco));
     }
 }
 
 function aplicarDuracaoPreco(duracao, preco) {
     duracaoAtual = duracao || 0;
-
     var divDur = document.getElementById('resumoDuracao');
     if (duracaoAtual > 0) {
         document.getElementById('txtDuracao').textContent = duracaoAtual;
@@ -761,16 +853,10 @@ function aplicarDuracaoPreco(duracao, preco) {
     } else {
         divDur.style.display = 'none';
     }
-
-    if (preco > 0) {
-        document.getElementById('inp_valor').value = preco.toFixed(2);
-    }
-
+    if (preco > 0) document.getElementById('inp_valor').value = preco.toFixed(2);
     atualizarHoraFim();
     atualizarValidezSlots();
 
-    // Se o slot selecionado ficou inválido com o novo serviço, desmarca
-    // (não podemos checar slot-invalido no btn porque a guarda no toggle o omite do slot-sel)
     if (slotSelecionadoTs && duracaoAtual > 0) {
         var fimSel   = slotSelecionadoTs + duracaoAtual * 60;
         var invalSel = false;
@@ -778,7 +864,6 @@ function aplicarDuracaoPreco(duracao, preco) {
         if (!invalSel) invalSel = AGENDAMENTOS.some(function (ag) { return slotSelecionadoTs < ag.fim && fimSel > ag.ini; });
         if (!MODO_FORCA && !invalSel) invalSel = BLOQUEIOS.some(function (b) { return slotSelecionadoTs < b.fim && fimSel > b.ini; });
         if (!MODO_FORCA && !invalSel && ALMOCO) invalSel = ALMOCO.some(function(iv) { return slotSelecionadoTs < iv.fim && fimSel > iv.ini; });
-
         if (invalSel) {
             var btnSel = document.querySelector('.slot-livre.slot-sel');
             if (btnSel) btnSel.classList.remove('slot-sel');
@@ -788,11 +873,76 @@ function aplicarDuracaoPreco(duracao, preco) {
             document.getElementById('badgeHoraFim').classList.add('d-none');
         }
     }
-
     validarForm();
 }
 
-/* ── Cliente ─────────────────────────────────── */
+/* ── Cliente cadastrada (custom picker) ───────── */
+var cpAberto      = false;
+var cpSelecionado = null;
+
+function cpToggle() { cpAberto ? cpFechar() : cpAbrir(); }
+
+function cpAbrir() {
+    cpAberto = true;
+    document.getElementById('cpTrigger').classList.add('open');
+    document.getElementById('cpDropdown').classList.remove('d-none');
+    document.getElementById('cpSearch').value = '';
+    cpRenderizar(CP_CLIENTES);
+    setTimeout(function() { document.getElementById('cpSearch').focus(); }, 40);
+    document.addEventListener('click', cpClickFora, true);
+}
+
+function cpFechar() {
+    cpAberto = false;
+    document.getElementById('cpTrigger').classList.remove('open');
+    document.getElementById('cpDropdown').classList.add('d-none');
+    document.removeEventListener('click', cpClickFora, true);
+}
+
+function cpClickFora(e) {
+    var picker = document.getElementById('clientePicker');
+    if (picker && !picker.contains(e.target)) cpFechar();
+}
+
+function cpFiltrar(q) {
+    q = q.toLowerCase();
+    cpRenderizar(CP_CLIENTES.filter(function(c) {
+        return c.nome.toLowerCase().indexOf(q) !== -1 || c.tel.indexOf(q) !== -1;
+    }));
+}
+
+function cpRenderizar(lista) {
+    var el = document.getElementById('cpList');
+    if (!lista.length) {
+        el.innerHTML = '<div class="cp-empty">Nenhuma cliente encontrada.</div>';
+        return;
+    }
+    el.innerHTML = '';
+    lista.forEach(function(c) {
+        var div = document.createElement('div');
+        div.className = 'cp-item' + (cpSelecionado && cpSelecionado.id === c.id ? ' cp-active' : '');
+        var tel = c.tel ? '<div class="cp-item-tel">' + escHtml(c.tel) + '</div>' : '';
+        div.innerHTML = '<div class="cp-item-nome">' + escHtml(c.nome) + '</div>' + tel;
+        div.addEventListener('mousedown', function(e) { e.preventDefault(); cpSelecionar(c); });
+        el.appendChild(div);
+    });
+}
+
+function cpSelecionar(c) {
+    cpSelecionado = c;
+    document.getElementById('inpClienteId').value = c.id;
+    var lbl = document.getElementById('cpLabel');
+    lbl.textContent = c.nome + (c.tel ? ' — ' + c.tel : '');
+    lbl.className = 'cp-selected';
+    cpFechar();
+    validarForm();
+}
+
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ── Alternar cadastrada / avulsa ─────────────── */
 function toggleCliente(tipo) {
     tipoCliente = tipo;
     document.getElementById('secCadastrada').classList.toggle('d-none', tipo !== 'cadastrada');
@@ -808,7 +958,7 @@ function validarForm() {
     if (!slotSelecionadoTs) { ok = false; erro = 'Selecione um horário na grade.'; }
     if (!document.getElementById('selServico').value) { ok = false; erro = erro || 'Selecione um serviço.'; }
 
-    if (tipoCliente === 'cadastrada' && !document.getElementById('selCliente').value) {
+    if (tipoCliente === 'cadastrada' && !document.getElementById('inpClienteId').value) {
         ok = false; erro = erro || 'Selecione uma cliente.';
     }
     if (tipoCliente === 'avulsa') {
@@ -818,39 +968,29 @@ function validarForm() {
 
     document.getElementById('btnSalvar').disabled = !ok;
     var divErro = document.getElementById('erroForm');
-    if (!ok && erro) {
-        divErro.textContent = erro;
-        divErro.style.display = '';
-    } else {
-        divErro.style.display = 'none';
-    }
+    if (!ok && erro) { divErro.textContent = erro; divErro.style.display = ''; }
+    else { divErro.style.display = 'none'; }
 }
 
-/* Máscara de telefone brasileiro: (XX) XXXXX-XXXX ou (XX) XXXX-XXXX */
+/* ── Máscara de telefone ─────────────────────── */
 function mascaraTel(input) {
     var d = input.value.replace(/\D/g, '').substring(0, 11);
     if (d.length === 0) { input.value = ''; return; }
     if (d.length <= 2)  { input.value = '(' + d; return; }
     if (d.length <= 6)  { input.value = '(' + d.substring(0,2) + ') ' + d.substring(2); return; }
-    if (d.length <= 10) {
-        input.value = '(' + d.substring(0,2) + ') ' + d.substring(2,6) + '-' + d.substring(6);
-    } else {
-        input.value = '(' + d.substring(0,2) + ') ' + d.substring(2,7) + '-' + d.substring(7);
-    }
+    if (d.length <= 10) { input.value = '(' + d.substring(0,2) + ') ' + d.substring(2,6) + '-' + d.substring(6); }
+    else                { input.value = '(' + d.substring(0,2) + ') ' + d.substring(2,7) + '-' + d.substring(7); }
 }
 
-/* ── Horário digitado manualmente (modo força) ── */
+/* ── Horário forçado (modo força) ─────────────── */
 function aplicarHoraForca(value) {
     if (!value) return;
     var parts = value.split(':');
     var h = parseInt(parts[0]), m = parseInt(parts[1] || 0);
-    var dateParts = DATA_SEL.split('-');
-    var d = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]), h, m, 0);
+    var dp = DATA_SEL.split('-');
+    var d = new Date(parseInt(dp[0]), parseInt(dp[1]) - 1, parseInt(dp[2]), h, m, 0);
     var ts = Math.floor(d.getTime() / 1000);
-
-    // Desmarca slot da grade se houver
     document.querySelectorAll('.slot-livre.slot-sel').forEach(function(b) { b.classList.remove('slot-sel'); });
-
     slotSelecionadoTs = ts;
     document.getElementById('inp_hora').value = value;
     document.getElementById('lblHoraSel').textContent = value;
