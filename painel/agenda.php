@@ -323,6 +323,41 @@ if ($vista === 'calendario') {
 $paginaTitulo = 'Agenda';
 $areaAtual    = 'painel';
 require_once __DIR__ . '/../geral/header.php';
+?><style>
+.tp-picker{position:relative;}
+.tp-trigger{
+    display:flex;align-items:center;gap:.3rem;
+    padding:.18rem .45rem;border-radius:7px;
+    border:1px solid var(--card-border-color);
+    background:var(--bg-card);cursor:pointer;
+    font-size:.75rem;min-height:26px;white-space:nowrap;
+    transition:border-color .15s;user-select:none;max-width:145px;
+}
+.tp-trigger:hover{border-color:var(--accent);}
+.tp-trigger.open{border-color:var(--accent);border-radius:7px 7px 0 0;}
+.tp-label{color:var(--text-secondary);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;}
+.tp-label.tp-selected{color:var(--text-main);font-weight:600;}
+.tp-caret{color:var(--text-secondary);font-size:.6rem;transition:transform .2s;flex-shrink:0;}
+.tp-trigger.open .tp-caret{transform:rotate(180deg);}
+.tp-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block;}
+.tp-dropdown{
+    position:absolute;top:100%;right:0;min-width:160px;
+    background:var(--bg-card);
+    border:1px solid var(--accent);border-top:none;
+    border-radius:0 0 8px 8px;
+    z-index:500;box-shadow:0 6px 20px rgba(0,0,0,.2);
+    overflow:hidden;
+}
+.tp-item{
+    display:flex;align-items:center;gap:.45rem;
+    padding:.38rem .65rem;font-size:.8rem;cursor:pointer;
+    transition:background .1s;border-bottom:1px solid var(--card-border-color);
+    color:var(--text-main);
+}
+.tp-item:last-child{border-bottom:none;}
+.tp-item:hover{background:var(--accent-light);color:var(--accent);}
+.tp-clear{color:var(--text-secondary);font-size:.73rem;font-style:italic;}
+</style><?php
 
 // ── Helper: botões de ação do agendamento ─────────────────────
 function botoesAgendamento(array $ag, string $csrfToken, array $extraGet = []): string
@@ -505,19 +540,36 @@ $csrfToken = gerarTokenCSRF();
                 <?php endif ?>
                 <div class="ms-auto d-flex align-items-center gap-2 flex-shrink-0">
                     <?php if (!empty($tiposDia)): ?>
-                    <select class="form-select form-select-sm"
-                            style="width:auto;max-width:130px;font-size:.75rem;padding:.15rem .5rem .15rem .4rem;"
-                            id="sltTipoDiaLista_<?= $key ?>"
-                            onchange="alterarTipoDiaLista(this.value, '<?= $key ?>', this)">
-                        <option value="">— Tipo —</option>
-                        <?php foreach ($tiposDia as $tp): ?>
-                        <option value="<?= h($tp['IDTipo']) ?>"
-                            data-cor="<?= h($tp['Cor']) ?>"
-                            <?= (isset($diasEspSemana[$key]) && $diasEspSemana[$key]['IDTipo'] === $tp['IDTipo']) ? 'selected' : '' ?>>
-                            <?= h($tp['Nome']) ?>
-                        </option>
-                        <?php endforeach ?>
-                    </select>
+                    <?php $deAtual = $diasEspSemana[$key] ?? null; ?>
+                    <div class="tp-picker" id="tpPicker_<?= h($key) ?>">
+                        <div class="tp-trigger" id="tpTrigger_<?= h($key) ?>" tabindex="0"
+                             onclick="tpToggle('<?= h($key) ?>')"
+                             onkeydown="if(event.key==='Enter'||event.key===' ')tpToggle('<?= h($key) ?>')">
+                            <span class="tp-dot <?= $deAtual ? '' : 'd-none' ?>" id="tpDot_<?= h($key) ?>"
+                                  style="<?= $deAtual ? 'background:' . h($deAtual['Cor']) : '' ?>;"></span>
+                            <span class="tp-label <?= $deAtual ? 'tp-selected' : '' ?>" id="tpLabel_<?= h($key) ?>">
+                                <?= $deAtual ? h($deAtual['Nome']) : '— Tipo —' ?>
+                            </span>
+                            <span class="tp-caret"><i class="bi bi-chevron-down"></i></span>
+                        </div>
+                        <div class="tp-dropdown d-none" id="tpDropdown_<?= h($key) ?>">
+                            <div class="tp-item tp-clear"
+                                 data-id="" data-nome="" data-cor=""
+                                 onmousedown="event.preventDefault();tpSelecionar('<?= h($key) ?>',this)">
+                                — Remover —
+                            </div>
+                            <?php foreach ($tiposDia as $tp): ?>
+                            <div class="tp-item"
+                                 data-id="<?= h($tp['IDTipo']) ?>"
+                                 data-nome="<?= h($tp['Nome']) ?>"
+                                 data-cor="<?= h($tp['Cor']) ?>"
+                                 onmousedown="event.preventDefault();tpSelecionar('<?= h($key) ?>',this)">
+                                <span class="tp-dot" style="background:<?= h($tp['Cor']) ?>;"></span>
+                                <?= h($tp['Nome']) ?>
+                            </div>
+                            <?php endforeach ?>
+                        </div>
+                    </div>
                     <?php endif ?>
                     <span class="badge bg-secondary"><?= count($ags) ?> ag.</span>
                 </div>
@@ -623,6 +675,53 @@ $csrfToken = gerarTokenCSRF();
         function escHtmlLista(s) {
             return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
+
+        // ── Tipo picker ─────────────────────────────
+        var _tpAberto = null;
+
+        function tpAbrir(key) {
+            _tpAberto = key;
+            document.getElementById('tpTrigger_'  + key).classList.add('open');
+            document.getElementById('tpDropdown_' + key).classList.remove('d-none');
+            document.addEventListener('click', tpClickFora, true);
+        }
+        function tpFechar(key) {
+            if (!key) return;
+            _tpAberto = null;
+            var t = document.getElementById('tpTrigger_'  + key);
+            var d = document.getElementById('tpDropdown_' + key);
+            if (t) t.classList.remove('open');
+            if (d) d.classList.add('d-none');
+            document.removeEventListener('click', tpClickFora, true);
+        }
+        function tpClickFora(e) {
+            if (!_tpAberto) return;
+            var p = document.getElementById('tpPicker_' + _tpAberto);
+            if (p && !p.contains(e.target)) tpFechar(_tpAberto);
+        }
+        window.tpToggle = function(key) {
+            if (_tpAberto && _tpAberto !== key) tpFechar(_tpAberto);
+            (_tpAberto === key) ? tpFechar(key) : tpAbrir(key);
+        };
+        window.tpSelecionar = function(key, el) {
+            var id   = el.dataset.id;
+            var nome = el.dataset.nome;
+            var cor  = el.dataset.cor;
+            tpFechar(key);
+            var lbl = document.getElementById('tpLabel_' + key);
+            var dot = document.getElementById('tpDot_'   + key);
+            if (id) {
+                lbl.textContent = nome;
+                lbl.className   = 'tp-label tp-selected';
+                dot.style.background = cor;
+                dot.classList.remove('d-none');
+            } else {
+                lbl.textContent = '— Tipo —';
+                lbl.className   = 'tp-label';
+                dot.classList.add('d-none');
+            }
+            alterarTipoDiaLista(id, key, null);
+        };
     }());
     </script>
     <?php endif ?>
