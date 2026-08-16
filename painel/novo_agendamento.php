@@ -636,24 +636,45 @@ a.dia-card:hover {
                     <!-- Serviço -->
                     <div class="mb-3">
                         <label class="form-label fw-medium">Serviço <span class="text-danger">*</span></label>
-                        <select name="fk_servico" id="selServico" class="form-select" required onchange="onServicoChange()">
-                            <option value="">Selecione…</option>
-                            <?php foreach ($servicos as $sv): ?>
-                                <option value="<?= h($sv['IDServico']) ?>"
-                                        data-duracao="<?= (int)$sv['DuracaoMinutos'] ?>"
-                                        data-preco="<?= (float)$sv['Preco'] ?>">
-                                    <?= h($sv['Nome']) ?> (<?= (int)$sv['DuracaoMinutos'] ?>min)
-                                </option>
-                            <?php endforeach ?>
-                        </select>
+                        <input type="hidden" name="fk_servico" id="inpServicoId">
+                        <div class="cliente-picker" id="svPicker">
+                            <div class="cp-trigger" id="svTrigger" tabindex="0"
+                                 onclick="svpToggle()" onkeydown="if(event.key==='Enter'||event.key===' ')svpToggle()">
+                                <span id="svLabel" class="cp-placeholder">Selecione o serviço…</span>
+                                <span class="cp-caret"><i class="bi bi-chevron-down"></i></span>
+                            </div>
+                            <div class="cp-dropdown d-none" id="svDropdown">
+                                <div class="cp-search-wrap">
+                                    <i class="bi bi-search cp-search-icon"></i>
+                                    <input type="text" class="cp-search" id="svSearch"
+                                           placeholder="Buscar serviço…" autocomplete="off"
+                                           oninput="svpFiltrar(this.value)">
+                                </div>
+                                <div class="cp-list" id="svList"></div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Sub-serviço -->
                     <div class="mb-3 d-none" id="wrapSub">
                         <label class="form-label fw-medium">Manutenção / variante</label>
-                        <select name="fk_sub_sel" id="selSub" class="form-select" onchange="onSubChange()">
-                            <option value="">— Sem manutenção —</option>
-                        </select>
+                        <input type="hidden" name="fk_sub" id="inpSubId">
+                        <div class="cliente-picker" id="ssPicker">
+                            <div class="cp-trigger" id="ssTrigger" tabindex="0"
+                                 onclick="sspToggle()" onkeydown="if(event.key==='Enter'||event.key===' ')sspToggle()">
+                                <span id="ssLabel" class="cp-placeholder">— Sem manutenção —</span>
+                                <span class="cp-caret"><i class="bi bi-chevron-down"></i></span>
+                            </div>
+                            <div class="cp-dropdown d-none" id="ssDropdown">
+                                <div class="cp-search-wrap">
+                                    <i class="bi bi-search cp-search-icon"></i>
+                                    <input type="text" class="cp-search" id="ssSearch"
+                                           placeholder="Buscar manutenção…" autocomplete="off"
+                                           oninput="sspFiltrar(this.value)">
+                                </div>
+                                <div class="cp-list" id="ssList"></div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Duração -->
@@ -799,49 +820,147 @@ function atualizarValidezSlots() {
     });
 }
 
-/* ── Serviço / sub-serviço ───────────────────── */
-function onServicoChange() {
-    var sel   = document.getElementById('selServico');
-    var opt   = sel.options[sel.selectedIndex];
-    var svId  = sel.value;
-    var durac = svId ? parseInt(opt.dataset.duracao) : 0;
-    var preco = svId ? parseFloat(opt.dataset.preco)  : 0;
+/* ── Serviço — picker (svp) ──────────────────── */
+var svAberto      = false;
+var svSelecionado = null;
 
-    var wrapSub = document.getElementById('wrapSub');
-    var selSub  = document.getElementById('selSub');
-    var sv      = SERVICOS.find(function (s) { return s.id === svId; });
+function svpToggle() { svAberto ? svpFechar() : svpAbrir(); }
 
-    selSub.innerHTML = '<option value="">— Sem manutenção —</option>';
-    document.getElementById('inp_fk_sub').value = '';
-
-    if (sv && sv.subs.length > 0) {
-        sv.subs.forEach(function (ss) {
-            var o = document.createElement('option');
-            o.value = ss.id;
-            o.textContent = ss.nome + ' (' + ss.duracao + 'min)';
-            o.dataset.duracao = ss.duracao;
-            o.dataset.preco   = ss.preco;
-            selSub.appendChild(o);
-        });
-        wrapSub.classList.remove('d-none');
-    } else {
-        wrapSub.classList.add('d-none');
-    }
-    aplicarDuracaoPreco(durac, preco);
+function svpAbrir() {
+    svAberto = true;
+    document.getElementById('svTrigger').classList.add('open');
+    document.getElementById('svDropdown').classList.remove('d-none');
+    document.getElementById('svSearch').value = '';
+    svpRenderizar(SERVICOS);
+    setTimeout(function() { document.getElementById('svSearch').focus(); }, 40);
+    document.addEventListener('click', svpClickFora, true);
 }
 
-function onSubChange() {
-    var selSub = document.getElementById('selSub');
-    var opt    = selSub.options[selSub.selectedIndex];
-    if (selSub.value) {
-        document.getElementById('inp_fk_sub').value = selSub.value;
-        aplicarDuracaoPreco(parseInt(opt.dataset.duracao), parseFloat(opt.dataset.preco));
+function svpFechar() {
+    svAberto = false;
+    document.getElementById('svTrigger').classList.remove('open');
+    document.getElementById('svDropdown').classList.add('d-none');
+    document.removeEventListener('click', svpClickFora, true);
+}
+
+function svpClickFora(e) {
+    if (!document.getElementById('svPicker').contains(e.target)) svpFechar();
+}
+
+function svpFiltrar(q) {
+    q = q.toLowerCase();
+    svpRenderizar(SERVICOS.filter(function(sv) { return sv.nome.toLowerCase().indexOf(q) !== -1; }));
+}
+
+function svpRenderizar(lista) {
+    var el = document.getElementById('svList');
+    if (!lista.length) { el.innerHTML = '<div class="cp-empty">Nenhum serviço encontrado.</div>'; return; }
+    el.innerHTML = '';
+    lista.forEach(function(sv) {
+        var div = document.createElement('div');
+        div.className = 'cp-item' + (svSelecionado && svSelecionado.id === sv.id ? ' cp-active' : '');
+        div.innerHTML = '<div class="cp-item-nome">' + escHtml(sv.nome) + '</div>'
+            + '<div class="cp-item-tel">' + sv.duracao + ' min · R$ ' + sv.preco.toFixed(2).replace('.', ',') + '</div>';
+        div.addEventListener('mousedown', function(e) { e.preventDefault(); svpSelecionar(sv); });
+        el.appendChild(div);
+    });
+}
+
+function svpSelecionar(sv) {
+    svSelecionado = sv;
+    document.getElementById('inpServicoId').value = sv.id;
+    var lbl = document.getElementById('svLabel');
+    lbl.textContent = sv.nome;
+    lbl.className = 'cp-selected';
+    svpFechar();
+
+    // Reinicia sub-serviço
+    ssSelecionado = null;
+    ssListaAtual  = sv.subs || [];
+    document.getElementById('inpSubId').value = '';
+    var ssLbl = document.getElementById('ssLabel');
+    ssLbl.textContent = '— Sem manutenção —';
+    ssLbl.className = 'cp-placeholder';
+
+    if (ssListaAtual.length > 0) {
+        document.getElementById('wrapSub').classList.remove('d-none');
     } else {
-        document.getElementById('inp_fk_sub').value = '';
-        var selSv = document.getElementById('selServico');
-        var optSv = selSv.options[selSv.selectedIndex];
-        if (selSv.value) aplicarDuracaoPreco(parseInt(optSv.dataset.duracao), parseFloat(optSv.dataset.preco));
+        document.getElementById('wrapSub').classList.add('d-none');
     }
+    aplicarDuracaoPreco(sv.duracao, sv.preco);
+}
+
+/* ── Sub-serviço — picker (ssp) ──────────────── */
+var ssAberto      = false;
+var ssSelecionado = null;
+var ssListaAtual  = [];
+
+function sspToggle() { ssAberto ? sspFechar() : sspAbrir(); }
+
+function sspAbrir() {
+    ssAberto = true;
+    document.getElementById('ssTrigger').classList.add('open');
+    document.getElementById('ssDropdown').classList.remove('d-none');
+    document.getElementById('ssSearch').value = '';
+    sspRenderizar(ssListaAtual);
+    setTimeout(function() { document.getElementById('ssSearch').focus(); }, 40);
+    document.addEventListener('click', sspClickFora, true);
+}
+
+function sspFechar() {
+    ssAberto = false;
+    document.getElementById('ssTrigger').classList.remove('open');
+    document.getElementById('ssDropdown').classList.add('d-none');
+    document.removeEventListener('click', sspClickFora, true);
+}
+
+function sspClickFora(e) {
+    if (!document.getElementById('ssPicker').contains(e.target)) sspFechar();
+}
+
+function sspFiltrar(q) {
+    q = q.toLowerCase();
+    sspRenderizar(ssListaAtual.filter(function(ss) { return ss.nome.toLowerCase().indexOf(q) !== -1; }));
+}
+
+function sspRenderizar(lista) {
+    var el = document.getElementById('ssList');
+    el.innerHTML = '';
+
+    var semDiv = document.createElement('div');
+    semDiv.className = 'cp-item' + (!ssSelecionado ? ' cp-active' : '');
+    semDiv.innerHTML = '<div class="cp-item-nome" style="font-weight:400;color:var(--text-secondary);">— Sem manutenção —</div>';
+    semDiv.addEventListener('mousedown', function(e) { e.preventDefault(); sspLimpar(); });
+    el.appendChild(semDiv);
+
+    lista.forEach(function(ss) {
+        var div = document.createElement('div');
+        div.className = 'cp-item' + (ssSelecionado && ssSelecionado.id === ss.id ? ' cp-active' : '');
+        div.innerHTML = '<div class="cp-item-nome">' + escHtml(ss.nome) + '</div>'
+            + '<div class="cp-item-tel">' + ss.duracao + ' min · R$ ' + ss.preco.toFixed(2).replace('.', ',') + '</div>';
+        div.addEventListener('mousedown', function(e) { e.preventDefault(); sspSelecionar(ss); });
+        el.appendChild(div);
+    });
+}
+
+function sspSelecionar(ss) {
+    ssSelecionado = ss;
+    document.getElementById('inpSubId').value = ss.id;
+    var lbl = document.getElementById('ssLabel');
+    lbl.textContent = ss.nome;
+    lbl.className = 'cp-selected';
+    sspFechar();
+    aplicarDuracaoPreco(ss.duracao, ss.preco);
+}
+
+function sspLimpar() {
+    ssSelecionado = null;
+    document.getElementById('inpSubId').value = '';
+    var lbl = document.getElementById('ssLabel');
+    lbl.textContent = '— Sem manutenção —';
+    lbl.className = 'cp-placeholder';
+    sspFechar();
+    if (svSelecionado) aplicarDuracaoPreco(svSelecionado.duracao, svSelecionado.preco);
 }
 
 function aplicarDuracaoPreco(duracao, preco) {
@@ -956,7 +1075,7 @@ function validarForm() {
     var erro = '';
 
     if (!slotSelecionadoTs) { ok = false; erro = 'Selecione um horário na grade.'; }
-    if (!document.getElementById('selServico').value) { ok = false; erro = erro || 'Selecione um serviço.'; }
+    if (!document.getElementById('inpServicoId').value) { ok = false; erro = erro || 'Selecione um serviço.'; }
 
     if (tipoCliente === 'cadastrada' && !document.getElementById('inpClienteId').value) {
         ok = false; erro = erro || 'Selecione uma cliente.';
