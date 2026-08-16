@@ -367,24 +367,44 @@ function botoesAgendamento(array $ag, string $csrfToken, array $extraGet = []): 
     $dataBr = date('d/m/Y', strtotime($ag['DataHoraAgendamento']));
     $eHoje  = date('Y-m-d', strtotime($ag['DataHoraAgendamento'])) === date('Y-m-d');
 
-    // Botão dedicado "Confirmar presença" para pendente/confirmado com telefone
-    if ($ag['Telefone'] && in_array($ag['StatusAgendamento'], ['pendente', 'confirmado'])) {
+    // Botão WhatsApp contextual — acompanha o fluxo do status
+    if ($ag['Telefone']) {
+        $status = $ag['StatusAgendamento'];
         $num    = waNumero($ag['Telefone']);
         $nome   = $ag['NomeCliente'] ?? '';
         $agId   = $ag['IDAgendamento'];
         $cliId  = $ag['FKCliente'] ?? '';
-        $pulse  = ($eHoje && $ag['StatusAgendamento'] === 'pendente') ? ' bc-confirmar-pulse' : '';
-        $out .= '<button type="button"'
-              . ' class="btn btn-sm btn-success bc-wa-msg bc-confirmar-btn' . $pulse . '"'
-              . ' data-tel="'    . h($num)    . '"'
-              . ' data-nome="'   . h($nome)   . '"'
-              . ' data-ag-id="'  . h($agId)   . '"'
-              . ' data-cli-id="' . h($cliId)  . '"'
-              . ' data-acao="confirmar"'
-              . ' data-label="Confirmar presença"'
-              . ' title="Confirmar presença via WhatsApp">'
-              . '<i class="bi bi-whatsapp me-1"></i><span class="d-none d-lg-inline">Confirmar</span>'
-              . '</button>';
+
+        if ($status === 'pendente') {
+            $pulse = ($eHoje) ? ' bc-confirmar-pulse' : '';
+            $out .= '<button type="button"'
+                  . ' class="btn btn-sm btn-success bc-wa-msg bc-confirmar-btn' . $pulse . '"'
+                  . ' data-tel="'   . h($num)  . '" data-nome="'   . h($nome) . '"'
+                  . ' data-ag-id="' . h($agId) . '" data-cli-id="' . h($cliId) . '"'
+                  . ' data-acao="confirmar" data-label="Confirmar presença"'
+                  . ' title="Confirmar presença via WhatsApp">'
+                  . '<i class="bi bi-whatsapp me-1"></i><span class="d-none d-lg-inline">Confirmar</span>'
+                  . '</button>';
+        } elseif ($status === 'confirmado') {
+            $out .= '<button type="button"'
+                  . ' class="btn btn-sm btn-warning bc-wa-msg"'
+                  . ' data-tel="'   . h($num)  . '" data-nome="'   . h($nome) . '"'
+                  . ' data-ag-id="' . h($agId) . '" data-cli-id="' . h($cliId) . '"'
+                  . ' data-acao="cobrar" data-label="Cobrar pagamento"'
+                  . ' title="Cobrar pagamento via WhatsApp">'
+                  . '<i class="bi bi-whatsapp me-1"></i><span class="d-none d-lg-inline">Cobrar</span>'
+                  . '</button>';
+        } elseif ($status === 'concluido') {
+            $out .= '<button type="button"'
+                  . ' class="btn btn-sm btn-accent bc-wa-msg"'
+                  . ' style="background:var(--accent);border-color:var(--accent);color:#fff;"'
+                  . ' data-tel="'   . h($num)  . '" data-nome="'   . h($nome) . '"'
+                  . ' data-ag-id="' . h($agId) . '" data-cli-id="' . h($cliId) . '"'
+                  . ' data-acao="avaliacao" data-label="Pedir avaliação"'
+                  . ' title="Pedir avaliação via WhatsApp">'
+                  . '<i class="bi bi-whatsapp me-1"></i><span class="d-none d-lg-inline">Avaliar</span>'
+                  . '</button>';
+        }
     }
 
     if ($ag['Telefone']) {
