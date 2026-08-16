@@ -304,17 +304,43 @@ require_once __DIR__ . '/../geral/header.php';
     color: var(--text-secondary);
     border-color: var(--card-border-color);
     opacity: .7;
+    cursor: pointer;
 }
+.slot-ocupado:hover  { opacity: 1; border-color: var(--accent); }
 .slot-bloqueado {
     background: rgba(192,96,74,.12);
     color: #C0604A;
     border-color: rgba(192,96,74,.3);
+    cursor: pointer;
 }
+.slot-bloqueado:hover { border-color: rgba(192,96,74,.7); background: rgba(192,96,74,.2); }
 .slot-almoco {
     background: rgba(212,150,58,.1);
     color: #D4963A;
     border-color: rgba(212,150,58,.3);
+    cursor: pointer;
 }
+.slot-almoco:hover { border-color: rgba(212,150,58,.7); background: rgba(212,150,58,.18); }
+
+/* ── Popover de info de slot ─────────────────── */
+#slotPopover {
+    position: fixed;
+    z-index: 600;
+    background: var(--bg-card);
+    border: 1.5px solid var(--accent);
+    border-radius: 10px;
+    padding: .6rem .9rem;
+    box-shadow: 0 6px 24px rgba(0,0,0,.22);
+    font-size: .82rem;
+    max-width: 240px;
+    line-height: 1.45;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity .1s;
+}
+#slotPopover .sp-hora { font-weight: 700; color: var(--accent); margin-bottom: .2rem; font-size: .88rem; }
+#slotPopover .sp-desc { color: var(--text-main); }
+#slotPopover .sp-sub  { color: var(--text-secondary); font-size: .78rem; margin-top: .1rem; }
 .slot[data-info]:hover::after {
     content: attr(data-info);
     position: absolute;
@@ -579,20 +605,30 @@ a.dia-card:hover {
                                     <?= h($s['hora']) ?>
                                 </button>
                             <?php elseif ($s['status'] === 'ocupado'): ?>
-                                <span class="slot slot-ocupado" data-info="<?= h($s['info']) ?>">
+                                <span class="slot slot-ocupado" tabindex="0"
+                                      data-hora="<?= h($s['hora']) ?>" data-info="<?= h($s['info']) ?>"
+                                      onclick="verInfoSlot(event,this)"
+                                      onkeydown="if(event.key==='Enter')verInfoSlot(event,this)">
                                     <?= h($s['hora']) ?>
                                 </span>
                             <?php elseif ($s['status'] === 'bloqueado'): ?>
-                                <span class="slot slot-bloqueado" data-info="<?= h($s['info']) ?>">
+                                <span class="slot slot-bloqueado" tabindex="0"
+                                      data-hora="<?= h($s['hora']) ?>" data-info="<?= h($s['info']) ?>"
+                                      onclick="verInfoSlot(event,this)"
+                                      onkeydown="if(event.key==='Enter')verInfoSlot(event,this)">
                                     <?= h($s['hora']) ?>
                                 </span>
                             <?php else: ?>
-                                <span class="slot slot-almoco" data-info="<?= h($s['info']) ?>">
+                                <span class="slot slot-almoco" tabindex="0"
+                                      data-hora="<?= h($s['hora']) ?>" data-info="<?= h($s['info']) ?>"
+                                      onclick="verInfoSlot(event,this)"
+                                      onkeydown="if(event.key==='Enter')verInfoSlot(event,this)">
                                     <?= h($s['hora']) ?>
                                 </span>
                             <?php endif ?>
                         <?php endforeach ?>
                     </div>
+                    <div id="slotPopover" style="display:none;"></div>
 
                     <?php if ($forca): ?>
                     <div class="mt-3 p-3 rounded-3" style="background:var(--bg-hover);border:1.5px dashed var(--card-border-color);">
@@ -1116,6 +1152,51 @@ function aplicarHoraForca(value) {
     atualizarHoraFim();
     validarForm();
 }
+
+/* ── Popover de info de slot ─────────────────── */
+function verInfoSlot(e, el) {
+    e.stopPropagation();
+    var hora = el.dataset.hora || el.textContent.trim();
+    var info = el.dataset.info || '';
+    var tipo = el.classList.contains('slot-ocupado')   ? 'ocupado'
+             : el.classList.contains('slot-bloqueado') ? 'bloqueado' : 'intervalo';
+
+    var icone = tipo === 'ocupado'   ? '<i class="bi bi-person-fill me-1"></i>'
+              : tipo === 'bloqueado' ? '<i class="bi bi-lock-fill me-1"></i>'
+              :                       '<i class="bi bi-pause-circle-fill me-1"></i>';
+
+    var descHtml;
+    if (tipo === 'ocupado' && info.indexOf(' — ') !== -1) {
+        var partes = info.split(' — ');
+        descHtml = '<div class="sp-desc" style="font-weight:600;">' + escHtml(partes[0]) + '</div>'
+                 + '<div class="sp-sub">' + escHtml(partes.slice(1).join(' — ')) + '</div>';
+    } else {
+        descHtml = '<div class="sp-desc">' + escHtml(info) + '</div>';
+    }
+
+    var pop = document.getElementById('slotPopover');
+    pop.innerHTML = '<div class="sp-hora">' + icone + hora + '</div>' + descHtml;
+    pop.style.display = '';
+
+    var pw   = 220;
+    var rect = el.getBoundingClientRect();
+    var left = Math.max(8, Math.min(rect.left + rect.width / 2 - pw / 2, window.innerWidth - pw - 8));
+    pop.style.width = pw + 'px';
+    pop.style.left  = left + 'px';
+    pop.style.top   = '0px';
+
+    requestAnimationFrame(function () {
+        var ph  = pop.offsetHeight;
+        var top = rect.top - ph - 8;
+        if (top < 8) top = rect.bottom + 8;
+        pop.style.top = top + 'px';
+    });
+}
+
+document.addEventListener('click', function () {
+    var pop = document.getElementById('slotPopover');
+    if (pop) pop.style.display = 'none';
+});
 
 /* Observa campos de texto avulso */
 document.querySelector('[name="nome_avulso"]').addEventListener('input', validarForm);
