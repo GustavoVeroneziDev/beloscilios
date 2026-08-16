@@ -216,12 +216,39 @@ $svsJson = json_encode(array_map(fn($s) => [
     ], $subsPorSv[$s['IDServico']] ?? []),
 ], $servicos));
 
-$diasNomes = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
-$mesesNomes = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-$dataExibida = $diasNomes[$diaSemana] . ', ' . date('d', $dataTs) . ' de ' . $mesesNomes[(int)date('n', $dataTs)];
+// Semana corrente (segunda=0 … domingo=6, padrão brasileiro ISO 8601)
+$semanaIni     = date('Y-m-d', $dataTs - (($diaSemana + 6) % 7) * 86400);
+$semanaFim     = date('Y-m-d', strtotime($semanaIni) + 6 * 86400);
+$semanaIniPrev = date('Y-m-d', strtotime($semanaIni) - 7 * 86400);
+$semanaIniNext = date('Y-m-d', strtotime($semanaIni) + 7 * 86400);
 
-$dataPrev = date('Y-m-d', $dataTs - 86400);
-$dataNext = date('Y-m-d', $dataTs + 86400);
+// Dias com expediente regular (para marcar no calendário)
+$horariosPorDiaSem = [];
+try {
+    foreach ($pdo->query('SELECT DiaSemana FROM HorariosAtendimento WHERE Ativo = 1')->fetchAll() as $h) {
+        $horariosPorDiaSem[$h['DiaSemana']] = true;
+    }
+} catch (PDOException) {}
+
+// Dias especiais da semana
+$diasEspeciaisSemana = [];
+try {
+    $dsSmt = $pdo->prepare(
+        'SELECT de.Data, td.BloqueiaTotal FROM DiasEspeciais de
+         JOIN TiposDia td ON td.IDTipo = de.FKTipo
+         WHERE de.Data BETWEEN :ini AND :fim'
+    );
+    $dsSmt->execute([':ini' => $semanaIni, ':fim' => $semanaFim]);
+    foreach ($dsSmt->fetchAll() as $de) {
+        $diasEspeciaisSemana[$de['Data']] = (bool)$de['BloqueiaTotal'];
+    }
+} catch (PDOException) {}
+
+$diasNomeCurto = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+$diasNomeCompl = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
+$mesesAbrev    = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+$mesesNomes    = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+$dataExibida   = $diasNomeCompl[($diaSemana + 6) % 7] . ', ' . date('d', $dataTs) . ' de ' . $mesesNomes[(int)date('n', $dataTs)];
 
 $paginaTitulo = 'Novo Agendamento';
 $areaAtual    = 'painel';
@@ -320,6 +347,36 @@ require_once __DIR__ . '/../geral/header.php';
     background: var(--accent-light);
     color: var(--accent);
 }
+
+/* ── Calendário semanal ────────────────────────── */
+.semana-nav { display:flex; align-items:center; gap:.5rem; }
+.semana-dias { display:flex; gap:.35rem; flex:1; justify-content:space-between; }
+.dia-card {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    flex:1; min-width:0; max-width:60px; min-height:70px;
+    border-radius:14px; border:2px solid var(--card-border-color);
+    background:var(--bg-card); cursor:pointer;
+    transition:border-color .15s,background .15s,color .15s,transform .12s;
+    text-decoration:none; color:var(--text-main);
+    padding:.45rem .2rem; position:relative; gap:.05rem;
+    -webkit-tap-highlight-color:transparent;
+}
+a.dia-card:hover {
+    border-color:var(--accent); background:var(--accent-light);
+    color:var(--accent); transform:translateY(-2px);
+}
+.dia-card.dia-sel  { background:var(--accent); border-color:var(--accent); color:#fff; }
+.dia-card.dia-fora { opacity:.38; }
+.dia-card.dia-hoje:not(.dia-sel) { border-color:var(--accent); border-width:2px; }
+.dia-nome { font-size:.6rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; line-height:1; }
+.dia-num  { font-size:1.15rem; font-weight:800; line-height:1.2; }
+.dia-mes  { font-size:.58rem; line-height:1; opacity:.65; }
+.dia-dot  { width:5px; height:5px; border-radius:50%; background:var(--accent); margin-bottom:1px; }
+.dia-card.dia-sel .dia-dot { background:rgba(255,255,255,.75); }
+.btn-semana {
+    width:36px; height:36px; padding:0; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; border-radius:10px;
+}
 </style>
 
 <!-- Cabeçalho da página -->
@@ -337,21 +394,51 @@ require_once __DIR__ . '/../geral/header.php';
 
     <!-- ── Grade de horários ── -->
     <div class="col-lg-7">
-        <div class="card">
-            <!-- Navegação de data -->
-            <div class="card-header px-4 py-3 d-flex align-items-center justify-content-between gap-2">
-                <a href="?data=<?= h($dataPrev) ?>" class="btn btn-sm btn-outline-secondary" title="Dia anterior">
+
+        <!-- Calendário semanal -->
+        <div class="card mb-3 p-3">
+            <div class="semana-nav">
+                <a href="?data=<?= h($semanaIniPrev) ?>" class="btn btn-outline-secondary btn-semana" title="Semana anterior">
                     <i class="bi bi-chevron-left"></i>
                 </a>
-                <div class="text-center flex-grow-1">
-                    <div class="fw-bold"><?= h($dataExibida) ?></div>
-                    <input type="date" id="seletorData" class="form-control form-control-sm mt-1"
-                           style="max-width:160px;margin:0 auto;"
-                           value="<?= h($dataSel) ?>">
+                <div class="semana-dias">
+                <?php for ($i = 0; $i < 7; $i++):
+                    $dTs    = strtotime($semanaIni) + $i * 86400;
+                    $d      = date('Y-m-d', $dTs);
+                    $ehHoje = $d === date('Y-m-d');
+                    $ehSel  = $d === $dataSel;
+                    $phpDow = ($i + 1) % 7;
+                    $bloqTotal     = isset($diasEspeciaisSemana[$d]) && $diasEspeciaisSemana[$d];
+                    $temExpBase    = isset($horariosPorDiaSem[$phpDow]);
+                    $temExpEspecial = isset($diasEspeciaisSemana[$d]) && !$diasEspeciaisSemana[$d];
+                    $semExp        = $bloqTotal || (!$temExpBase && !$temExpEspecial);
+
+                    $classes = 'dia-card';
+                    if ($ehSel)               $classes .= ' dia-sel';
+                    if ($ehHoje)              $classes .= ' dia-hoje';
+                    if ($semExp && !$ehSel)   $classes .= ' dia-fora';
+
+                    $tag  = !$ehSel ? 'a' : 'span';
+                    $href = !$ehSel ? ' href="?data=' . h($d) . '"' : '';
+                ?>
+                    <<?= $tag ?><?= $href ?> class="<?= $classes ?>" title="<?= $diasNomeCompl[$i] . ', ' . date('d/m', $dTs) ?>">
+                        <?php if ($ehHoje): ?><span class="dia-dot"></span><?php endif ?>
+                        <span class="dia-nome"><?= $diasNomeCurto[$i] ?></span>
+                        <span class="dia-num"><?= date('j', $dTs) ?></span>
+                        <span class="dia-mes"><?= $mesesAbrev[(int)date('n', $dTs) - 1] ?></span>
+                    </<?= $tag ?>>
+                <?php endfor ?>
                 </div>
-                <a href="?data=<?= h($dataNext) ?>" class="btn btn-sm btn-outline-secondary" title="Próximo dia">
+                <a href="?data=<?= h($semanaIniNext) ?>" class="btn btn-outline-secondary btn-semana" title="Próxima semana">
                     <i class="bi bi-chevron-right"></i>
                 </a>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header px-4 py-3 d-flex align-items-center gap-2">
+                <i class="bi bi-clock text-accent"></i>
+                <span class="fw-medium"><?= h($dataExibida) ?></span>
             </div>
 
             <div class="card-body p-4">
@@ -555,11 +642,6 @@ var DATA_SEL       = '<?= $dataSel ?>';
 var slotSelecionadoTs = null;
 var duracaoAtual      = 0;
 var tipoCliente       = 'cadastrada';
-
-/* ── Navegação de data ────────────────────────── */
-document.getElementById('seletorData').addEventListener('change', function () {
-    if (this.value) location.href = '?data=' + this.value;
-});
 
 /* ── Seleção de slot ──────────────────────────── */
 function selecionarSlot(btn) {
