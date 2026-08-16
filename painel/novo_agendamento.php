@@ -341,25 +341,6 @@ require_once __DIR__ . '/../geral/header.php';
 #slotPopover .sp-hora { font-weight: 700; color: var(--accent); margin-bottom: .2rem; font-size: .88rem; }
 #slotPopover .sp-desc { color: var(--text-main); }
 #slotPopover .sp-sub  { color: var(--text-secondary); font-size: .78rem; margin-top: .1rem; }
-.slot[data-info]:hover::after {
-    content: attr(data-info);
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%);
-    background: #10002b;
-    color: #fff;
-    font-size: .72rem;
-    font-weight: 400;
-    padding: .3rem .65rem;
-    border-radius: 6px;
-    white-space: nowrap;
-    pointer-events: none;
-    z-index: 20;
-    max-width: 220px;
-    text-overflow: ellipsis;
-    overflow: hidden;
-}
 #badgeHoraFim {
     font-size: .78rem;
     padding: .25rem .6rem;
