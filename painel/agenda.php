@@ -629,12 +629,16 @@ $csrfToken = gerarTokenCSRF();
                                 <div class="flex-grow-1">
                                     <div class="d-flex align-items-center gap-1 flex-wrap">
                                         <span class="fw-medium"><?= h($ag['NomeCliente']) ?></span>
-                                        <?php if (!empty($ag['AlertaAlto'])): ?>
-                                        <span class="badge bg-danger" title="Ficha: atenção alta — verificar antes do atendimento"><i class="bi bi-heart-pulse-fill"></i></span>
+                                        <?php
+                                        $fichaUrl = BASE . '/painel/cliente_detalhe.php?id=' . h($ag['FKCliente']) . '#ficha';
+                                        if (!empty($ag['AlertaAlto'])): ?>
+                                        <a href="<?= $fichaUrl ?>" class="badge bg-danger text-decoration-none" title="Ficha: atenção ALTA — verificar antes do atendimento"><i class="bi bi-clipboard2-pulse-fill"></i></a>
                                         <?php elseif (!empty($ag['AlertaMedio'])): ?>
-                                        <span class="badge bg-warning text-dark" title="Ficha: atenção moderada"><i class="bi bi-heart-pulse"></i></span>
-                                        <?php elseif (empty($ag['TemFicha'])): ?>
-                                        <span class="badge bg-secondary" style="opacity:.6;" title="Sem ficha de anamnese"><i class="bi bi-clipboard2-x"></i></span>
+                                        <a href="<?= $fichaUrl ?>" class="badge bg-warning text-dark text-decoration-none" title="Ficha: atenção moderada"><i class="bi bi-clipboard2-pulse"></i></a>
+                                        <?php elseif (!empty($ag['TemFicha'])): ?>
+                                        <a href="<?= $fichaUrl ?>" class="badge bg-success text-decoration-none" title="Ficha preenchida — sem alertas"><i class="bi bi-clipboard2-check-fill"></i></a>
+                                        <?php else: ?>
+                                        <span class="badge bg-secondary" style="opacity:.5;" title="Sem ficha de anamnese"><i class="bi bi-clipboard2-x"></i></span>
                                         <?php endif ?>
                                     </div>
                                     <span class="text-secondary small d-block d-md-inline">
@@ -687,7 +691,11 @@ $csrfToken = gerarTokenCSRF();
                     badge.innerHTML = '';
                     badge.classList.add('d-none');
                 }
-                bcToast(tipoId ? 'Tipo atribuído!' : 'Tipo removido!', 'success');
+                if (res.aviso) {
+                    bcToast('⚠ ' + res.aviso, 'warning');
+                } else {
+                    bcToast(tipoId ? 'Tipo atribuído!' : 'Tipo removido!', 'success');
+                }
             })
             .catch(() => bcToast('Erro de conexão.', 'danger'));
         };
@@ -1167,11 +1175,12 @@ $csrfToken = gerarTokenCSRF();
                         botoes += '<button class="btn btn-sm btn-outline-secondary" onclick="acaoAg(\'concluir\',\'' + ag.id + '\')" title="Concluído"><i class="bi bi-check2-all"></i></button>';
                     }
 
+                    const fichaUrl = BASE_URL + '/painel/cliente_detalhe.php?id=' + encodeURIComponent(ag.cliId) + '#ficha';
                     const alertaBadges = {
-                        alto:     '<span class="badge bg-danger ms-1" title="Ficha: atenção alta — verificar antes do atendimento"><i class="bi bi-heart-pulse-fill"></i></span>',
-                        medio:    '<span class="badge bg-warning text-dark ms-1" title="Ficha: atenção moderada"><i class="bi bi-heart-pulse"></i></span>',
-                        sem_ficha:'<span class="badge bg-secondary ms-1" style="opacity:.6;" title="Sem ficha de anamnese"><i class="bi bi-clipboard2-x"></i></span>',
-                        ok:       '',
+                        alto:     '<a href="' + fichaUrl + '" class="badge bg-danger ms-1 text-decoration-none" title="Ficha: atenção ALTA — verificar antes do atendimento"><i class="bi bi-clipboard2-pulse-fill"></i></a>',
+                        medio:    '<a href="' + fichaUrl + '" class="badge bg-warning text-dark ms-1 text-decoration-none" title="Ficha: atenção moderada"><i class="bi bi-clipboard2-pulse"></i></a>',
+                        sem_ficha:'<span class="badge bg-secondary ms-1" style="opacity:.5;" title="Sem ficha de anamnese"><i class="bi bi-clipboard2-x"></i></span>',
+                        ok:       '<a href="' + fichaUrl + '" class="badge bg-success ms-1 text-decoration-none" title="Ficha preenchida — sem alertas"><i class="bi bi-clipboard2-check-fill"></i></a>',
                     };
                     const alertaBadge = alertaBadges[ag.alerta] || '';
 

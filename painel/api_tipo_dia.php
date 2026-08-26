@@ -41,9 +41,10 @@ switch ($acao) {
         $tipo = $stmt->fetch();
         if (!$tipo) { echo json_encode(['ok' => false, 'msg' => 'Tipo não encontrado']); exit; }
 
-        // Aviso: tipo que bloqueia o dia inteiro + agendamentos confirmados nessa data
+        // Aviso: agendamentos existentes que conflitam com o novo tipo
         $aviso = null;
         if ($tipo['BloqueiaTotal']) {
+            // Bloqueia o dia inteiro — qualquer agendamento é conflito
             $cntAg = $pdo->prepare(
                 'SELECT COUNT(*) FROM Agendamentos
                  WHERE DATE(DataHoraAgendamento) = :d
@@ -52,7 +53,24 @@ switch ($acao) {
             $cntAg->execute([':d' => $data]);
             $qtdAg = (int)$cntAg->fetchColumn();
             if ($qtdAg > 0) {
-                $aviso = "Há {$qtdAg} agendamento(s) neste dia. Cancelamentos devem ser feitos manualmente.";
+                $aviso = "Atenção: há {$qtdAg} agendamento(s) neste dia. O dia ficará bloqueado mas os atendimentos não serão cancelados automaticamente — verifique e cancele manualmente se necessário.";
+            }
+        } elseif ($tipo['HoraInicio'] && $tipo['HoraFim']) {
+            // Horário restrito — avisa agendamentos fora da nova janela
+            $cntFora = $pdo->prepare(
+                'SELECT COUNT(*) FROM Agendamentos
+                 WHERE DATE(DataHoraAgendamento) = :d
+                   AND StatusAgendamento NOT IN (\'cancelado\')
+                   AND (TIME(DataHoraAgendamento) < :ini OR TIME(DataHoraFim) > :fim)'
+            );
+            $cntFora->execute([
+                ':d'   => $data,
+                ':ini' => substr($tipo['HoraInicio'], 0, 8),
+                ':fim' => substr($tipo['HoraFim'],    0, 8),
+            ]);
+            $qtdFora = (int)$cntFora->fetchColumn();
+            if ($qtdFora > 0) {
+                $aviso = "Atenção: {$qtdFora} agendamento(s) ficam fora do novo horário ({$tipo['HoraInicio']}–{$tipo['HoraFim']}). Verifique e reagende se necessário.";
             }
         }
 

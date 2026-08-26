@@ -3,9 +3,16 @@ if (session_status() === PHP_SESSION_NONE) session_start();
 require_once __DIR__ . '/../config/conexao.php';
 exigirLogin('designer');
 
-$dataSel    = trim($_GET['data'] ?? date('Y-m-d'));
-$dataTs     = strtotime($dataSel) ?: time();
+$dataSel    = trim($_GET['data'] ?? '');
+$dataTs     = $dataSel ? (strtotime($dataSel) ?: time()) : time();
 $dataSel    = date('Y-m-d', $dataTs);
+
+// Não permite abrir datas passadas — redireciona para hoje
+if ($dataSel < date('Y-m-d')) {
+    header('Location: ' . BASE . '/painel/novo_agendamento.php?data=' . date('Y-m-d'));
+    exit;
+}
+
 $diaSemana  = (int) date('w', $dataTs);
 $intervalo  = (int) getConfig($pdo, 'intervalo_minutos', '15');
 $forca      = !empty($_GET['forca']);
@@ -495,18 +502,21 @@ a.dia-card:hover {
                     $ehHoje = $d === $hoje;
                     $ehSel  = $d === $dataSel;
                     $phpDow = ($i + 1) % 7;
+                    $ehPassado      = ($d < $hoje);
                     $bloqTotal      = isset($diasEspeciaisSemana[$d]) && $diasEspeciaisSemana[$d];
                     $temExpBase     = isset($horariosPorDiaSem[$phpDow]);
                     $temExpEspecial = isset($diasEspeciaisSemana[$d]) && !$diasEspeciaisSemana[$d];
                     $semExp         = $bloqTotal || (!$temExpBase && !$temExpEspecial);
 
                     $classes = 'dia-card';
-                    if ($ehSel)             $classes .= ' dia-sel';
-                    if ($ehHoje)            $classes .= ' dia-hoje';
-                    if ($semExp && !$ehSel) $classes .= ' dia-fora';
+                    if ($ehSel)                          $classes .= ' dia-sel';
+                    if ($ehHoje)                         $classes .= ' dia-hoje';
+                    if ($semExp && !$ehSel)              $classes .= ' dia-fora';
+                    if ($ehPassado && !$ehSel)           $classes .= ' dia-off';
 
-                    $tag  = !$ehSel ? 'a' : 'span';
-                    $href = !$ehSel ? ' href="?data=' . h($d) . '"' : '';
+                    $ehClicavel = !$ehSel && !$ehPassado;
+                    $tag  = $ehClicavel ? 'a' : 'span';
+                    $href = $ehClicavel ? ' href="?data=' . h($d) . '"' : '';
                 ?>
                     <<?= $tag ?><?= $href ?> class="<?= $classes ?>" title="<?= $diasNomeCompl[$i] . ', ' . date('d/m', $dTs) ?>">
                         <?php if ($ehHoje): ?><span class="dia-dot"></span><?php endif ?>
