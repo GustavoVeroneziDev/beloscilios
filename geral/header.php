@@ -216,7 +216,7 @@ $nivelAcesso   = $_SESSION['nivel_acesso'] ?? '';
                     </span>
                     <a href="<?= BASE ?>/painel/agenda.php?sair_preview=1"
                        class="btn btn-sm fw-semibold flex-shrink-0"
-                       style="background:#f59e0b;color:#fff;border:none;white-space:nowrap;">
+                       style="background:#f59e0b;color:#fff;border:none;white-space:nowrap;align-self:center;">
                         <i class="bi bi-x me-1"></i>Sair
                     </a>
                 </div>
