@@ -5,7 +5,12 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/../config/conexao.php';
 exigirLogin('designer');
 
-$vista = $_GET['vista'] ?? 'lista';
+if (isset($_GET['vista'])) {
+    $vista = $_GET['vista'] === 'calendario' ? 'calendario' : 'lista';
+    setcookie('agenda_vista', $vista, time() + 60 * 60 * 24 * 365, '/');
+} else {
+    $vista = ($_COOKIE['agenda_vista'] ?? '') === 'calendario' ? 'calendario' : 'lista';
+}
 
 // ── Ação POST ─────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
