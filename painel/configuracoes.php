@@ -82,6 +82,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
+        // Captura os novos horários para usar na verificação de conflitos após salvar
+        $novosHorarios = [];
+        for ($d = 0; $d <= 6; $d++) {
+            if (!isset($_POST["dia_{$d}_ativo"])) continue;
+            $novosHorarios[$d] = [
+                'ini'       => $_POST["dia_{$d}_ini"] ?? '09:00',
+                'fim'       => $_POST["dia_{$d}_fim"] ?? '18:00',
+                'almocoIni' => isset($_POST["dia_{$d}_almoco_ativo"]) ? (trim($_POST["dia_{$d}_almoco_ini"] ?? '') ?: null) : null,
+                'almocoFim' => isset($_POST["dia_{$d}_almoco_ativo"]) ? (trim($_POST["dia_{$d}_almoco_fim"] ?? '') ?: null) : null,
+            ];
+        }
+
         try {
             $pdo->beginTransaction();
             $pdo->exec('DELETE FROM HorariosAtendimento');
@@ -90,22 +102,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     (IDHorario, DiaSemana, HoraInicio, HoraFim, AlmocoInicio, AlmocoFim, Ativo)
                  VALUES (:id, :d, :ini, :fim, :alni, :alfm, 1)'
             );
-            for ($d = 0; $d <= 6; $d++) {
-                if (!isset($_POST["dia_{$d}_ativo"])) continue;
-                $ini       = $_POST["dia_{$d}_ini"] ?? '09:00';
-                $fim       = $_POST["dia_{$d}_fim"] ?? '18:00';
-                $temAlmoco = isset($_POST["dia_{$d}_almoco_ativo"]);
-                $almocoIni = $temAlmoco ? (trim($_POST["dia_{$d}_almoco_ini"] ?? '') ?: null) : null;
-                $almocoFim = $temAlmoco ? (trim($_POST["dia_{$d}_almoco_fim"] ?? '') ?: null) : null;
-                $stmt->execute([':id' => gerarUuid(), ':d' => $d, ':ini' => $ini,
-                                ':fim' => $fim, ':alni' => $almocoIni, ':alfm' => $almocoFim]);
+            foreach ($novosHorarios as $d => $h) {
+                $stmt->execute([':id' => gerarUuid(), ':d' => $d, ':ini' => $h['ini'],
+                                ':fim' => $h['fim'], ':alni' => $h['almocoIni'], ':alfm' => $h['almocoFim']]);
             }
             $pdo->commit();
-            redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=horarios', 'Horários atualizados!', 'success');
         } catch (PDOException $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             error_log('[Horarios] ' . $e->getMessage());
             redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=horarios', 'Erro ao salvar horários.', 'danger');
+        }
+
+        // Verifica conflitos com agendamentos futuros após salvar
+        $avisos = [];
+        try {
+            $stConf = $pdo->prepare(
+                'SELECT COUNT(*) FROM Agendamentos
+                 WHERE DAYOFWEEK(DataHoraAgendamento) = :dow
+                   AND DataHoraAgendamento >= CURDATE()
+                   AND StatusAgendamento NOT IN (\'cancelado\')
+                   AND (
+                       TIME(DataHoraAgendamento) < :ini
+                    OR TIME(DataHoraFim)         > :fim
+                    OR (:alm_ini IS NOT NULL AND TIME(DataHoraAgendamento) >= :alm_ini AND TIME(DataHoraAgendamento) < :alm_fim)
+                   )'
+            );
+            foreach ($novosHorarios as $d => $h) {
+                $stConf->execute([
+                    ':dow'     => $d + 1,           // MySQL DAYOFWEEK: 1=Dom … 7=Sáb
+                    ':ini'     => $h['ini'],
+                    ':fim'     => $h['fim'],
+                    ':alm_ini' => $h['almocoIni'],
+                    ':alm_fim' => $h['almocoFim'],
+                ]);
+                $qt = (int)$stConf->fetchColumn();
+                if ($qt > 0) {
+                    $avisos[] = "{$nomesLocal[$d]}: {$qt} agendamento(s) conflitam com o novo horário";
+                }
+            }
+        } catch (PDOException) {}
+
+        if ($avisos) {
+            redirecionarComMensagem(
+                BASE . '/painel/configuracoes.php?tab=horarios',
+                'Horários atualizados, mas atenção: ' . implode('; ', $avisos) . '. Verifique e reagende se necessário.',
+                'warning'
+            );
+        } else {
+            redirecionarComMensagem(BASE . '/painel/configuracoes.php?tab=horarios', 'Horários atualizados!', 'success');
         }
     }
 
