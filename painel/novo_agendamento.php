@@ -375,7 +375,7 @@ a.dia-card:hover {
 }
 .dia-card.dia-sel  { background:var(--accent); border-color:var(--accent); color:#fff; }
 .dia-card.dia-fora { opacity:.38; }
-.dia-card.dia-off  { opacity:.38; cursor:default; }
+.dia-card.dia-off  { opacity:.38; pointer-events:none; cursor:default; }
 .dia-card.dia-hoje:not(.dia-sel) { border-color:var(--accent); border-width:2px; }
 .dia-nome { font-size:.6rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; line-height:1; }
 .dia-num  { font-size:1.15rem; font-weight:800; line-height:1.2; }
@@ -468,23 +468,22 @@ a.dia-card:hover {
     <!-- ── Grade de horários ── -->
     <div class="col-lg-7">
 
+        <!-- Barra de atalhos -->
+        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+            <a href="?data=<?= h($hoje) ?>" class="btn btn-sm btn-outline-accent">
+                <i class="bi bi-calendar-event me-1"></i>Hoje
+            </a>
+            <div class="ms-auto d-flex align-items-center gap-2">
+                <label for="saltarData" class="small text-secondary mb-0 flex-shrink-0">Ir para:</label>
+                <input type="date" id="saltarData"
+                       class="form-control form-control-sm"
+                       style="max-width:145px;"
+                       value="<?= h($dataSel) ?>">
+            </div>
+        </div>
+
         <!-- Calendário semanal -->
         <div class="card mb-3 p-3">
-
-            <!-- Barra de atalhos -->
-            <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-                <a href="?data=<?= h($hoje) ?>" class="btn btn-sm btn-outline-accent">
-                    <i class="bi bi-calendar-event me-1"></i>Hoje
-                </a>
-                <div class="ms-auto d-flex align-items-center gap-2">
-                    <label for="saltarData" class="small text-secondary mb-0 flex-shrink-0">Ir para:</label>
-                    <input type="date" id="saltarData"
-                           class="form-control form-control-sm"
-                           style="max-width:145px;"
-                           value="<?= h($dataSel) ?>">
-                </div>
-            </div>
-
             <div class="semana-nav">
                 <?php if ($podeIrAntes): ?>
                 <a href="?data=<?= h($semanaIniPrev) ?>" class="btn btn-outline-secondary btn-semana" title="Semana anterior">
