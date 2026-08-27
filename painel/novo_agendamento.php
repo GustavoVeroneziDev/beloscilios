@@ -375,6 +375,7 @@ a.dia-card:hover {
 }
 .dia-card.dia-sel  { background:var(--accent); border-color:var(--accent); color:#fff; }
 .dia-card.dia-fora { opacity:.38; }
+.dia-card.dia-off  { opacity:.38; cursor:default; }
 .dia-card.dia-hoje:not(.dia-sel) { border-color:var(--accent); border-width:2px; }
 .dia-nome { font-size:.6rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; line-height:1; }
 .dia-num  { font-size:1.15rem; font-weight:800; line-height:1.2; }
