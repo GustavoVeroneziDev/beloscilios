@@ -387,12 +387,12 @@ function botoesAgendamento(array $ag, string $csrfToken, array $extraGet = []): 
                   . '</button>';
         } elseif ($status === 'confirmado') {
             $out .= '<button type="button"'
-                  . ' class="btn btn-sm btn-warning bc-wa-msg"'
+                  . ' class="btn btn-sm btn-outline-success bc-wa-msg"'
                   . ' data-tel="'   . h($num)  . '" data-nome="'   . h($nome) . '"'
                   . ' data-ag-id="' . h($agId) . '" data-cli-id="' . h($cliId) . '"'
-                  . ' data-acao="cobrar" data-label="Cobrar pagamento"'
-                  . ' title="Cobrar pagamento via WhatsApp">'
-                  . '<i class="bi bi-whatsapp me-1"></i><span class="d-none d-lg-inline">Cobrar</span>'
+                  . ' data-acao="lembrar" data-label="Lembrar horário"'
+                  . ' title="Lembrar horário via WhatsApp">'
+                  . '<i class="bi bi-whatsapp me-1"></i><span class="d-none d-lg-inline">Lembrar</span>'
                   . '</button>';
         } elseif ($status === 'concluido') {
             $out .= '<button type="button"'
