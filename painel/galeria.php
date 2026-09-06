@@ -160,6 +160,26 @@ require_once __DIR__ . '/../geral/header.php';
 /* Estrela nos cards da galeria */
 .btn-home-star { transition:color .15s,background .15s; }
 .btn-home-star.ativo { background:#f0b900 !important;border-color:#f0b900 !important;color:#fff !important; }
+
+/* Indicadores de posição na vitrine */
+.vitrine-item.vi-destaque { border-color:#f5c400; box-shadow:0 0 0 2px rgba(245,196,0,.2); }
+.vitrine-item.vi-larga    { border-color:#f97316; box-shadow:0 0 0 2px rgba(249,115,22,.15); }
+.vitrine-tipo {
+    position:absolute;bottom:5px;right:5px;z-index:3;
+    width:10px;height:10px;border-radius:2px;
+    border:1.5px solid rgba(255,255,255,.45);
+    pointer-events:none;
+}
+.vitrine-tipo.vt-destaque { background:#f5c400; }
+.vitrine-tipo.vt-larga    { background:#f97316; }
+.vitrine-legenda {
+    display:inline-flex;align-items:center;gap:.9rem;
+    font-size:.67rem;color:var(--text-secondary);
+}
+.vitrine-legenda-dot {
+    display:inline-block;width:9px;height:9px;border-radius:2px;
+    vertical-align:middle;margin-right:.3rem;border:1.5px solid rgba(0,0,0,.12);
+}
 </style>
 
 <!-- Cabeçalho -->
@@ -193,10 +213,14 @@ require_once __DIR__ . '/../geral/header.php';
                 <p class="text-secondary small mb-0 mt-1">
                     <?php if (empty($imagensHome)): ?>
                     Nenhuma foto selecionada. Clique em <i class="bi bi-star"></i> nas fotos abaixo para adicionar.
-                    <?php elseif (count($imagensHome) === 1): ?>
-                    1 foto. A primeira aparece em destaque (maior). Arraste para reordenar.
                     <?php else: ?>
-                    <?= count($imagensHome) ?> fotos. A <strong>1ª aparece em destaque</strong> (maior). Arraste para reordenar. Clique em <i class="bi bi-crosshair2"></i> para ajustar o enquadramento.
+                    <?= count($imagensHome) ?> foto<?= count($imagensHome) !== 1 ? 's' : '' ?>. Arraste para reordenar. Clique em <i class="bi bi-crosshair2"></i> para ajustar enquadramento.
+                    <br class="d-none d-sm-block">
+                    <span class="vitrine-legenda mt-1 d-inline-flex">
+                        <span><span class="vitrine-legenda-dot" style="background:#f5c400"></span>Grande e alta (1ª)</span>
+                        <span><span class="vitrine-legenda-dot" style="background:#f97316"></span>Larga</span>
+                        <span><span class="vitrine-legenda-dot" style="background:var(--accent);opacity:.6"></span>Normal</span>
+                    </span>
                     <?php endif ?>
                 </p>
             </div>
@@ -227,8 +251,13 @@ require_once __DIR__ . '/../geral/header.php';
         $focoExtras = ['center 25%','center 35%','center 55%','center 70%','center 80%'];
         ?>
         <div id="vitrineLista" class="d-flex gap-3 flex-wrap align-items-start">
-            <?php foreach ($imagensHome as $i => $vimg): ?>
-            <div class="vitrine-item" data-id="<?= h($vimg['IDImagem']) ?>" draggable="true">
+            <?php foreach ($imagensHome as $i => $vimg):
+                $viDestaque = $i === 0;
+                $viLarga    = $i >= 5 && ($i - 5) % 3 === 0;
+                $viClass    = $viDestaque ? 'vi-destaque' : ($viLarga ? 'vi-larga' : '');
+                $tipoClass  = $viDestaque ? 'vt-destaque' : ($viLarga ? 'vt-larga' : '');
+            ?>
+            <div class="vitrine-item <?= $viClass ?>" data-id="<?= h($vimg['IDImagem']) ?>" draggable="true">
                 <div class="vitrine-num"><?= $i + 1 ?></div>
                 <img src="<?= BASE ?>/geral/img/galeria/<?= h($vimg['NomeArquivo']) ?>"
                      alt="<?= h($vimg['TituloExibicao'] ?? '') ?>"
@@ -237,6 +266,7 @@ require_once __DIR__ . '/../geral/header.php';
                 <?php if ($i === 0): ?>
                 <div class="vitrine-destaque-badge">Destaque</div>
                 <?php endif ?>
+                <div class="vitrine-tipo <?= $tipoClass ?>"<?= (!$viDestaque && !$viLarga) ? ' style="display:none"' : '' ?>></div>
                 <div class="vitrine-actions">
                     <!-- Foco picker -->
                     <div class="dropdown">
@@ -992,6 +1022,42 @@ require_once __DIR__ . '/../geral/header.php';
         if (!lista) return;
         var dragSrc = null;
 
+        // Atualiza números, badge destaque e indicadores de cor por posição
+        function atualizarVitrine() {
+            lista.querySelectorAll('.vitrine-item').forEach(function(el, idx) {
+                // Número
+                var num = el.querySelector('.vitrine-num');
+                if (num) num.textContent = idx + 1;
+                // Badge "Destaque" apenas no 1º
+                var badge = el.querySelector('.vitrine-destaque-badge');
+                if (idx === 0) {
+                    if (!badge) {
+                        badge = document.createElement('div');
+                        badge.className = 'vitrine-destaque-badge';
+                        badge.textContent = 'Destaque';
+                        el.appendChild(badge);
+                    }
+                } else if (badge) { badge.remove(); }
+                // Classes de posição — determina cor da borda
+                var isD = idx === 0;
+                var isL = idx >= 5 && (idx - 5) % 3 === 0;
+                el.classList.remove('vi-destaque', 'vi-larga');
+                if (isD)      el.classList.add('vi-destaque');
+                else if (isL) el.classList.add('vi-larga');
+                // Dot indicador de canto
+                var tipo = el.querySelector('.vitrine-tipo');
+                if (!tipo) {
+                    tipo = document.createElement('div');
+                    tipo.className = 'vitrine-tipo';
+                    el.appendChild(tipo);
+                }
+                tipo.classList.remove('vt-destaque', 'vt-larga');
+                if (isD)      { tipo.classList.add('vt-destaque'); tipo.style.display = ''; }
+                else if (isL) { tipo.classList.add('vt-larga');    tipo.style.display = ''; }
+                else            tipo.style.display = 'none';
+            });
+        }
+
         lista.addEventListener('dragstart', function(e) {
             dragSrc = e.target.closest('.vitrine-item');
             if (!dragSrc) return;
@@ -1014,26 +1080,14 @@ require_once __DIR__ . '/../geral/header.php';
             var over = e.target.closest('.vitrine-item');
             if (!over || !dragSrc || over === dragSrc) return;
             over.classList.remove('drag-over');
-            // Reposiciona no DOM
-            var items = Array.from(lista.querySelectorAll('.vitrine-item'));
-            var si = items.indexOf(dragSrc);
-            var oi = items.indexOf(over);
-            if (si < oi) lista.insertBefore(dragSrc, over.nextSibling);
-            else         lista.insertBefore(dragSrc, over);
-            // Atualiza números e badge destaque
-            lista.querySelectorAll('.vitrine-item').forEach(function(el, idx) {
-                var num = el.querySelector('.vitrine-num');
-                if (num) num.textContent = idx + 1;
-                var badge = el.querySelector('.vitrine-destaque-badge');
-                if (idx === 0) {
-                    if (!badge) {
-                        badge = document.createElement('div');
-                        badge.className = 'vitrine-destaque-badge';
-                        badge.textContent = 'Destaque';
-                        el.appendChild(badge);
-                    }
-                } else if (badge) { badge.remove(); }
-            });
+            // Swap verdadeiro: só troca as duas posições, não desloca o resto
+            var ph = document.createElement('div');
+            dragSrc.parentNode.insertBefore(ph, dragSrc);
+            over.parentNode.insertBefore(dragSrc, over);
+            ph.parentNode.insertBefore(over, ph);
+            ph.parentNode.removeChild(ph);
+            // Atualiza UI
+            atualizarVitrine();
             // Persiste nova ordem
             var ids = Array.from(lista.querySelectorAll('.vitrine-item')).map(function(el) {
                 return el.dataset.id;
