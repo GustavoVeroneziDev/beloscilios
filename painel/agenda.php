@@ -35,6 +35,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    // Marcar pagamento como recebido — só faz sentido após o atendimento concluído
+    if ($acao === 'marcar_pago' && $id) {
+        try {
+            $pdo->prepare(
+                'UPDATE Agendamentos SET StatusPagamento = \'pago\'
+                 WHERE IDAgendamento = :id AND StatusAgendamento = \'concluido\' AND StatusPagamento = \'pendente\''
+            )->execute([':id' => $id]);
+            $params = array_filter(['vista' => $_GET['vista'] ?? null, 'mes' => $_GET['mes'] ?? null, 'semana' => $_GET['semana'] ?? null]);
+            $qs = $params ? '?' . http_build_query($params) : '';
+            redirecionarComMensagem(BASE . '/painel/agenda.php' . $qs, 'Pagamento registrado!', 'success');
+        } catch (PDOException $e) {
+            error_log('[Agenda] ' . $e->getMessage());
+            redirecionarComMensagem(BASE . '/painel/agenda.php', 'Erro ao registrar pagamento.', 'danger');
+        }
+    }
+
     // Adicionar bloqueio de horário
     if ($acao === 'bloquear') {
         $ini    = trim($_POST['bloq_ini'] ?? '');
@@ -318,6 +334,7 @@ if ($vista === 'calendario') {
             'duracao' => $ag['DuracaoMinutos'],
             'status'  => $ag['StatusAgendamento'],
             'pag'     => $ag['StatusPagamento'],
+            'passou'  => strtotime($ag['DataHoraAgendamento']) <= time(),
             'tel'     => waNumero($ag['Telefone'] ?? ''),
             'dataBr'  => date('d/m', strtotime($ag['DataHoraAgendamento'])),
             'alerta'  => $ag['AlertaAlto'] ? 'alto' : ($ag['AlertaMedio'] ? 'medio' : ($ag['TemFicha'] ? 'ok' : 'sem_ficha')),
@@ -371,8 +388,11 @@ function botoesAgendamento(array $ag, string $csrfToken, array $extraGet = []): 
     $hora   = date('H:i', strtotime($ag['DataHoraAgendamento']));
     $dataBr = date('d/m/Y', strtotime($ag['DataHoraAgendamento']));
     $eHoje  = date('Y-m-d', strtotime($ag['DataHoraAgendamento'])) === date('Y-m-d');
+    $futuro = strtotime($ag['DataHoraAgendamento']) > time();
 
-    // Botão WhatsApp contextual — acompanha o fluxo do status
+    // Botão WhatsApp contextual — acompanha o fluxo do status. Só aparece em
+    // telas grandes: no celular ele duplicava o próprio dropdown de WhatsApp
+    // logo ao lado, com dois ícones idênticos e sem rótulo.
     if ($ag['Telefone']) {
         $status = $ag['StatusAgendamento'];
         $num    = waNumero($ag['Telefone']);
@@ -383,31 +403,33 @@ function botoesAgendamento(array $ag, string $csrfToken, array $extraGet = []): 
         if ($status === 'pendente') {
             $pulse = ($eHoje) ? ' bc-confirmar-pulse' : '';
             $out .= '<button type="button"'
-                  . ' class="btn btn-sm btn-success bc-wa-msg bc-confirmar-btn' . $pulse . '"'
+                  . ' class="btn btn-sm btn-success bc-wa-msg bc-confirmar-btn d-none d-lg-inline-block' . $pulse . '"'
                   . ' data-tel="'   . h($num)  . '" data-nome="'   . h($nome) . '"'
                   . ' data-ag-id="' . h($agId) . '" data-cli-id="' . h($cliId) . '"'
                   . ' data-acao="confirmar" data-label="Confirmar presença"'
                   . ' title="Confirmar presença via WhatsApp">'
-                  . '<i class="bi bi-whatsapp me-1"></i><span class="d-none d-lg-inline">Confirmar</span>'
+                  . '<i class="bi bi-whatsapp me-1"></i>Confirmar'
                   . '</button>';
-        } elseif ($status === 'confirmado') {
+        } elseif ($status === 'confirmado' && $futuro) {
+            // Se já passou da hora e ainda não foi marcado como concluído,
+            // "lembrar do horário" não faz mais sentido — some o botão.
             $out .= '<button type="button"'
-                  . ' class="btn btn-sm btn-outline-success bc-wa-msg"'
+                  . ' class="btn btn-sm btn-outline-success bc-wa-msg d-none d-lg-inline-block"'
                   . ' data-tel="'   . h($num)  . '" data-nome="'   . h($nome) . '"'
                   . ' data-ag-id="' . h($agId) . '" data-cli-id="' . h($cliId) . '"'
                   . ' data-acao="lembrar" data-label="Lembrar horário"'
                   . ' title="Lembrar horário via WhatsApp">'
-                  . '<i class="bi bi-whatsapp me-1"></i><span class="d-none d-lg-inline">Lembrar</span>'
+                  . '<i class="bi bi-whatsapp me-1"></i>Lembrar'
                   . '</button>';
         } elseif ($status === 'concluido') {
             $out .= '<button type="button"'
-                  . ' class="btn btn-sm btn-accent bc-wa-msg"'
+                  . ' class="btn btn-sm btn-accent bc-wa-msg d-none d-lg-inline-block"'
                   . ' style="background:var(--accent);border-color:var(--accent);color:#fff;"'
                   . ' data-tel="'   . h($num)  . '" data-nome="'   . h($nome) . '"'
                   . ' data-ag-id="' . h($agId) . '" data-cli-id="' . h($cliId) . '"'
                   . ' data-acao="avaliacao" data-label="Pedir avaliação"'
                   . ' title="Pedir avaliação via WhatsApp">'
-                  . '<i class="bi bi-whatsapp me-1"></i><span class="d-none d-lg-inline">Avaliar</span>'
+                  . '<i class="bi bi-whatsapp me-1"></i>Avaliar'
                   . '</button>';
         }
     }
@@ -416,7 +438,10 @@ function botoesAgendamento(array $ag, string $csrfToken, array $extraGet = []): 
         $serv = $ag['NomeSubServico'] ?? $ag['NomeServico'] ?? '';
         $out .= waBotoesDropdown(
             $ag['Telefone'], $ag['NomeCliente'] ?? '', $serv, $hora, $dataBr,
-            '', true, $ag['IDAgendamento'], $ag['FKCliente'] ?? ''
+            '', true, $ag['IDAgendamento'], $ag['FKCliente'] ?? '',
+            statusAg: $ag['StatusAgendamento'],
+            statusPag: $ag['StatusPagamento'],
+            futuro: $futuro
         );
     }
     if (in_array($ag['StatusAgendamento'], ['pendente', 'confirmado'])) {
@@ -454,6 +479,14 @@ function botoesAgendamento(array $ag, string $csrfToken, array $extraGet = []): 
                     <input type="hidden" name="id" value="' . h($ag['IDAgendamento']) . '">
                     <button class="btn btn-sm btn-outline-secondary" title="Concluído">
                         <i class="bi bi-check2-all"></i></button></form>';
+    }
+    if ($ag['StatusAgendamento'] === 'concluido' && $ag['StatusPagamento'] === 'pendente') {
+        $out .= '<form method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="' . $csrfToken . '">
+                    <input type="hidden" name="acao" value="marcar_pago">
+                    <input type="hidden" name="id" value="' . h($ag['IDAgendamento']) . '">
+                    <button class="btn btn-sm btn-outline-success" title="Marcar como pago">
+                        <i class="bi bi-cash-coin"></i></button></form>';
     }
     if ($ag['StatusAgendamento'] === 'concluido') {
         $out .= '<form method="POST" class="d-inline"
@@ -653,7 +686,9 @@ $csrfToken = gerarTokenCSRF();
                                 </div>
                                 <div class="d-flex align-items-center gap-1 flex-wrap">
                                     <?= labelStatus($ag['StatusAgendamento']) ?>
+                                    <?php if (exibirBadgePagamento($ag['StatusAgendamento'], $ag['StatusPagamento'])): ?>
                                     <?= labelStatusPag($ag['StatusPagamento']) ?>
+                                    <?php endif ?>
                                 </div>
                                 <?= botoesAgendamento($ag, $csrfToken, ['vista' => 'lista', 'semana' => $semanaOffset]) ?>
                             </div>
@@ -969,6 +1004,22 @@ $csrfToken = gerarTokenCSRF();
             <input type="hidden" name="acao" value="concluir">
             <input type="hidden" name="id" id="frmConcluirId">
         </form>
+        <form id="formReabrir" method="POST"
+            data-confirm="Reabrir este atendimento como confirmado?"
+            data-confirm-label="Reabrir">
+            <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+            <input type="hidden" name="vista" value="calendario">
+            <input type="hidden" name="mes" value="<?= h($mesSel) ?>">
+            <input type="hidden" name="acao" value="reabrir">
+            <input type="hidden" name="id" id="frmReabrirId">
+        </form>
+        <form id="formMarcarPago" method="POST">
+            <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+            <input type="hidden" name="vista" value="calendario">
+            <input type="hidden" name="mes" value="<?= h($mesSel) ?>">
+            <input type="hidden" name="acao" value="marcar_pago">
+            <input type="hidden" name="id" id="frmMarcarPagoId">
+        </form>
     </div>
 
     <script>
@@ -1158,9 +1209,34 @@ $csrfToken = gerarTokenCSRF();
                     const li = document.createElement('li');
                     li.className = 'list-group-item px-4 py-2';
 
+                    const futuro = !ag.passou;
                     let botoes = '';
+
+                    // Botão de WhatsApp contextual — só em telas grandes.
+                    // No celular ele duplicava o dropdown de WhatsApp logo ao
+                    // lado com dois ícones idênticos e sem rótulo.
                     if (ag.tel) {
-                        botoes += waDropdownHtml(ag.tel, ag.nome, ag.id, ag.cliId);
+                        if (ag.status === 'pendente') {
+                            botoes += '<button type="button" class="btn btn-sm btn-success bc-wa-msg d-none d-lg-inline-block"'
+                                    + ' data-tel="' + escHtml(ag.tel) + '" data-nome="' + escHtml(ag.nome) + '"'
+                                    + ' data-ag-id="' + escHtml(ag.id) + '" data-cli-id="' + escHtml(ag.cliId || '') + '"'
+                                    + ' data-acao="confirmar" data-label="Confirmar presença"'
+                                    + ' title="Confirmar presença via WhatsApp"><i class="bi bi-whatsapp"></i></button>';
+                        } else if (ag.status === 'confirmado' && futuro) {
+                            botoes += '<button type="button" class="btn btn-sm btn-outline-success bc-wa-msg d-none d-lg-inline-block"'
+                                    + ' data-tel="' + escHtml(ag.tel) + '" data-nome="' + escHtml(ag.nome) + '"'
+                                    + ' data-ag-id="' + escHtml(ag.id) + '" data-cli-id="' + escHtml(ag.cliId || '') + '"'
+                                    + ' data-acao="lembrar" data-label="Lembrar horário"'
+                                    + ' title="Lembrar horário via WhatsApp"><i class="bi bi-whatsapp"></i></button>';
+                        } else if (ag.status === 'concluido') {
+                            botoes += '<button type="button" class="btn btn-sm bc-wa-msg d-none d-lg-inline-block"'
+                                    + ' style="background:var(--accent);border-color:var(--accent);color:#fff;"'
+                                    + ' data-tel="' + escHtml(ag.tel) + '" data-nome="' + escHtml(ag.nome) + '"'
+                                    + ' data-ag-id="' + escHtml(ag.id) + '" data-cli-id="' + escHtml(ag.cliId || '') + '"'
+                                    + ' data-acao="avaliacao" data-label="Pedir avaliação"'
+                                    + ' title="Pedir avaliação via WhatsApp"><i class="bi bi-whatsapp"></i></button>';
+                        }
+                        botoes += waDropdownHtml(ag.tel, ag.nome, ag.id, ag.cliId, ag.status, ag.pag, futuro);
                     }
                     if (ag.status === 'pendente') {
                         botoes += '<button class="btn btn-sm btn-outline-success" onclick="acaoAg(\'confirmar\',\'' + ag.id + '\')" title="Confirmar"><i class="bi bi-check-lg"></i></button>';
@@ -1178,6 +1254,12 @@ $csrfToken = gerarTokenCSRF();
                     }
                     if (ag.status === 'confirmado') {
                         botoes += '<button class="btn btn-sm btn-outline-secondary" onclick="acaoAg(\'concluir\',\'' + ag.id + '\')" title="Concluído"><i class="bi bi-check2-all"></i></button>';
+                    }
+                    if (ag.status === 'concluido' && ag.pag === 'pendente') {
+                        botoes += '<button class="btn btn-sm btn-outline-success" onclick="acaoAg(\'marcar_pago\',\'' + ag.id + '\')" title="Marcar como pago"><i class="bi bi-cash-coin"></i></button>';
+                    }
+                    if (ag.status === 'concluido') {
+                        botoes += '<button class="btn btn-sm btn-outline-primary" onclick="acaoAg(\'reabrir\',\'' + ag.id + '\')" title="Reabrir como confirmado"><i class="bi bi-arrow-counterclockwise"></i></button>';
                     }
 
                     const fichaUrl = BASE_URL + '/painel/cliente_detalhe.php?id=' + encodeURIComponent(ag.cliId) + '#ficha';
@@ -1199,7 +1281,9 @@ $csrfToken = gerarTokenCSRF();
                         '</div>' +
                         '<div class="d-flex gap-1 align-items-center flex-wrap">' +
                         (statusLabel[ag.status] || '') +
-                        (pagLabel[ag.pag] || '') +
+                        // Espelha exibirBadgePagamento() do PHP: só mostra se já pago,
+                        // ou se concluído com pagamento pendente (nunca antes disso).
+                        ((ag.pag === 'pago' || (ag.status === 'concluido' && ag.pag === 'pendente')) ? (pagLabel[ag.pag] || '') : '') +
                         '</div>' +
                         '<div class="d-flex gap-1">' + botoes + '</div>' +
                         '</div>';
@@ -1230,11 +1314,13 @@ $csrfToken = gerarTokenCSRF();
                 confirmar: ['formConfirmar', 'frmConfId'],
                 cancelar: ['formCancelar', 'frmCancelId'],
                 concluir: ['formConcluir', 'frmConcluirId'],
+                reabrir: ['formReabrir', 'frmReabrirId'],
+                marcar_pago: ['formMarcarPago', 'frmMarcarPagoId'],
             };
             const [formId, inputId] = formMap[acao];
             document.getElementById(inputId).value = id;
             const form = document.getElementById(formId);
-            if (acao === 'cancelar') {
+            if (acao === 'cancelar' || acao === 'reabrir') {
                 // usa o sistema de data-confirm já existente no footer
                 form.dataset.confirmed = '';
                 form.dispatchEvent(new Event('submit', {
@@ -1252,7 +1338,7 @@ $csrfToken = gerarTokenCSRF();
                 .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
-        function waDropdownHtml(tel, nome, agId, cliId) {
+        function waDropdownHtml(tel, nome, agId, cliId, status, pag, futuro) {
             const d = 'data-tel="' + escHtml(tel) + '" data-nome="' + escHtml(nome)
                     + '" data-ag-id="' + escHtml(agId || '') + '" data-cli-id="' + escHtml(cliId || '') + '"';
 
@@ -1261,30 +1347,41 @@ $csrfToken = gerarTokenCSRF();
                 + ' data-acao="' + acao + '" data-label="' + escHtml(label) + '">'
                 + '<i class="bi ' + icon + ' me-2"></i>' + label + '</a></li>';
 
+            // Só mostra ações coerentes com o estado atual do agendamento —
+            // ex: nada de "pedir avaliação" antes do atendimento acontecer.
+            const mostrarLembrar   = (status === 'pendente' || status === 'confirmado') && futuro;
+            const mostrarConfirmar = status === 'pendente';
+            const mostrarReagendar = status === 'pendente' || status === 'confirmado';
+            const mostrarCobrar    = pag === 'pendente' && status === 'concluido';
+            const mostrarAvaliacao = status === 'concluido';
+
             let li = '<li><h6 class="dropdown-header px-3 py-1" style="font-size:.72rem;">Para ' + escHtml(nome) + '</h6></li>';
-            li += item('bi-bell text-warning',         'Lembrar horário',    'lembrar');
-            li += item('bi-check-circle text-success',  'Confirmar presença', 'confirmar');
-            li += item('bi-calendar-x text-secondary',  'Reagendar',          'reagendar');
-            li += '<li><hr class="dropdown-divider"></li>';
-            li += item('bi-cash text-danger',  'Cobrar pagamento', 'cobrar');
-            li += item('bi-star text-warning', 'Pedir avaliação',  'avaliacao');
-            li += '<li><hr class="dropdown-divider"></li>';
+            if (mostrarLembrar || mostrarConfirmar || mostrarReagendar) {
+                if (mostrarLembrar)   li += item('bi-bell text-warning',         'Lembrar horário',    'lembrar');
+                if (mostrarConfirmar) li += item('bi-check-circle text-success', 'Confirmar presença', 'confirmar');
+                if (mostrarReagendar) li += item('bi-calendar-x text-secondary', 'Reagendar',          'reagendar');
+                li += '<li><hr class="dropdown-divider"></li>';
+            }
+            if (mostrarCobrar)    li += item('bi-cash text-danger',  'Cobrar pagamento', 'cobrar');
+            if (mostrarAvaliacao) li += item('bi-star text-warning', 'Pedir avaliação',  'avaliacao');
+            if (mostrarCobrar || mostrarAvaliacao) li += '<li><hr class="dropdown-divider"></li>';
             li += '<li><a class="dropdown-item" href="https://wa.me/' + tel + '" target="_blank"><i class="bi bi-whatsapp me-2 text-success"></i>Conversa livre</a></li>';
 
-            const confirmarBtn = '<button type="button"'
-                + ' class="btn btn-sm btn-success bc-wa-msg bc-confirmar-btn"'
-                + ' ' + d
-                + ' data-acao="confirmar" data-label="Confirmar presença"'
-                + ' title="Confirmar presença via WhatsApp">'
-                + '<i class="bi bi-whatsapp me-1"></i>Confirmar</button>';
+            const menu = '<ul class="dropdown-menu dropdown-menu-end shadow-sm">' + li + '</ul>';
 
-            return '<div class="d-flex gap-1 align-items-center flex-wrap">'
-                + confirmarBtn
-                + '<div class="btn-group btn-group-sm" role="group">'
+            // Desktop: ícone de chat direto + caret com a lista de ações.
+            const desktop = '<div class="btn-group btn-group-sm d-none d-lg-inline-flex" role="group">'
                 + '<a href="https://wa.me/' + tel + '" target="_blank" class="btn btn-outline-success" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>'
                 + '<button type="button" class="btn btn-outline-success dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false"><span class="visually-hidden">Mensagens</span></button>'
-                + '<ul class="dropdown-menu dropdown-menu-end shadow-sm">' + li + '</ul>'
-                + '</div></div>';
+                + menu + '</div>';
+
+            // Mobile: um único botão de WhatsApp que abre a lista filtrada —
+            // evita 2 ícones parecidos e sem rótulo lado a lado.
+            const mobile = '<div class="btn-group btn-group-sm d-lg-none" role="group">'
+                + '<button type="button" class="btn btn-outline-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="WhatsApp — ações"><i class="bi bi-whatsapp"></i></button>'
+                + menu + '</div>';
+
+            return desktop + mobile;
         }
 
         function alterarTipoDia(tipoId) {

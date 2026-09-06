@@ -37,6 +37,12 @@ function waNumero(string $tel): string
  * Dropdown Bootstrap com mensagens rápidas para WhatsApp.
  * Cada item abre um modal editável (bcWaMsg) antes de ir ao WhatsApp.
  * $split=true → split button; $split=false → botão único (espaços compactos).
+ *
+ * $statusAg/$statusPag/$futuro dão contexto de um agendamento específico e
+ * filtram o menu para só oferecer ações coerentes com o estado atual (ex: não
+ * mostrar "Pedir avaliação" antes do atendimento acontecer). Quando $statusAg
+ * é null (uso genérico, sem agendamento associado — telas de cliente) o menu
+ * completo é mantido, como sempre foi.
  */
 function waBotoesDropdown(
     string $tel,
@@ -47,7 +53,10 @@ function waBotoesDropdown(
     string $valor         = '',
     bool   $split         = true,
     string $agendamentoId = '',
-    string $clienteId     = ''
+    string $clienteId     = '',
+    ?string $statusAg     = null,
+    ?string $statusPag    = null,
+    bool   $futuro        = true
 ): string {
     $num = waNumero($tel);
     if (!$num) return '';
@@ -65,29 +74,47 @@ function waBotoesDropdown(
              . '<i class="bi ' . $icon . ' me-2"></i>' . $label . '</a></li>';
     };
 
+    $temContexto      = $statusAg !== null;
+    $mostrarLembrar   = !$temContexto || (in_array($statusAg, ['pendente', 'confirmado'], true) && $futuro);
+    $mostrarConfirmar = !$temContexto || $statusAg === 'pendente';
+    $mostrarReagendar = !$temContexto || in_array($statusAg, ['pendente', 'confirmado'], true);
+    $mostrarCobrar    = !$temContexto || ($statusPag === 'pendente' && $statusAg === 'concluido');
+    $mostrarAvaliacao = !$temContexto || $statusAg === 'concluido';
+
     $li = '<li><h6 class="dropdown-header px-3 py-1" style="font-size:.72rem;">Para ' . h($nome) . '</h6></li>';
-    if ($hora || $agendamentoId) {
-        $li .= $item('bi-bell text-warning',         'Lembrar horário',    'lembrar');
-        $li .= $item('bi-check-circle text-success',  'Confirmar presença', 'confirmar');
-        $li .= $item('bi-calendar-x text-secondary',  'Reagendar',          'reagendar');
+    if (($hora || $agendamentoId) && ($mostrarLembrar || $mostrarConfirmar || $mostrarReagendar)) {
+        if ($mostrarLembrar)   $li .= $item('bi-bell text-warning',         'Lembrar horário',    'lembrar');
+        if ($mostrarConfirmar) $li .= $item('bi-check-circle text-success', 'Confirmar presença', 'confirmar');
+        if ($mostrarReagendar) $li .= $item('bi-calendar-x text-secondary', 'Reagendar',          'reagendar');
         $li .= '<li><hr class="dropdown-divider"></li>';
     }
-    $li .= $item('bi-cash text-danger',  'Cobrar pagamento', 'cobrar');
-    $li .= $item('bi-star text-warning', 'Pedir avaliação',  'avaliacao');
-    $li .= '<li><hr class="dropdown-divider"></li>';
+    if ($mostrarCobrar)    $li .= $item('bi-cash text-danger',  'Cobrar pagamento', 'cobrar');
+    if ($mostrarAvaliacao) $li .= $item('bi-star text-warning', 'Pedir avaliação',  'avaliacao');
+    if ($mostrarCobrar || $mostrarAvaliacao) $li .= '<li><hr class="dropdown-divider"></li>';
     $li .= '<li><a class="dropdown-item" href="https://wa.me/' . $num . '" target="_blank">'
          . '<i class="bi bi-whatsapp me-2 text-success"></i>Conversa livre</a></li>';
 
     $menu = '<ul class="dropdown-menu dropdown-menu-end shadow-sm">' . $li . '</ul>';
 
     if ($split) {
-        return '<div class="btn-group btn-group-sm" role="group">'
+        // Desktop: ícone de chat direto + caret com a lista de ações rápidas.
+        $desktop = '<div class="btn-group btn-group-sm d-none d-lg-inline-flex" role="group">'
              . '<a href="https://wa.me/' . $num . '" target="_blank" class="btn btn-outline-success" title="Abrir WhatsApp">'
              . '<i class="bi bi-whatsapp"></i></a>'
              . '<button type="button" class="btn btn-outline-success dropdown-toggle dropdown-toggle-split" '
              . 'data-bs-toggle="dropdown" aria-expanded="false">'
              . '<span class="visually-hidden">Mensagens rápidas</span></button>'
              . $menu . '</div>';
+
+        // Mobile: um único botão de WhatsApp que abre a lista — evita 2 ícones
+        // parecidos e sem rótulo lado a lado, que confundiam no celular.
+        $mobile = '<div class="btn-group btn-group-sm d-lg-none" role="group">'
+             . '<button type="button" class="btn btn-outline-success dropdown-toggle" '
+             . 'data-bs-toggle="dropdown" aria-expanded="false" title="WhatsApp — ações">'
+             . '<i class="bi bi-whatsapp"></i></button>'
+             . $menu . '</div>';
+
+        return $desktop . $mobile;
     }
 
     return '<div class="btn-group btn-group-sm" role="group">'
@@ -423,4 +450,19 @@ function labelStatusPag(string $status): string
         'cancelado' => '<span class="badge bg-danger">Cancelado</span>',
         default     => '<span class="badge bg-light text-dark">' . h($status) . '</span>',
     };
+}
+
+/**
+ * Decide se o badge/ação de pagamento deve aparecer no ticket do agendamento.
+ * "A receber" antes do atendimento acontecer é ruído óbvio (claro que ainda não
+ * pagou — o serviço nem foi feito). Só é informação real quando já foi pago
+ * (mostra sempre, mesmo adiantado) ou quando o atendimento já foi concluído
+ * e o pagamento ainda está pendente (é aí que cobrar faz sentido).
+ */
+function exibirBadgePagamento(string $statusAg, string $statusPag): bool
+{
+    if ($statusPag === 'pago') {
+        return true;
+    }
+    return $statusAg === 'concluido' && $statusPag === 'pendente';
 }

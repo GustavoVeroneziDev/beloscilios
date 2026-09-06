@@ -169,7 +169,7 @@ require_once __DIR__ . '/../geral/header.php';
                                         <td class="small"><?= h($h_ag['NomeSubServico'] ?? $h_ag['NomeServico']) ?></td>
                                         <td><?= $h_ag['ValorCobrado'] ? formatarMoeda((float)$h_ag['ValorCobrado']) : '—' ?></td>
                                         <td><?= labelStatus($h_ag['StatusAgendamento']) ?></td>
-                                        <td><?= $h_ag['StatusAgendamento'] === 'cancelado' ? '<span class="text-secondary">—</span>' : labelStatusPag($h_ag['StatusPagamento']) ?></td>
+                                        <td><?= exibirBadgePagamento($h_ag['StatusAgendamento'], $h_ag['StatusPagamento']) ? labelStatusPag($h_ag['StatusPagamento']) : '<span class="text-secondary">—</span>' ?></td>
                                     </tr>
                                 <?php endforeach ?>
                             </tbody>
