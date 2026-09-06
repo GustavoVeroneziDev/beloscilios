@@ -511,6 +511,112 @@ require_once __DIR__ . '/geral/header.php';
     line-height: 1.5;
 }
 
+/* ── LIGHTBOX ─────────────────────────────────── */
+.lp-ph {
+    cursor: zoom-in;
+}
+.lp-ph::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(90,24,154,0);
+    transition: background .22s;
+    border-radius: inherit;
+    z-index: 1;
+}
+.lp-ph:hover::after {
+    background: rgba(90,24,154,.22);
+}
+.lp-ph-zoom {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(.6);
+    color: #fff;
+    font-size: 1.6rem;
+    opacity: 0;
+    transition: opacity .22s, transform .22s cubic-bezier(.22,1,.36,1);
+    z-index: 2;
+    pointer-events: none;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,.5));
+}
+.lp-ph:hover .lp-ph-zoom {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+/* overlay */
+.lp-lb {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(5,0,15,.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .28s cubic-bezier(.22,1,.36,1);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.lp-lb.open {
+    opacity: 1;
+    pointer-events: all;
+}
+.lp-lb-inner {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .75rem;
+    padding: 1rem;
+    max-width: min(92vw, 1200px);
+    max-height: 92dvh;
+}
+.lp-lb-img {
+    max-width: 100%;
+    max-height: calc(92dvh - 3rem);
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 10px;
+    box-shadow: 0 24px 80px rgba(0,0,0,.7);
+    display: block;
+    transform: scale(.9);
+    transition: transform .3s cubic-bezier(.22,1,.36,1);
+}
+.lp-lb.open .lp-lb-img {
+    transform: scale(1);
+}
+.lp-lb-caption {
+    color: rgba(224,170,255,.75);
+    font-size: .75rem;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    text-align: center;
+    min-height: 1em;
+}
+.lp-lb-close {
+    position: fixed;
+    top: 1rem; right: 1rem;
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.1);
+    border: 1px solid rgba(255,255,255,.18);
+    color: #fff;
+    font-size: 1.15rem;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: background .18s, transform .18s;
+    z-index: 10000;
+    line-height: 1;
+}
+.lp-lb-close:hover {
+    background: rgba(255,255,255,.22);
+    transform: scale(1.08);
+}
+
 /* ── CTA FINAL ────────────────────────────────── */
 .lp-cta {
     background: linear-gradient(145deg, #0d0020 0%, #3d0070 50%, #5a189a 100%);
@@ -683,11 +789,16 @@ require_once __DIR__ . '/geral/header.php';
     <div class="lp-gallery-wrap">
         <div class="lp-gallery">
             <?php foreach ($fotosGaleria as $foto): ?>
-            <div class="lp-ph">
+            <div class="lp-ph"
+                 data-src="<?= BASE ?>/geral/img/galeria/<?= h($foto['NomeArquivo']) ?>"
+                 data-caption="<?= h($foto['TituloExibicao'] ?? '') ?>"
+                 role="button" tabindex="0"
+                 aria-label="Ampliar: <?= h($foto['TituloExibicao'] ?? 'foto') ?>">
                 <img src="<?= BASE ?>/geral/img/galeria/<?= h($foto['NomeArquivo']) ?>"
                      alt="<?= h($foto['TituloExibicao'] ?? 'Resultado') ?>"
                      style="object-position:<?= h($foto['FocoHome'] ?? 'center center') ?>"
                      loading="lazy">
+                <i class="bi bi-zoom-in lp-ph-zoom" aria-hidden="true"></i>
                 <?php if (!empty($foto['TituloExibicao'])): ?>
                 <div class="lp-ph-tag"><?= h($foto['TituloExibicao']) ?></div>
                 <?php endif ?>
@@ -791,6 +902,71 @@ require_once __DIR__ . '/geral/header.php';
                 target.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         });
+    });
+})();
+</script>
+
+<!-- LIGHTBOX -->
+<div class="lp-lb" id="lp-lb" role="dialog" aria-modal="true" aria-label="Imagem ampliada">
+    <button class="lp-lb-close" id="lp-lb-close" aria-label="Fechar">
+        <i class="bi bi-x-lg"></i>
+    </button>
+    <div class="lp-lb-inner">
+        <img class="lp-lb-img" id="lp-lb-img" src="" alt="">
+        <div class="lp-lb-caption" id="lp-lb-caption"></div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var lb     = document.getElementById('lp-lb');
+    var lbImg  = document.getElementById('lp-lb-img');
+    var lbCap  = document.getElementById('lp-lb-caption');
+    var lbCls  = document.getElementById('lp-lb-close');
+    var _prev  = null; // elemento que abriu, para devolver foco
+
+    function open(src, caption, trigger) {
+        lbImg.src = src;
+        lbImg.alt = caption || '';
+        lbCap.textContent = caption || '';
+        lb.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        _prev = trigger || null;
+        lbCls.focus();
+    }
+
+    function close() {
+        lb.classList.remove('open');
+        document.body.style.overflow = '';
+        if (_prev) { _prev.focus(); _prev = null; }
+        // limpa src após fade para evitar flash da imagem anterior
+        setTimeout(function () { if (!lb.classList.contains('open')) lbImg.src = ''; }, 300);
+    }
+
+    // Clique nos cards da galeria
+    document.querySelectorAll('.lp-ph[data-src]').forEach(function (el) {
+        el.addEventListener('click', function () {
+            open(el.dataset.src, el.dataset.caption, el);
+        });
+        el.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                open(el.dataset.src, el.dataset.caption, el);
+            }
+        });
+    });
+
+    // Fechar: botão X
+    lbCls.addEventListener('click', close);
+
+    // Fechar: clique no backdrop (fora da imagem)
+    lb.addEventListener('click', function (e) {
+        if (e.target === lb) close();
+    });
+
+    // Fechar: Escape
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && lb.classList.contains('open')) close();
     });
 })();
 </script>
